@@ -117,12 +117,38 @@ void MuseSamplerSequencer::updateOffStreamEvents(const mpe::PlaybackEventsMap& c
 
 void MuseSamplerSequencer::updateMainStreamEvents(const mpe::PlaybackEventsMap& changes)
 {
+    m_eventsMap = changes;
+
+    reloadTrack();
+}
+
+void MuseSamplerSequencer::updateDynamicChanges(const mpe::DynamicLevelMap& changes)
+{
+    m_dynamicLevelMap = changes;
+
+    reloadTrack();
+}
+
+void MuseSamplerSequencer::reloadTrack()
+{
     IF_ASSERT_FAILED(m_samplerLib && m_sampler && m_track) {
         return;
     }
 
-    if (m_eventsMap != changes) {
-        m_eventsMap = changes;
+    m_samplerLib->clearTrack(m_sampler, m_track);
+    LOGI() << "Requested to clear track";
+
+    loadNoteEvents(m_eventsMap);
+    loadDynamicEvents(m_dynamicLevelMap);
+
+    m_samplerLib->finalizeTrack(m_sampler, m_track);
+    LOGI() << "Requested to finalize track";
+}
+
+void MuseSamplerSequencer::loadNoteEvents(const mpe::PlaybackEventsMap &changes)
+{
+    IF_ASSERT_FAILED(m_samplerLib && m_sampler && m_track) {
+        return;
     }
 
     for (const auto& pair : changes) {
@@ -138,27 +164,11 @@ void MuseSamplerSequencer::updateMainStreamEvents(const mpe::PlaybackEventsMap& 
     }
 }
 
-void MuseSamplerSequencer::updateDynamicChanges(const mpe::DynamicLevelMap& changes)
+void MuseSamplerSequencer::loadDynamicEvents(const mpe::DynamicLevelMap &changes)
 {
     for (const auto& pair : changes) {
         m_samplerLib->addDynamicsEvent(m_sampler, m_track, { static_cast<long>(pair.first), dynamicLevelRatio(pair.second) });
     }
-}
-
-void MuseSamplerSequencer::reloadTrack()
-{
-    IF_ASSERT_FAILED(m_samplerLib && m_sampler && m_track) {
-        return;
-    }
-
-    m_samplerLib->clearTrack(m_sampler, m_track);
-    LOGI() << "Requested to clear track";
-
-    updateMainStreamEvents(m_eventsMap);
-    updateDynamicChanges(m_dynamicLevelMap);
-
-    m_samplerLib->finalizeTrack(m_sampler, m_track);
-    LOGI() << "Requested to finalize track";
 }
 
 void MuseSamplerSequencer::addNoteEvent(const mpe::NoteEvent& noteEvent)
