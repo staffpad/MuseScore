@@ -106,7 +106,6 @@ enum ms_NoteArticulation : uint64_t
     ms_NoteArticulation_Diamond = 1LL << 35,
     ms_NoteArticulation_Portamento = 1LL << 36,
     ms_NoteArticulation_Pizzicato = 1LL << 37,
-    ms_NoteArticulation_TwoNoteTremolo = 1LL << 38,
     ms_NoteArticulation_Glissando = 1LL << 39,
     ms_NoteArticulation_Pedal = 1LL << 40,
     ms_NoteArticulation_Slur = 1LL << 41,
