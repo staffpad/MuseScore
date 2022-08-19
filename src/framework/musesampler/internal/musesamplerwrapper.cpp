@@ -213,6 +213,21 @@ void MuseSamplerWrapper::setupEvents(const mpe::PlaybackData& playbackData)
     m_sequencer.load(playbackData);
 }
 
+void MuseSamplerWrapper::updateRenderingMode(const audio::RenderMode mode)
+{
+    ONLY_AUDIO_WORKER_THREAD;
+
+    if (!m_samplerLib || !m_sampler) {
+        return;
+    }
+
+    if (mode == audio::RenderMode::OfflineMode) {
+        m_samplerLib->startOfflineMode(m_sampler, m_sampleRate);
+    } else {
+        m_samplerLib->stopOfflineMode(m_sampler);
+    }
+}
+
 msecs_t MuseSamplerWrapper::playbackPosition() const
 {
     return m_sequencer.playbackPosition();
