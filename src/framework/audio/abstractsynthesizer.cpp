@@ -23,6 +23,7 @@
 #include "abstractsynthesizer.h"
 
 #include "internal/audiosanitizer.h"
+#include "internal/worker/audioengine.h"
 
 using namespace mu;
 using namespace mu::mpe;
@@ -33,6 +34,10 @@ AbstractSynthesizer::AbstractSynthesizer(const AudioInputParams& params)
     : m_params(params)
 {
     ONLY_AUDIO_WORKER_THREAD;
+
+    AudioEngine::instance()->modeChanged().onNotify(this, [this]() {
+        updateRenderingMode(AudioEngine::instance()->mode());
+    });
 }
 
 const AudioInputParams& AbstractSynthesizer::params() const
@@ -60,6 +65,11 @@ void AbstractSynthesizer::setup(const mpe::PlaybackData& playbackData)
 }
 
 void AbstractSynthesizer::revokePlayingNotes()
+{
+    ONLY_AUDIO_WORKER_THREAD;
+}
+
+void AbstractSynthesizer::updateRenderingMode(const RenderMode /*mode*/)
 {
     ONLY_AUDIO_WORKER_THREAD;
 }
