@@ -51,6 +51,7 @@ public:
 protected:
     void setupSound(const mpe::PlaybackSetupData& setupData) override;
     void setupEvents(const mpe::PlaybackData& playbackData) override;
+    void updateRenderingMode(const audio::RenderMode mode) override;
 
     audio::msecs_t playbackPosition() const override;
     void setPlaybackPosition(const audio::msecs_t newPosition) override;
