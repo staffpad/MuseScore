@@ -179,8 +179,8 @@ void MuseSamplerSequencer::addNoteEvent(const mpe::NoteEvent& noteEvent)
 
     ms_NoteEvent event{};
     event._voice = noteEvent.arrangementCtx().voiceLayerIndex;
-    event._location_ms = noteEvent.arrangementCtx().nominalTimestamp / 1000.f; // FIXME Avoid micros -> millis conversion
-    event._duration_ms = noteEvent.arrangementCtx().nominalDuration / 1000.f;
+    event._location_us = noteEvent.arrangementCtx().nominalTimestamp;
+    event._duration_us = noteEvent.arrangementCtx().nominalDuration;
     event._pitch = pitchIndex(noteEvent.pitchCtx().nominalPitchLevel);
     event._tempo = noteEvent.arrangementCtx().bps;
     event._articulation = noteArticulationTypes(noteEvent);
@@ -203,8 +203,8 @@ void MuseSamplerSequencer::addNoteEvent(const mpe::NoteEvent& noteEvent)
         LOGE() << "Unable to add event for track";
     } else {
         LOGI() << "Successfully added note event, pitch: " << event._pitch
-               << ", timestamp: " << event._location_ms
-               << ", duration: " << event._duration_ms
+               << ", timestamp: " << event._location_us
+               << ", duration: " << event._duration_us
                << ", articulations flag: " << event._articulation;
     }
 
