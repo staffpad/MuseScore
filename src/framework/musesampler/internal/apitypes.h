@@ -61,7 +61,7 @@ typedef struct ms_OutputBuffer
 
 typedef struct ms_DynamicsEvent
 {
-    long _location_ms;
+    long _location_us;
     double _value; // 0.0 - 1.0
 } ms_DynamicsEvent;
 
@@ -119,8 +119,8 @@ enum ms_NoteArticulation : uint64_t
 typedef struct ms_NoteEvent
 {
     int _voice; // 0-3
-    long _location_ms;
-    long _duration_ms;
+    long _location_us;
+    long _duration_us;
     int _pitch; // MIDI pitch
     double _tempo;
     ms_NoteArticulation _articulation;
