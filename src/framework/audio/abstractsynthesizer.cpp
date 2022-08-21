@@ -85,5 +85,5 @@ samples_t AbstractSynthesizer::microSecsToSamples(const msecs_t msec, const samp
 {
     ONLY_AUDIO_WORKER_THREAD;
 
-    return (msec / 1000.f) * sampleRate;
+    return (msec / 1000000.f) * sampleRate;
 }
