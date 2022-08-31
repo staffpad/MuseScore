@@ -126,7 +126,8 @@ void PlaybackEventsRenderer::renderChordSymbol(const Harmony* chordSymbol,
                                            voiceIdx,
                                            pitchLevel,
                                            dynamicLevelFromType(mpe::DynamicType::Natural),
-                                           emptyArticulations));
+                                           emptyArticulations,
+                                           bps.val));
     }
 }
 
@@ -150,7 +151,8 @@ void PlaybackEventsRenderer::renderChordSymbol(const Harmony* chordSymbol, const
                                            voiceIdx,
                                            pitchLevel,
                                            dynamicLevelFromType(mpe::DynamicType::Natural),
-                                           emptyArticulations));
+                                           emptyArticulations,
+                                           2.0));
     }
 }
 
@@ -185,7 +187,8 @@ void PlaybackEventsRenderer::renderMetronome(const Score* score, const int measu
                                                            0,
                                                            eventPitchLevel,
                                                            dynamicLevelFromType(mpe::DynamicType::Natural),
-                                                           emptyArticulations));
+                                                           emptyArticulations,
+                                                           bps.val));
     }
 }
 

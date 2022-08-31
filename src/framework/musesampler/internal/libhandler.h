@@ -236,7 +236,7 @@ struct MuseSamplerLibHandler
         startAuditionMode = (ms_MuseSampler_start_audition_mode)dlsym(m_lib, "ms_MuseSampler_start_audition_mode");
         stopAuditionMode = (ms_MuseSampler_stop_audition_mode)dlsym(m_lib, "ms_MuseSampler_stop_audition_mode");
         startAuditionNote = (ms_MuseSampler_start_audition_note)dlsym(m_lib, "ms_MuseSampler_start_audition_note");
-        stopAuditionNote = (ms_MuseSampler_stop_audition_note)dlsym(m_lib, "ms_MuseSampelr_stop_audition_note");
+        stopAuditionNote = (ms_MuseSampler_stop_audition_note)dlsym(m_lib, "ms_MuseSampler_stop_audition_note");
 
         startLivePlayMode = (ms_MuseSampler_start_liveplay_mode)dlsym(m_lib, "ms_MuseSampler_start_liveplay_mode");
         stopLivePlayMode = (ms_MuseSampler_stop_liveplay_mode)dlsym(m_lib, "ms_MuseSampler_stop_liveplay_mode");
