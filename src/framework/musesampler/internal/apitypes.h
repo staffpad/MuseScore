@@ -24,7 +24,6 @@
 #define MU_MUSESAMPLER_APITYPES_H
 
 #include <stdint.h>
-#include <dlfcn.h>
 #include <memory>
 
 #include "log.h"
