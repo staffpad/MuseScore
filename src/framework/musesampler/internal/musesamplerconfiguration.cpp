@@ -30,7 +30,7 @@ using namespace mu::musesampler;
 #if defined(Q_OS_LINUX)
 static const io::path_t DEFAULT_PATH("libMuseSamplerCoreLib.so");
 #elif defined(Q_OS_MAC)
-static const io::path_t DEFAULT_PATH("libMuseSamplerCoreLib.dylib");
+static const io::path_t DEFAULT_PATH("/usr/local/lib/libMuseSamplerCoreLib.dylib");
 #else
 static const io::path_t DEFAULT_PATH("libMuseSamplerCoreLib.dll");
 #endif
