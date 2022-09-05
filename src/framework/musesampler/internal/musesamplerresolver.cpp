@@ -37,7 +37,7 @@ MuseSamplerResolver::MuseSamplerResolver()
 {
     io::path_t path = configuration()->libraryPath();
 
-    m_libHandler = std::make_shared<MuseSamplerLibHandler>(path.c_str());
+    m_libHandler = std::make_shared<MuseSamplerLibHandler>(path);
     if (!m_libHandler->isValid())
     {
         LOGE() << "Incompatible MuseSampler library; ignoring\n";

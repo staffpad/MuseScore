@@ -5,7 +5,7 @@
  * MuseScore
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2022 MuseScore BVBA and others
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -19,25 +19,45 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_NOTATION_NOTATIONPAINTVIEW_H
-#define MU_NOTATION_NOTATIONPAINTVIEW_H
 
-#include "abstractnotationpaintview.h"
+#ifndef MU_GLOBAL_DLIB_H
+#define MU_GLOBAL_DLIB_H
 
-namespace mu::notation {
-class NotationPaintView : public AbstractNotationPaintView
+#ifdef Q_OS_WIN
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
+
+#include "io/path.h"
+
+namespace mu {
+inline void* loadLib(const io::path_t& path)
 {
-public:
-    explicit NotationPaintView(QQuickItem* parent = nullptr);
-
-private:
-    void onLoadNotation(INotationPtr notation) override;
-    void onUnloadNotation(INotationPtr notation) override;
-
-    void onMatrixChanged(const draw::Transform& matrix, bool overrideZoomType = true) override;
-
-    bool m_isLoadingNotation = false;
-};
+#ifdef Q_OS_WIN
+    return LoadLibrary(path.toStdWString().c_str());
+#else
+    return dlopen(path.c_str(), RTLD_LAZY);
+#endif
 }
 
-#endif // MU_NOTATION_NOTATIONPAINTVIEW_H
+inline void* getLibFunc(void* libHandle, const char* funcName)
+{
+#ifdef Q_OS_WIN
+    return GetProcAddress((HINSTANCE)libHandle, funcName);
+#else
+    return dlsym(libHandle, funcName);
+#endif
+}
+
+inline void closeLib(void* libHandle)
+{
+#ifdef Q_OS_WIN
+    return;
+#else
+    dlclose(libHandle);
+#endif
+}
+}
+
+#endif // MU_GLOBAL_DLIB_H

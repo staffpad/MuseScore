@@ -77,6 +77,7 @@ NoteInputState NotationNoteInput::state() const
     noteInputState.drumset = inputState.drumset();
     noteInputState.isRest = inputState.rest();
     noteInputState.staffGroup = inputState.staffGroup();
+    noteInputState.segment = inputState.segment();
 
     return noteInputState;
 }
@@ -182,7 +183,7 @@ EngravingItem* NotationNoteInput::resolveNoteInputStartPosition() const
             if (lastSelected && lastSelected->voice()) {
                 // if last selected CR was not in voice 1,
                 // find CR in voice 1 instead
-                int track = mu::engraving::trackZeroVoice(lastSelected->track());
+                track_idx_t track = mu::engraving::trackZeroVoice(lastSelected->track());
                 const mu::engraving::Segment* s = lastSelected->segment();
                 if (s) {
                     lastSelected = s->nextChordRest(track, true);
