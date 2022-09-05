@@ -38,6 +38,11 @@ MuseSamplerResolver::MuseSamplerResolver()
     io::path_t path = configuration()->libraryPath();
 
     m_libHandler = std::make_shared<MuseSamplerLibHandler>(path);
+
+    if (!m_libHandler->isValid()) {
+        LOGE() << "Incompatible MuseSampler library; ignoring\n";
+        m_libHandler.reset();
+    }
 }
 
 ISynthesizerPtr MuseSamplerResolver::resolveSynth(const audio::TrackId /*trackId*/, const audio::AudioInputParams& params) const
