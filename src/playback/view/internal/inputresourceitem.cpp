@@ -32,8 +32,15 @@ void InputResourceItem::requestAvailableResources()
 
         if (!isBlank()) {
             const QString& currentResourceId = QString::fromStdString(m_currentInputParams.resourceMeta.id);
+            QString name = currentResourceId;
+            if (m_currentInputParams.type() == mu::audio::AudioSourceType::MuseSampler)
+            {
+                if (auto id = musesampler::getMuseInstrumentNameFromId(m_currentInputParams.resourceMeta.id); id.has_value())
+                    name = QString::fromStdString(*id);
+            }
+
             result << buildMenuItem(currentResourceId,
-                                    currentResourceId,
+                                    name,
                                     true /*checked*/);
 
             result << buildSeparator();
