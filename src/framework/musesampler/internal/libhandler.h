@@ -252,7 +252,9 @@ struct MuseSamplerLibHandler
         process = (ms_MuseSampler_process)getLibFunc(m_lib, "ms_MuseSampler_process");
         allNotesOff = (ms_MuseSampler_all_notes_off)getLibFunc(m_lib, "ms_MuseSampler_all_notes_off");
 
-        initLib();
+        if (initLib) {
+            initLib();
+        }
     }
 
     ~MuseSamplerLibHandler()

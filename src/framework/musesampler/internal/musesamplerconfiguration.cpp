@@ -32,7 +32,7 @@ static const io::path_t DEFAULT_PATH("libMuseSamplerCoreLib.so");
 #elif defined(Q_OS_MAC)
 static const io::path_t DEFAULT_PATH("/usr/local/lib/libMuseSamplerCoreLib.dylib");
 #else
-static const io::path_t DEFAULT_PATH("libMuseSamplerCoreLib.dll");
+static const io::path_t DEFAULT_PATH("MuseSamplerCoreLib.dll");
 #endif
 
 io::path_t MuseSamplerConfiguration::libraryPath() const
