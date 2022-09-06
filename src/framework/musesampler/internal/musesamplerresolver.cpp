@@ -55,11 +55,7 @@ bool MuseSamplerResolver::hasCompatibleResources(const audio::PlaybackSetupData&
     if (!m_libHandler) {
         return false;
     }
-
-    ByteArray idStr = setup.toString().toUtf8();
-
-    return m_libHandler->containsInstrument(idStr.constChar(),
-                                            setup.musicXmlSoundId->c_str());
+    return true;
 }
 
 AudioResourceMetaList MuseSamplerResolver::resolveResources() const
