@@ -138,9 +138,6 @@ QVariantMap InputResourceItem::buildMuseMenuItem(const ResourceByVendorMap& reso
     QVariantList subItemsByType;
 
     for (const auto& pair : resourcesByVendor) {
-        const QString& vendor = QString::fromStdString(pair.first);
-
-        QVariantList subItemsByVendor;
 
         std::map<std::string, std::vector<std::tuple<int, std::string, const AudioResourceMeta*>>> categoryMap;
         for (const AudioResourceMeta& resourceMeta : pair.second) {
@@ -165,16 +162,11 @@ QVariantMap InputResourceItem::buildMuseMenuItem(const ResourceByVendorMap& reso
             }
 
             const QString& categoryString = QString::fromStdString(category.first);
-            subItemsByVendor << buildMenuItem(categoryString,
-                                              categoryString,
-                                              currentCategory == category.first,
-                                              subItemsByCategory);
+            subItemsByType << buildMenuItem(categoryString,
+                                            categoryString,
+                                            currentCategory == category.first,
+                                            subItemsByCategory);
         }
-
-        subItemsByType << buildMenuItem(vendor,
-                                        vendor,
-                                        m_currentInputParams.resourceMeta.vendor == pair.first,
-                                        subItemsByVendor);
     }
 
     return buildMenuItem(MUSE_MENU_ITEM_ID,
