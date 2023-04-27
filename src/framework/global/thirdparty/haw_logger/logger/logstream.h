@@ -3,6 +3,7 @@
 
 #include <sstream>
 #include <thread>
+#include <vector>
 
 #ifdef HAW_LOGGER_QT_SUPPORT
 #include <QDebug>
@@ -18,8 +19,10 @@ public:
     inline Stream& operator<<(char t) { m_ss << t; return *this; }
     inline Stream& operator<<(signed short t) { m_ss << t; return *this; }
     inline Stream& operator<<(unsigned short t) { m_ss << t; return *this; }
+#if !defined(__cpp_char8_t)
     inline Stream& operator<<(char16_t t) { m_ss << t; return *this; }
     inline Stream& operator<<(char32_t t) { m_ss << t; return *this; }
+#endif
     inline Stream& operator<<(signed int t) { m_ss << t; return *this; }
     inline Stream& operator<<(unsigned int t) { m_ss << t; return *this; }
     inline Stream& operator<<(signed long t) { m_ss << t; return *this; }

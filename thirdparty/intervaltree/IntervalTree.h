@@ -57,13 +57,13 @@ public:
     intervalTree* right;
     int center;
 
-    IntervalTree<T,K>(void)
+    IntervalTree()
         : left(NULL)
         , right(NULL)
         , center(0)
     { }
 
-    IntervalTree<T,K>(const intervalTree& other) {
+    IntervalTree(const intervalTree& other) {
         center = other.center;
         intervals = other.intervals;
         if (other.left) {
@@ -80,7 +80,7 @@ public:
         }
     }
 
-    IntervalTree<T,K>& operator=(const intervalTree& other) {
+    IntervalTree& operator=(const intervalTree& other) {
         center = other.center;
         intervals = other.intervals;
         if (other.left) {
@@ -98,7 +98,7 @@ public:
         return *this;
     }
 
-    IntervalTree<T,K>(
+    IntervalTree(
             intervalVector& ivals,
             unsigned int depth = 16,
             unsigned int minbucket = 64,
@@ -203,7 +203,7 @@ public:
 
     }
 
-    ~IntervalTree(void) {
+    ~IntervalTree() {
         // traverse the left and right
         // delete them all the way down
         if (left) {
