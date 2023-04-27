@@ -24,7 +24,7 @@
 
 #include "containers.h"
 #include "style/style.h"
-#include "rw/xml.h"
+#include "rw/xmlwriter.h"
 
 #include "chordrest.h"
 #include "factory.h"
@@ -42,6 +42,7 @@ using namespace mu;
 using namespace mu::engraving;
 
 namespace mu::engraving {
+const Fraction Part::MAIN_INSTRUMENT_TICK = Fraction(-1, 1);
 //---------------------------------------------------------
 //   Part
 //---------------------------------------------------------
@@ -62,7 +63,7 @@ Part::Part(Score* s)
 
 void Part::initFromInstrTemplate(const InstrumentTemplate* t)
 {
-    _partName = t->trackName;
+    _partName = !t->longNames.empty() ? t->longNames.front().name() : t->trackName;
     setInstrument(Instrument::fromTemplate(t));
 }
 
@@ -142,98 +143,6 @@ Part* Part::masterPart()
     return const_cast<Part*>(const_cast<const Part*>(this)->masterPart());
 }
 
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool Part::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-    if (tag == "id") {
-        _id = e.readInt();
-    } else if (tag == "Staff") {
-        Staff* staff = Factory::createStaff(this);
-        score()->appendStaff(staff);
-        staff->read(e);
-    } else if (tag == "Instrument") {
-        Instrument* instr = new Instrument;
-        instr->read(e, this);
-        setInstrument(instr, Fraction(-1, 1));
-    } else if (tag == "name") {
-        instrument()->setLongName(e.readText());
-    } else if (tag == "color") {
-        _color = e.readInt();
-    } else if (tag == "shortName") {
-        instrument()->setShortName(e.readText());
-    } else if (tag == "trackName") {
-        _partName = e.readText();
-    } else if (tag == "show") {
-        _show = e.readInt();
-    } else if (tag == "soloist") {
-        _soloist = e.readInt();
-    } else if (tag == "preferSharpFlat") {
-        _preferSharpFlat
-            =e.readText() == "sharps" ? PreferSharpFlat::SHARPS : PreferSharpFlat::FLATS;
-    } else {
-        return false;
-    }
-    return true;
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Part::read(XmlReader& e)
-{
-    _id = e.intAttribute("id", 0);
-
-    while (e.readNextStartElement()) {
-        if (!readProperties(e)) {
-            e.unknown();
-        }
-    }
-    if (_partName.isEmpty()) {
-        _partName = instrument()->trackName();
-    }
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Part::write(XmlWriter& xml) const
-{
-    xml.startElement(this, { { "id", _id.toUint64() } });
-
-    for (const Staff* staff : _staves) {
-        staff->write(xml);
-    }
-
-    if (!_show) {
-        xml.tag("show", _show);
-    }
-
-    if (_soloist) {
-        xml.tag("soloist", _soloist);
-    }
-
-    xml.tag("trackName", _partName);
-
-    if (_color != DEFAULT_COLOR) {
-        xml.tag("color", _color);
-    }
-
-    if (_preferSharpFlat != PreferSharpFlat::DEFAULT) {
-        xml.tag("preferSharpFlat",
-                _preferSharpFlat == PreferSharpFlat::SHARPS ? "sharps" : "flats");
-    }
-
-    instrument()->write(xml, this);
-
-    xml.endElement();
-}
-
 size_t Part::nstaves() const
 {
     return _staves.size();
@@ -242,6 +151,21 @@ size_t Part::nstaves() const
 const std::vector<Staff*>& Part::staves() const
 {
     return _staves;
+}
+
+std::set<staff_idx_t> Part::staveIdxList() const
+{
+    std::set<staff_idx_t> result;
+
+    for (const Staff* stave : _staves) {
+        if (!stave) {
+            continue;
+        }
+
+        result.insert(stave->idx());
+    }
+
+    return result;
 }
 
 void Part::appendStaff(Staff* staff)
@@ -260,12 +184,12 @@ void Part::clearStaves()
 
 void Part::setLongNames(std::list<StaffName>& name, const Fraction& tick)
 {
-    instrument(tick)->longNames() = name;
+    instrument(tick)->setLongNames(StaffNameList(name));
 }
 
 void Part::setShortNames(std::list<StaffName>& name, const Fraction& tick)
 {
-    instrument(tick)->shortNames() = name;
+    instrument(tick)->setShortNames(StaffNameList(name));
 }
 
 //---------------------------------------------------------
@@ -283,8 +207,7 @@ void Part::setStaves(int n)
     int staffIdx = static_cast<int>(score()->staffIdx(this)) + ns;
     for (int i = ns; i < n; ++i) {
         Staff* staff = Factory::createStaff(this);
-        _staves.push_back(staff);
-        const_cast<std::vector<Staff*>&>(score()->staves()).insert(score()->staves().begin() + staffIdx, staff);
+        score()->insertStaff(staff, i);
 
         for (Measure* m = score()->firstMeasure(); m; m = m->nextMeasure()) {
             m->insertStaff(staff, staffIdx);
@@ -440,16 +363,6 @@ void Part::removeInstrument(const Fraction& tick)
         return;
     }
     _instruments.erase(i);
-}
-
-void Part::removeInstrument(const String& instrumentId)
-{
-    for (auto it = _instruments.begin(); it != _instruments.end(); ++it) {
-        if (it->second->instrumentId() == instrumentId) {
-            _instruments.erase(it);
-            break;
-        }
-    }
 }
 
 //---------------------------------------------------------

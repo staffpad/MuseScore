@@ -33,7 +33,7 @@
 #include "modularity/ioc.h"
 #include "midi/imidioutport.h"
 
-#include "abstractsynthesizer.h"
+#include "../../abstractsynthesizer.h"
 #include "fluidsequencer.h"
 #include "soundmapping.h"
 
@@ -70,25 +70,51 @@ public:
     bool isValid() const override;
 
 private:
+    struct KeyTuning {
+        std::vector<int> keys;
+        std::vector<double> pitches;
+
+        void add(int key, double tuning)
+        {
+            keys.push_back(key);
+            pitches.push_back((key * 100.0) + tuning);
+        }
+
+        int size() const
+        {
+            return static_cast<int>(keys.size());
+        }
+
+        void reset()
+        {
+            keys.clear();
+            pitches.clear();
+        }
+
+        bool isEmpty() const
+        {
+            return keys.empty() && pitches.empty();
+        }
+    };
+
     Ret init();
     void createFluidInstance();
 
     bool handleEvent(const midi::Event& event);
 
-    void updateCurrentExpressionLevel(const midi::Event& event);
     void toggleExpressionController();
+
+    int setExpressionLevel(int level);
+    int setControllerValue(const midi::Event& event);
 
     std::shared_ptr<Fluid> m_fluid = nullptr;
 
-    std::unordered_map<midi::channel_t, midi::Program> m_channels;
-    ArticulationMapping m_articulationMapping;
-
     async::Channel<unsigned int> m_streamsCountChanged;
-
-    int m_currentExpressionLevel = 0;
 
     FluidSequencer m_sequencer;
     std::set<io::path_t> m_sfontPaths;
+
+    KeyTuning m_tuning;
 };
 
 using FluidSynthPtr = std::shared_ptr<FluidSynth>;

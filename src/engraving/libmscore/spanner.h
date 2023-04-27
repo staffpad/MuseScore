@@ -163,9 +163,6 @@ private:
     track_idx_t _track2 = mu::nidx;
     bool _broken           { false };
 
-    int _startUniqueTicks = 0;
-    int _endUniqueTicks = 0;
-
     std::vector<SpannerSegment*> segments;
     std::deque<SpannerSegment*> unusedSegments;   // Currently unused segments which can be reused later.
                                                   // We cannot just delete them as they can be referenced
@@ -183,14 +180,7 @@ protected:
     SpannerSegment* getNextLayoutSystemSegment(System* system, std::function<SpannerSegment* (System*)> createSegment);
     void fixupSegments(unsigned int targetNumber, std::function<SpannerSegment* (System*)> createSegment);
 
-    const std::vector<SpannerSegment*> spannerSegments() const { return segments; }
-
-    void moveToSystemTopIfNeed(SpannerSegment* segment);
-
 public:
-
-    ~Spanner();
-
     // Score Tree functions
     virtual EngravingObject* scanParent() const override;
     virtual EngravingObjectList scanChildren() const override;
@@ -199,14 +189,6 @@ public:
 
     virtual void setScore(Score* s) override;
 
-    bool readProperties(XmlReader&) override;
-    void writeProperties(XmlWriter&) const override;
-
-    void writeSpannerStart(XmlWriter& xml, const EngravingItem* current, track_idx_t track, Fraction frac = { -1, 1 }) const;
-    void writeSpannerEnd(XmlWriter& xml,   const EngravingItem* current, track_idx_t track, Fraction frac = { -1, 1 }) const;
-    static void readSpanner(XmlReader& e, EngravingItem* current, track_idx_t track);
-    static void readSpanner(XmlReader& e, Score* current, track_idx_t track);
-
     virtual Fraction tick() const override { return _tick; }
     Fraction tick2() const { return _tick + _ticks; }
     Fraction ticks() const { return _ticks; }
@@ -214,9 +196,6 @@ public:
     void setTick(const Fraction&);
     void setTick2(const Fraction&);
     void setTicks(const Fraction&);
-
-    int startUniqueTicks() const;
-    int endUniqueTicks() const;
 
     track_idx_t track2() const { return _track2; }
     void setTrack2(track_idx_t v) { _track2 = v; }
@@ -228,7 +207,7 @@ public:
     Anchor anchor() const { return _anchor; }
     void setAnchor(Anchor a) { _anchor = a; }
 
-    const std::vector<SpannerSegment*>& spannerSegments() { return segments; }
+    const std::vector<SpannerSegment*>& spannerSegments() const { return segments; }
     SpannerSegment* frontSegment() { return segments.front(); }
     const SpannerSegment* frontSegment() const { return segments.front(); }
     SpannerSegment* backSegment() { return segments.back(); }

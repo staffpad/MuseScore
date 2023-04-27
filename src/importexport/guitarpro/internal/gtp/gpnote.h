@@ -26,6 +26,10 @@ public:
         None, Start, End
     };
 
+    enum class PickScrape {
+        None, Down, Up
+    };
+
     struct Harmonic {
         enum class Type {
             None, Natural, Artificial, Pinch, Tap, Semi, FeedBack, Types
@@ -59,6 +63,16 @@ public:
         float middleValue{ -1 };
         float originOffset{ -1 };
         float originValue{ -1 };
+        bool isEmpty() const
+        {
+            return destinationValue == -1
+                   && destinationOffset == -1
+                   && middleValue == -1
+                   && middleOffset1 == -1
+                   && middleOffset2 == -1
+                   && originOffset == -1
+                   && originValue == -1;
+        }
     };
     struct Trill {
         int auxillaryFret{ -1 };
@@ -78,6 +92,9 @@ public:
     void setTone(int t) { _midiPitch.tone = t; }
     void setVariation(int t) { _midiPitch.variation = t; }
     void setElement(int t) { _midiPitch.element = t; }
+
+    void setAccidental(int acc) { _accidental = acc; }
+    int accidental() const { return _accidental; }
 
     void setHarmonicFret(float f) { _harmonic.fret = f; }
     void setHarmonicType(Harmonic::Type t) { _harmonic.type = t; }
@@ -117,6 +134,9 @@ public:
     void setRightFingering(const String& ch) { _rightFingering = ch; }
     const String& rightFingering() const { return _rightFingering; }
 
+    void setShowStringNumber(bool show) { m_showStringNumber = show; }
+    bool showStringNumber() const { return m_showStringNumber; }
+
     void setVibratoType(VibratoType v) { _vibrato = v; }
     VibratoType vibratoType() const { return _vibrato; }
 
@@ -133,16 +153,22 @@ public:
     void setHammerOn(HammerOn h) { _hammer = h; }
     HammerOn hammerOn() const { return _hammer; }
 
+    void setPickScrape(PickScrape p) { _pickScrape = p; }
+    PickScrape pickScrape() const { return _pickScrape; }
+
     void setId(int id) { _id = id; }
     int id() const { return _id; }
 
     const std::unordered_set<std::unique_ptr<INoteProperty> >& properties() const { return _properties; }
+    static constexpr int invalidAccidental = -10;
 
 private:
     int _id{ -1 };
     TieType _tie{ TieType::None };
     std::unordered_set<std::unique_ptr<INoteProperty> > _properties;
     MidiPitch _midiPitch;
+
+    int _accidental = invalidAccidental;
     Harmonic _harmonic;
     std::unique_ptr<Bend> _bend;
     bool _letRing{ false };
@@ -152,7 +178,7 @@ private:
     bool _tapping{ false };
     //[0] - staccato, [1] - unknown, [2] - heavily accidental, [3] - accidental
     std::bitset<4> _accent{ 0 };
-    //[0] shifSlide, [1] - legatoSlide, [2] - slideDownWard, [3] - slidewUpWard, [4] - slideInFormBelow, [5] - slideInFormAbove
+    //[0] shifSlide, [1] - legatoSlide, [2] - slideDownWard, [3] - slidewUpWard, [4] - slideInFormBelow, [5] - slideInFormAbove,
     std::bitset<6> _slides{ 0 };
     String _leftFingering;
     String _rightFingering;
@@ -161,6 +187,8 @@ private:
     Ornament _ornament{ Ornament::None };
     bool _leftHandTapped{ false };
     HammerOn _hammer{ HammerOn::None };
+    PickScrape _pickScrape{ PickScrape::None };
+    bool m_showStringNumber = false;
 };
 }
 

@@ -38,9 +38,9 @@ class AppearanceSettingsModel : public AbstractInspectorModel
     Q_PROPERTY(PropertyItem * minimumDistance READ minimumDistance CONSTANT)
     Q_PROPERTY(PropertyItem * color READ color CONSTANT)
     Q_PROPERTY(PropertyItem * arrangeOrder READ arrangeOrder CONSTANT)
-    Q_PROPERTY(PropertyItem * horizontalOffset READ horizontalOffset CONSTANT)
-    Q_PROPERTY(PropertyItem * verticalOffset READ verticalOffset CONSTANT)
+    Q_PROPERTY(PropertyItem * offset READ offset CONSTANT)
     Q_PROPERTY(bool isSnappedToGrid READ isSnappedToGrid WRITE setIsSnappedToGrid NOTIFY isSnappedToGridChanged)
+    Q_PROPERTY(bool isVerticalOffsetAvailable READ isVerticalOffsetAvailable NOTIFY isVerticalOffsetAvailableChanged)
 
 public:
     explicit AppearanceSettingsModel(QObject* parent, IElementRepositoryService* repository);
@@ -62,32 +62,41 @@ public:
     PropertyItem* minimumDistance() const;
     PropertyItem* color() const;
     PropertyItem* arrangeOrder() const;
-    PropertyItem* horizontalOffset() const;
-    PropertyItem* verticalOffset() const;
+    PropertyItem* offset() const;
 
     bool isSnappedToGrid() const;
 
+    bool isVerticalOffsetAvailable() const;
+
 public slots:
     void setIsSnappedToGrid(bool isSnapped);
+    void setIsVerticalOffsetAvailable(bool isAvailable);
 
 signals:
     void isSnappedToGridChanged(bool isSnappedToGrid);
+    void isVerticalOffsetAvailableChanged(bool isVerticalOffsetAvailable);
 
 private:
-    void updatePropertiesOnNotationChanged() override;
+    void onNotationChanged(const mu::engraving::PropertyIdSet& changedPropertyIdSet,
+                           const mu::engraving::StyleIdSet& changedStyleIdSet) override;
+    void loadProperties(const mu::engraving::PropertyIdSet& allowedPropertyIdSet);
 
-    void loadOffsets();
-    mu::engraving::Page* getPage();
-    std::vector<mu::engraving::EngravingItem*> getAllElementsInPage();
-    std::vector<mu::engraving::EngravingItem*> getAllOverlappingElements();
+    void updateIsVerticalOffsetAvailable();
+
+    mu::engraving::Page* page() const;
+    std::vector<mu::engraving::EngravingItem*> allElementsInPage() const;
+    std::vector<mu::engraving::EngravingItem*> allOverlappingElements() const;
 
     PropertyItem* m_leadingSpace = nullptr;
     PropertyItem* m_measureWidth = nullptr;
     PropertyItem* m_minimumDistance = nullptr;
     PropertyItem* m_color = nullptr;
     PropertyItem* m_arrangeOrder = nullptr;
-    PropertyItem* m_horizontalOffset = nullptr;
-    PropertyItem* m_verticalOffset = nullptr;
+    PointFPropertyItem* m_offset = nullptr;
+
+    bool m_isVerticalOffsetAvailable = true;
+
+    QList<engraving::EngravingItem*> m_elementsForOffsetProperty;
 };
 }
 

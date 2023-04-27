@@ -42,6 +42,30 @@
           <string>59</string>
           <string>64</string>
           </StringData>
+        <Articulation name="staccatissimo">
+          <velocity>100</velocity>
+          <gateTime>30</gateTime>
+          </Articulation>
+        <Articulation name="staccato">
+          <velocity>100</velocity>
+          <gateTime>50</gateTime>
+          </Articulation>
+        <Articulation name="portato">
+          <velocity>100</velocity>
+          <gateTime>67</gateTime>
+          </Articulation>
+        <Articulation name="tenuto">
+          <velocity>100</velocity>
+          <gateTime>100</gateTime>
+          </Articulation>
+        <Articulation name="marcato">
+          <velocity>120</velocity>
+          <gateTime>67</gateTime>
+          </Articulation>
+        <Articulation name="sforzato">
+          <velocity>120</velocity>
+          <gateTime>100</gateTime>
+          </Articulation>
         <Channel>
           <program value="25"/>
           <controller ctrl="7" value="79"/>
@@ -59,13 +83,13 @@
             <sigN>12</sigN>
             <sigD>8</sigD>
             </TimeSig>
-          <StaffText>
-            <text>Capo. fret 6</text>
-            </StaffText>
           <Tempo>
             <tempo>1.683333</tempo>
             <text><sym>metNoteQuarterUp</sym> = 101</text>
             </Tempo>
+          <StaffText>
+            <text>Capo. fret 6</text>
+            </StaffText>
           <Rest>
             <durationType>whole</durationType>
             </Rest>
@@ -415,58 +439,9 @@
               <string>1</string>
               </Note>
             </Chord>
-          <FretDiagram>
-            <Harmony>
-              <root>17</root>
-              <name>sus4</name>
-              <base>18</base>
-              <align>center,top</align>
-              </Harmony>
-            <fretDiagram>
-              <string no="0">
-                <marker>cross</marker>
-                </string>
-              <string no="1">
-                <dot fret="2">normal</dot>
-                </string>
-              <string no="2">
-                <marker>circle</marker>
-                </string>
-              <string no="3">
-                <marker>circle</marker>
-                </string>
-              <string no="4">
-                <dot fret="2">normal</dot>
-                </string>
-              <string no="5">
-                <marker>circle</marker>
-                </string>
-              <string no="6">
-                <dot fret="2">normal</dot>
-                </string>
-              </fretDiagram>
-            <string no="0">
-              <marker>88</marker>
-              </string>
-            <string no="1">
-              <dot>2</dot>
-              </string>
-            <string no="2">
-              <marker>79</marker>
-              </string>
-            <string no="3">
-              <marker>79</marker>
-              </string>
-            <string no="4">
-              <dot>2</dot>
-              </string>
-            <string no="5">
-              <marker>79</marker>
-              </string>
-            <string no="6">
-              <dot>2</dot>
-              </string>
-            </FretDiagram>
+          <StaffText>
+            <text>Asus4/E</text>
+            </StaffText>
           <Dynamic>
             <subtype>f</subtype>
             <velocity>96</velocity>

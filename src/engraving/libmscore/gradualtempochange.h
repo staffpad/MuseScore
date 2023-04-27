@@ -33,16 +33,14 @@ class GradualTempoChangeSegment;
 class GradualTempoChange : public TextLineBase
 {
     OBJECT_ALLOCATOR(engraving, GradualTempoChange)
+    DECLARE_CLASSOF(ElementType::GRADUAL_TEMPO_CHANGE)
+
 public:
     GradualTempoChange(EngravingItem* parent);
 
     GradualTempoChange* clone() const override;
 
-    void read(XmlReader& reader) override;
-    void write(XmlWriter& writer) const override;
-
     LineSegment* createLineSegment(System* parent) override;
-    SpannerSegment* layoutSystem(System* system) override;
 
     GradualTempoChangeType tempoChangeType() const;
     ChangeMethod easingMethod() const;
@@ -83,6 +81,7 @@ public:
     void endEdit(EditData& editData) override;
     void added() override;
     void removed() override;
+    Sid getPropertyStyle(Pid id) const override;
 
     friend class GradualTempoChange;
 };

@@ -25,14 +25,16 @@
 
 #include <variant>
 
-#include "engravingitem.h"
-#include "property.h"
-#include "types.h"
+#include "modularity/ioc.h"
 
 #include "draw/fontmetrics.h"
 #include "draw/types/color.h"
-
 #include "style/style.h"
+#include "iengravingfontsprovider.h"
+
+#include "engravingitem.h"
+#include "property.h"
+#include "types.h"
 
 namespace mu::engraving {
 class TextBase;
@@ -68,8 +70,8 @@ using FormatValue = std::variant<std::monostate, bool, int, double, String>;
 //   MultiClick
 //---------------------------------------------------------
 
-enum class MultiClick : char {
-    Double, Triple
+enum class SelectTextType : char {
+    Word, All
 };
 
 //---------------------------------------------------------
@@ -81,7 +83,6 @@ class CharFormat
     FontStyle _style          { FontStyle::Normal };
     VerticalAlignment _valign { VerticalAlignment::AlignNormal };
     double _fontSize           { 12.0 };
-    double _textLineSpacing    { 1.0 };
     String _fontFamily;
 
 public:
@@ -105,7 +106,6 @@ public:
     void setValign(VerticalAlignment val) { _valign = val; }
     void setFontSize(double val) { _fontSize = val; }
     void setFontFamily(const String& val) { _fontFamily = val; }
-    void setTextLineSpacing(double val) { _textLineSpacing = val; }
 
     FormatValue formatValue(FormatId) const;
     void setFormatValue(FormatId, const FormatValue& val);
@@ -185,7 +185,7 @@ public:
     TextBlock& curLine() const;
     mu::RectF cursorRect() const;
     bool movePosition(TextCursor::MoveOperation op, TextCursor::MoveMode mode = TextCursor::MoveMode::MoveAnchor, int count = 1);
-    void doubleClickSelect();
+    void selectWord();
     void moveCursorToEnd() { movePosition(TextCursor::MoveOperation::End); }
     void moveCursorToStart() { movePosition(TextCursor::MoveOperation::Start); }
     Char currentCharacter() const;
@@ -209,6 +209,7 @@ private:
 
 class TextFragment
 {
+    INJECT_STATIC(engraving, IEngravingFontsProvider, engravingFonts)
 public:
     mutable CharFormat format;
     mu::PointF pos;                    // y is relative to TextBlock->y()
@@ -280,6 +281,8 @@ public:
 class TextBase : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, TextBase)
+
+    INJECT(engraving, IEngravingFontsProvider, engravingFonts)
 
     // sorted by size to allow for most compact memory layout
     M_PROPERTY(FrameType,  frameType,              setFrameType)
@@ -365,6 +368,7 @@ public:
     void setPlainText(const String& t) { setXmlText(plainToXmlText(t)); }
     virtual void setXmlText(const String&);
     void setXmlText(const char* str) { setXmlText(String::fromUtf8(str)); }
+    void checkCustomFormatting(const String&);
     String xmlText() const;
     String plainText() const;
     void resetFormatting();
@@ -402,16 +406,9 @@ public:
     bool deleteSelectedText(EditData&);
 
     void selectAll(TextCursor*);
-    void multiClickSelect(EditData&, MultiClick);
+    void select(EditData&, SelectTextType);
     bool isPrimed() const { return _primed; }
     void setPrimed(bool primed) { _primed = primed; }
-
-    virtual void write(XmlWriter& xml) const override;
-    virtual void read(XmlReader&) override;
-    virtual void writeProperties(XmlWriter& xml) const override { writeProperties(xml, true, true); }
-    void writeProperties(XmlWriter& xml, bool writeText) const { writeProperties(xml, writeText, true); }
-    void writeProperties(XmlWriter&, bool, bool) const;
-    bool readProperties(XmlReader&) override;
 
     virtual void paste(EditData& ed, const String& txt);
 
@@ -477,7 +474,7 @@ public:
     virtual void initElementStyle(const ElementStyle*) override;
 
     static const String UNDEFINED_FONT_FAMILY;
-    static const int UNDEFINED_FONT_SIZE;
+    static const double UNDEFINED_FONT_SIZE;
 
     bool bold() const { return fontStyle() & FontStyle::Bold; }
     bool italic() const { return fontStyle() & FontStyle::Italic; }
@@ -501,24 +498,10 @@ public:
     using EngravingObject::undoChangeProperty;
 };
 
-// allow shortcut key controller to handle
 inline bool isTextNavigationKey(int key, KeyboardModifiers modifiers)
 {
-    if (modifiers & ControlModifier) {
-        static const std::set<int> standardTextOperationsKeys {
-            Key_Space, // Ctrl + Space inserts the space symbol
-            Key_A // select all
-        };
-
-        return standardTextOperationsKeys.find(key) == standardTextOperationsKeys.end();
-    }
-
-    static const std::set<int> navigationKeys {
-        Key_Space,
-        Key_Tab
-    };
-
-    return navigationKeys.find(key) != navigationKeys.end();
+    // space + TextEditingControlModifier = insert nonbreaking space, so that's *not* a navigation key
+    return (key == Key_Space && modifiers != TextEditingControlModifier) || key == Key_Tab;
 }
 } // namespace mu::engraving
 

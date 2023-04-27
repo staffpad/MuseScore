@@ -36,16 +36,18 @@ class Chord;
 class StemSlash final : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, StemSlash)
+    DECLARE_CLASSOF(ElementType::STEM_SLASH)
 
     mu::LineF line;
 
     friend class Factory;
     StemSlash(Chord* parent = 0);
+    double _width;
+    KerningType doComputeKerningType(const EngravingItem* nextItem) const override;
 
 public:
 
     double mag() const override { return parentItem()->mag(); }
-    void setLine(const mu::LineF& l);
 
     StemSlash* clone() const override { return new StemSlash(*this); }
     void draw(mu::draw::Painter*) const override;

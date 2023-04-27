@@ -19,6 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include <QApplication>
 #include "preferencesmodel.h"
 
 #include "log.h"
@@ -163,6 +164,9 @@ void PreferencesModel::load(const QString& currentPageId)
         makeItem("canvas", QT_TRANSLATE_NOOP("appshell/preferences", "Canvas"), IconCode::Code::NEW_FILE,
                  "Preferences/CanvasPreferencesPage.qml"),
 
+        makeItem("cloud", QT_TRANSLATE_NOOP("appshell/preferences", "Cloud"), IconCode::Code::CLOUD_FILE,
+                 "Preferences/CloudPreferencesPage.qml"),
+
         makeItem("note-input", QT_TRANSLATE_NOOP("appshell/preferences", "Note input"), IconCode::Code::EDIT,
                  "Preferences/NoteInputPreferencesPage.qml"),
 
@@ -198,8 +202,11 @@ void PreferencesModel::load(const QString& currentPageId)
 void PreferencesModel::resetFactorySettings()
 {
     static constexpr bool KEEP_DEFAULT_SETTINGS = true;
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    QApplication::processEvents();
     configuration()->revertToFactorySettings(KEEP_DEFAULT_SETTINGS);
     configuration()->startEditSettings();
+    QApplication::restoreOverrideCursor();
 }
 
 void PreferencesModel::apply()

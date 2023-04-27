@@ -29,22 +29,27 @@
 #include "types/types.h"
 #include "types/string.h"
 
+#include "async/notification.h"
+
 namespace mu::engraving {
 class MasterScore;
 class Part;
 class Score;
 class Staff;
-class XmlReader;
+class Spanner;
 
 class Excerpt
 {
 public:
     Excerpt(MasterScore* masterScore = nullptr) { m_masterScore = masterScore; }
-    Excerpt(const Excerpt& ex, bool copyPartScore = true);
+    Excerpt(const Excerpt& ex, bool copyContents = true);
 
     ~Excerpt();
 
     bool inited() const;
+
+    bool custom() const;
+    void markAsCustom();
 
     const ID& initialPartId() const;
     void setInitialPartId(const ID& id);
@@ -53,8 +58,9 @@ public:
     Score* excerptScore() const { return m_excerptScore; }
     void setExcerptScore(Score* s);
 
-    String name() const { return m_name; }
-    void setName(const String& title) { m_name = title; }
+    const String& name() const;
+    void setName(const String& name);
+    async::Notification nameChanged() const;
 
     std::vector<Part*>& parts() { return m_parts; }
     const std::vector<Part*>& parts() const { return m_parts; }
@@ -67,12 +73,10 @@ public:
     size_t nstaves() const;
     bool isEmpty() const;
 
-    TracksMap& tracksMapping();
+    const TracksMap& tracksMapping();
     void setTracksMapping(const TracksMap& tracksMapping);
 
-    void setVoiceVisible(Staff* staff, int voiceIndex, bool visible);
-
-    void read(XmlReader&);
+    void setVoiceVisible(Staff* staff, voice_idx_t voiceIndex, bool visible);
 
     static std::vector<Excerpt*> createExcerptsFromParts(const std::vector<Part*>& parts);
     static Excerpt* createExcerptFromPart(Part* part);
@@ -81,21 +85,24 @@ public:
     static void cloneStaves(Score* sourceScore, Score* dstScore, const std::vector<staff_idx_t>& sourceStavesIndexes,
                             const TracksMap& allTracks);
     static void cloneMeasures(Score* oscore, Score* score);
-    static void cloneStaff(Staff* ostaff, Staff* nstaff);
+    static void cloneStaff(Staff* ostaff, Staff* nstaff, bool cloneSpanners = true);
     static void cloneStaff2(Staff* ostaff, Staff* nstaff, const Fraction& startTick, const Fraction& endTick);
+    static void cloneSpanner(Spanner* s, Score* score, track_idx_t dstTrack, track_idx_t dstTrack2);
+
+    static String formatName(const String& partName, const std::vector<Excerpt*>& allExcerpts);
 
 private:
     friend class MasterScore;
 
-    static String formatName(const String& partName, const std::vector<Excerpt*>&);
-
     void setInited(bool inited);
+    void writeNameToMetaTags();
 
-    void updateTracksMapping(bool voicesVisibilityChanged = false);
+    void updateTracksMapping();
 
     MasterScore* m_masterScore = nullptr;
     Score* m_excerptScore = nullptr;
     String m_name;
+    async::Notification m_nameChanged;
     std::vector<Part*> m_parts;
     TracksMap m_tracksMapping;
     bool m_inited = false;

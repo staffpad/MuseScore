@@ -23,12 +23,13 @@
 #include "mmrest.h"
 
 #include "draw/types/pen.h"
-#include "rw/xml.h"
 
 #include "measure.h"
 #include "score.h"
 #include "undo.h"
 #include "utils.h"
+
+#include "log.h"
 
 using namespace mu;
 using namespace mu::engraving;
@@ -71,7 +72,7 @@ MMRest::MMRest(const MMRest& r, bool link)
 
 void MMRest::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     if (shouldNotBeDrawn() || (track() % VOICES)) {     //only on voice 1
         return;
     }
@@ -99,11 +100,12 @@ void MMRest::draw(mu::draw::Painter* painter) const
             x += symBbox(sym).width() + spacing;
         }
     } else {
+        double mag = staff()->staffMag(tick());
         mu::draw::Pen pen(painter->pen());
         pen.setCapStyle(mu::draw::PenCapStyle::FlatCap);
 
         // draw horizontal line
-        double hBarThickness = score()->styleMM(Sid::mmRestHBarThickness);
+        double hBarThickness = score()->styleMM(Sid::mmRestHBarThickness) * mag;
         if (hBarThickness) { // don't draw at all if 0, QPainter interprets 0 pen width differently
             pen.setWidthF(hBarThickness);
             painter->setPen(pen);
@@ -122,11 +124,11 @@ void MMRest::draw(mu::draw::Painter* painter) const
         }
 
         // draw vertical lines
-        double vStrokeThickness = score()->styleMM(Sid::mmRestHBarVStrokeThickness);
+        double vStrokeThickness = score()->styleMM(Sid::mmRestHBarVStrokeThickness) * mag;
         if (vStrokeThickness) { // don't draw at all if 0, QPainter interprets 0 pen width differently
             pen.setWidthF(vStrokeThickness);
             painter->setPen(pen);
-            double halfVStrokeHeight = score()->styleMM(Sid::mmRestHBarVStrokeHeight) * .5;
+            double halfVStrokeHeight = score()->styleMM(Sid::mmRestHBarVStrokeHeight) * .5 * mag;
             painter->drawLine(LineF(0.0, -halfVStrokeHeight, 0.0, halfVStrokeHeight));
             painter->drawLine(LineF(m_width, -halfVStrokeHeight, m_width, halfVStrokeHeight));
         }
@@ -183,7 +185,7 @@ void MMRest::layout()
 
     // Only need to set y position here; x position is handled in Measure::layoutMeasureElements()
     const StaffType* staffType = this->staffType();
-    setPos(0, std::floor(staffType->middleLine() / 2.0) * staffType->lineDistance().val() * spatium());
+    setPos(0, (staffType->middleLine() / 2.0) * staffType->lineDistance().val() * spatium());
 
     if (m_numberVisible) {
         addbbox(numberRect());
@@ -211,18 +213,6 @@ RectF MMRest::numberRect() const
     RectF r = symBbox(m_numberSym);
     r.translate(numberPosition(r));
     return r;
-}
-
-//---------------------------------------------------------
-//   MMRest::write
-//---------------------------------------------------------
-
-void MMRest::write(XmlWriter& xml) const
-{
-    xml.startElement("Rest"); // for compatibility, see also Measure::readVoice()
-    ChordRest::writeProperties(xml);
-    el().write(xml);
-    xml.endElement();
 }
 
 //---------------------------------------------------------

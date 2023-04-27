@@ -52,6 +52,8 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gpconverter.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gpdommodel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gpdommodel.h
+    ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gpdrumsetresolver.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gpdrumsetresolver.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gpmasterbar.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gpmasterbar.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gpmastertracks.cpp
@@ -70,18 +72,17 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/inoteproperty.h
     )
 
-if (IEX_GUITARPRO_NO_INTERNAL)
-    set(MODULE_DEF -DIEX_GUITARPRO_NO_INTERNAL)
-else()
-    set(MODULE_SRC ${MODULE_SRC}
-        ${CMAKE_CURRENT_LIST_DIR}/internal/guitarproconfiguration.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/internal/guitarproconfiguration.h
+set(MODULE_SRC ${MODULE_SRC}
+    ${CMAKE_CURRENT_LIST_DIR}/internal/guitarproconfiguration.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/internal/guitarproconfiguration.h
     )
-endif()
-
 
 set(MODULE_LINK
     engraving
     )
 
 include(SetupModule)
+
+if (MUE_BUILD_UNIT_TESTS)
+    add_subdirectory(tests)
+endif()

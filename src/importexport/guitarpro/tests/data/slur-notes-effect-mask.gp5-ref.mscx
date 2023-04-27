@@ -39,6 +39,30 @@
           <string>38</string>
           <string>43</string>
           </StringData>
+        <Articulation name="staccatissimo">
+          <velocity>100</velocity>
+          <gateTime>30</gateTime>
+          </Articulation>
+        <Articulation name="staccato">
+          <velocity>100</velocity>
+          <gateTime>50</gateTime>
+          </Articulation>
+        <Articulation name="portato">
+          <velocity>100</velocity>
+          <gateTime>67</gateTime>
+          </Articulation>
+        <Articulation name="tenuto">
+          <velocity>100</velocity>
+          <gateTime>100</gateTime>
+          </Articulation>
+        <Articulation name="marcato">
+          <velocity>120</velocity>
+          <gateTime>67</gateTime>
+          </Articulation>
+        <Articulation name="sforzato">
+          <velocity>120</velocity>
+          <gateTime>100</gateTime>
+          </Articulation>
         <Channel>
           <program value="36"/>
           <controller ctrl="7" value="103"/>
@@ -59,6 +83,10 @@
           <Rest>
             <durationType>16th</durationType>
             </Rest>
+          <Dynamic>
+            <subtype>f</subtype>
+            <velocity>96</velocity>
+            </Dynamic>
           <Beam>
             <l1>14</l1>
             <l2>16</l2>
@@ -150,24 +178,25 @@
               <string>1</string>
               </Note>
             </Chord>
-          <StaffText>
-            <text>S</text>
-            </StaffText>
           <Chord>
             <durationType>16th</durationType>
+            <Articulation>
+              <subtype>Slap</subtype>
+              </Articulation>
             <Note>
               <pitch>38</pitch>
               <tpc>16</tpc>
               <head>cross</head>
               <fret>0</fret>
               <string>1</string>
+              <dead>1</dead>
               </Note>
             </Chord>
-          <StaffText>
-            <text>P</text>
-            </StaffText>
           <Chord>
             <durationType>16th</durationType>
+            <Articulation>
+              <subtype>Pop</subtype>
+              </Articulation>
             <Note>
               <pitch>52</pitch>
               <tpc>18</tpc>
@@ -183,33 +212,35 @@
               <head>cross</head>
               <fret>0</fret>
               <string>2</string>
+              <dead>1</dead>
               </Note>
             </Chord>
           <Rest>
             <durationType>quarter</durationType>
             </Rest>
-          <StaffText>
-            <text>S</text>
-            </StaffText>
           <Beam>
             <l1>52</l1>
             <l2>52</l2>
             </Beam>
           <Chord>
             <durationType>16th</durationType>
+            <Articulation>
+              <subtype>Slap</subtype>
+              </Articulation>
             <Note>
               <pitch>33</pitch>
               <tpc>17</tpc>
               <head>cross</head>
               <fret>0</fret>
               <string>2</string>
+              <dead>1</dead>
               </Note>
             </Chord>
-          <StaffText>
-            <text>P</text>
-            </StaffText>
           <Chord>
             <durationType>16th</durationType>
+            <Articulation>
+              <subtype>Pop</subtype>
+              </Articulation>
             <Note>
               <pitch>52</pitch>
               <tpc>18</tpc>
@@ -217,24 +248,25 @@
               <string>0</string>
               </Note>
             </Chord>
-          <StaffText>
-            <text>S</text>
-            </StaffText>
           <Chord>
             <durationType>16th</durationType>
+            <Articulation>
+              <subtype>Slap</subtype>
+              </Articulation>
             <Note>
               <pitch>33</pitch>
               <tpc>17</tpc>
               <head>cross</head>
               <fret>0</fret>
               <string>2</string>
+              <dead>1</dead>
               </Note>
             </Chord>
-          <StaffText>
-            <text>P</text>
-            </StaffText>
           <Chord>
             <durationType>16th</durationType>
+            <Articulation>
+              <subtype>Pop</subtype>
+              </Articulation>
             <Note>
               <pitch>52</pitch>
               <tpc>18</tpc>

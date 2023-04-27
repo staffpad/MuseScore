@@ -21,12 +21,12 @@
  */
 #include "noteheadsettingsmodel.h"
 
-#include "note.h"
-#include "dataformatter.h"
+#include "engraving/types/types.h"
 
 #include "translation.h"
 
 using namespace mu::inspector;
+using namespace mu::engraving;
 
 NoteheadSettingsModel::NoteheadSettingsModel(QObject* parent, IElementRepositoryService* repository)
     : AbstractInspectorModel(parent, repository)
@@ -50,14 +50,7 @@ void NoteheadSettingsModel::createProperties()
     m_headType = buildPropertyItem(mu::engraving::Pid::HEAD_TYPE);
     m_headSystem = buildPropertyItem(mu::engraving::Pid::HEAD_SCHEME);
     m_dotPosition = buildPropertyItem(mu::engraving::Pid::DOT_POSITION);
-
-    m_horizontalOffset = buildPropertyItem(mu::engraving::Pid::OFFSET, [this](const mu::engraving::Pid pid, const QVariant& newValue) {
-        onPropertyValueChanged(pid, QPointF(newValue.toDouble(), m_verticalOffset->value().toDouble()));
-    });
-
-    m_verticalOffset = buildPropertyItem(mu::engraving::Pid::OFFSET, [this](const mu::engraving::Pid pid, const QVariant& newValue) {
-        onPropertyValueChanged(pid, QPointF(m_horizontalOffset->value().toDouble(), newValue.toDouble()));
-    });
+    m_offset = buildPointFPropertyItem(mu::engraving::Pid::OFFSET);
 }
 
 void NoteheadSettingsModel::requestElements()
@@ -67,25 +60,19 @@ void NoteheadSettingsModel::requestElements()
 
 void NoteheadSettingsModel::loadProperties()
 {
-    loadPropertyItem(m_isHeadHidden, [](const QVariant& isVisible) -> QVariant {
-        return !isVisible.toBool();
-    });
+    static PropertyIdSet propertyIdSet {
+        Pid::VISIBLE,
+        Pid::SMALL,
+        Pid::HEAD_HAS_PARENTHESES,
+        Pid::MIRROR_HEAD,
+        Pid::HEAD_GROUP,
+        Pid::HEAD_TYPE,
+        Pid::HEAD_SCHEME,
+        Pid::DOT_POSITION,
+        Pid::OFFSET,
+    };
 
-    loadPropertyItem(m_isHeadSmall);
-    loadPropertyItem(m_hasHeadParentheses);
-    loadPropertyItem(m_headDirection);
-    loadPropertyItem(m_headGroup);
-    loadPropertyItem(m_headType);
-    loadPropertyItem(m_headSystem);
-    loadPropertyItem(m_dotPosition);
-
-    loadPropertyItem(m_horizontalOffset, [](const QVariant& elementPropertyValue) -> QVariant {
-        return DataFormatter::roundDouble(elementPropertyValue.value<QPointF>().x());
-    });
-
-    loadPropertyItem(m_verticalOffset, [](const QVariant& elementPropertyValue) -> QVariant {
-        return DataFormatter::roundDouble(elementPropertyValue.value<QPointF>().y());
-    });
+    loadProperties(propertyIdSet);
 }
 
 void NoteheadSettingsModel::resetProperties()
@@ -98,8 +85,53 @@ void NoteheadSettingsModel::resetProperties()
     m_headType->resetToDefault();
     m_headSystem->resetToDefault();
     m_dotPosition->resetToDefault();
-    m_horizontalOffset->resetToDefault();
-    m_verticalOffset->resetToDefault();
+    m_offset->resetToDefault();
+}
+
+void NoteheadSettingsModel::onNotationChanged(const mu::engraving::PropertyIdSet& changedPropertyIdSet, const mu::engraving::StyleIdSet&)
+{
+    loadProperties(changedPropertyIdSet);
+}
+
+void NoteheadSettingsModel::loadProperties(const mu::engraving::PropertyIdSet& propertyIdSet)
+{
+    if (mu::contains(propertyIdSet, Pid::VISIBLE)) {
+        loadPropertyItem(m_isHeadHidden, [](const QVariant& isVisible) -> QVariant {
+            return !isVisible.toBool();
+        });
+    }
+
+    if (mu::contains(propertyIdSet, Pid::SMALL)) {
+        loadPropertyItem(m_isHeadSmall);
+    }
+
+    if (mu::contains(propertyIdSet, Pid::HEAD_HAS_PARENTHESES)) {
+        loadPropertyItem(m_hasHeadParentheses);
+    }
+
+    if (mu::contains(propertyIdSet, Pid::MIRROR_HEAD)) {
+        loadPropertyItem(m_headDirection);
+    }
+
+    if (mu::contains(propertyIdSet, Pid::HEAD_GROUP)) {
+        loadPropertyItem(m_headGroup);
+    }
+
+    if (mu::contains(propertyIdSet, Pid::HEAD_TYPE)) {
+        loadPropertyItem(m_headType);
+    }
+
+    if (mu::contains(propertyIdSet, Pid::HEAD_SCHEME)) {
+        loadPropertyItem(m_headSystem);
+    }
+
+    if (mu::contains(propertyIdSet, Pid::DOT_POSITION)) {
+        loadPropertyItem(m_dotPosition);
+    }
+
+    if (mu::contains(propertyIdSet, Pid::OFFSET)) {
+        loadPropertyItem(m_offset);
+    }
 }
 
 PropertyItem* NoteheadSettingsModel::isHeadHidden() const
@@ -142,14 +174,9 @@ PropertyItem* NoteheadSettingsModel::dotPosition() const
     return m_dotPosition;
 }
 
-PropertyItem* NoteheadSettingsModel::horizontalOffset() const
+PropertyItem* NoteheadSettingsModel::offset() const
 {
-    return m_horizontalOffset;
-}
-
-PropertyItem* NoteheadSettingsModel::verticalOffset() const
-{
-    return m_verticalOffset;
+    return m_offset;
 }
 
 QVariantList NoteheadSettingsModel::possibleHeadSystemTypes() const

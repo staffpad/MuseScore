@@ -68,6 +68,19 @@ public:
         int string{ -1 };
     };
 
+    struct StemOrientation {
+        bool up = false; /// taken in consideration only if userDefined == true
+        bool userDefined = false;
+    };
+
+    enum class BeamMode {
+        AUTO,
+        JOINED,
+        BROKEN,
+        BROKEN2,
+        BROKEN2_JOINED
+    };
+
     void addGPNote(const std::shared_ptr<GPNote>& n) { _notes.push_back(n); }
     void addGPRhythm(const std::shared_ptr<GPRhythm>& n) { _rhythm = n; }
     void setDynamic(GPBeat::DynamicType t) { _dynamic = t; }
@@ -88,6 +101,9 @@ public:
 
     void setPalmMute(bool palmMute) { _palmMute = palmMute; }
     bool palmMute() const { return _palmMute; }
+
+    void setTrill(bool trill) { _trill = trill; }
+    bool trill() const { return _trill; }
 
     void setHarmonicMarkType(HarmonicMarkType type) { _harmonicMarkType = type; }
     HarmonicMarkType harmonicMarkType() const { return _harmonicMarkType; }
@@ -149,6 +165,20 @@ public:
 
     void setDive(bool dive) { m_dive = dive; }
     bool dive() const { return m_dive; }
+
+    void setPickScrape(bool pickScrape) { m_pickScrape = pickScrape; }
+    bool pickScrape() const { return m_pickScrape; }
+
+    void setDeadSlapped(bool deadSlapped) { m_deadSlapped = deadSlapped; }
+    bool deadSlapped() const { return m_deadSlapped; }
+
+    void setStemOrientationUp(bool up) { m_stemOrientation.up = up; }
+    void setStemOrientationUserDefined(bool userDefined) { m_stemOrientation.userDefined = userDefined; }
+    bool stemOrientationUp() const { return m_stemOrientation.up; }
+    bool stemOrientationUserDefined() const { return m_stemOrientation.userDefined; }
+
+    void setBeamMode(BeamMode mode) { m_beamMode = mode; }
+    BeamMode beamMode() const { return m_beamMode; }
 
     const std::vector<std::shared_ptr<GPNote> >& notes() const { return _notes; }
 
@@ -220,6 +250,7 @@ private:
     OttavaType _ottavaType = OttavaType::None;
     bool _letRing = false;
     bool _palmMute = false;
+    bool _trill = false;
     HarmonicMarkType _harmonicMarkType = HarmonicMarkType::None;
     bool _slapped = false;
     bool _popped = false;
@@ -239,6 +270,10 @@ private:
     Barre _barre;
     double _arpeggioStretch = 0.0;
     bool m_dive = false; // TODO-gp: implement dives
+    bool m_pickScrape = false;
+    bool m_deadSlapped = false;
+    StemOrientation m_stemOrientation;
+    BeamMode m_beamMode = BeamMode::AUTO;
 };
 }
 

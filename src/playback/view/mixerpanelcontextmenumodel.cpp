@@ -98,6 +98,8 @@ bool MixerPanelContextMenuModel::titleSectionVisible() const
 
 void MixerPanelContextMenuModel::load()
 {
+    AbstractMenuModel::load();
+
     dispatcher()->reg(this, TOGGLE_MIXER_SECTION_ACTION, this, &MixerPanelContextMenuModel::toggleMixerSection);
 
     MenuItemList viewMenuItems;
@@ -105,11 +107,12 @@ void MixerPanelContextMenuModel::load()
         viewMenuItems << buildViewMenuItem(sectionType);
     }
 
-    MenuItemList viewMenu {
+    MenuItemList items {
+        makeMenuItem("playback-setup"),
         makeMenu(TranslatableString("playback", "View"), viewMenuItems, VIEW_MENU_ID)
     };
 
-    setItems(viewMenu);
+    setItems(items);
 }
 
 bool MixerPanelContextMenuModel::isSectionVisible(MixerSectionType sectionType) const

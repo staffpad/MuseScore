@@ -23,12 +23,10 @@
 #ifndef MU_AUDIO_TRACKSEQUENCE_H
 #define MU_AUDIO_TRACKSEQUENCE_H
 
-#include "modularity/ioc.h"
 #include "async/asyncable.h"
 
 #include "itracksequence.h"
 #include "igettracks.h"
-#include "iaudiosource.h"
 #include "iclock.h"
 #include "track.h"
 #include "audiotypes.h"
@@ -46,7 +44,9 @@ public:
 
     RetVal2<TrackId, AudioParams> addTrack(const std::string& trackName, const mpe::PlaybackData& playbackData,
                                            const AudioParams& requiredParams) override;
-    RetVal2<TrackId, AudioParams> addTrack(const std::string& trackName, QIODevice* device, const AudioParams& requiredParams) override;
+    RetVal2<TrackId, AudioParams> addTrack(const std::string& trackName, io::IODevice* device, const AudioParams& requiredParams) override;
+
+    RetVal2<TrackId, AudioOutputParams> addAuxTrack(const std::string& trackName, const AudioOutputParams& requiredOutputParams) override;
 
     TrackName trackName(const TrackId id) const override;
     TrackIdList trackIdList() const override;
@@ -62,7 +62,7 @@ public:
 
     // IGetTracks
     TrackPtr track(const TrackId id) const override;
-    TracksMap allTracks() const override;
+    const TracksMap& allTracks() const override;
 
     async::Channel<TrackPtr> trackAboutToBeAdded() const override;
     async::Channel<TrackPtr> trackAboutToBeRemoved() const override;

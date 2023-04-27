@@ -22,12 +22,12 @@
 
 #include "lyrics.h"
 
-#include "rw/xml.h"
 #include "translation.h"
 #include "types/translatablestring.h"
 
 #include "measure.h"
 #include "mscoreview.h"
+#include "navigate.h"
 #include "score.h"
 #include "segment.h"
 #include "staff.h"
@@ -57,11 +57,11 @@ Lyrics::Lyrics(ChordRest* parent)
     : TextBase(ElementType::LYRICS, parent, TextStyleType::LYRICS_ODD)
 {
     _even       = false;
+    _separator  = 0;
     initElementStyle(&lyricsElementStyle);
     _no         = 0;
     _ticks      = Fraction(0, 1);
-    _syllabic   = Syllabic::SINGLE;
-    _separator  = 0;
+    _syllabic   = LyricsSyllabic::SINGLE;
 }
 
 Lyrics::Lyrics(const Lyrics& l)
@@ -79,86 +79,6 @@ Lyrics::~Lyrics()
     if (_separator) {
         remove(_separator);
     }
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Lyrics::write(XmlWriter& xml) const
-{
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    xml.startElement(this);
-    writeProperty(xml, Pid::VERSE);
-    if (_syllabic != Syllabic::SINGLE) {
-        static const char* sl[] = {
-            "single", "begin", "end", "middle"
-        };
-        xml.tag("syllabic", sl[int(_syllabic)]);
-    }
-    xml.tag("ticks", _ticks.ticks(), 0);   // pre-3.1 compatibility: write integer ticks under <ticks> tag
-    writeProperty(xml, Pid::LYRIC_TICKS);
-
-    TextBase::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Lyrics::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        if (!readProperties(e)) {
-            e.unknown();
-        }
-    }
-    if (!isStyled(Pid::OFFSET) && !e.context()->pasteMode()) {
-        // fix offset for pre-3.1 scores
-        // 3.0: y offset was meaningless if autoplace is set
-        String version = e.context()->mscoreVersion();
-        if (autoplace() && !version.isEmpty() && version < u"3.1") {
-            PointF off = propertyDefault(Pid::OFFSET).value<PointF>();
-            ryoffset() = off.y();
-        }
-    }
-}
-
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool Lyrics::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-
-    if (tag == "no") {
-        _no = e.readInt();
-    } else if (tag == "syllabic") {
-        String val(e.readText());
-        if (val == "single") {
-            _syllabic = Syllabic::SINGLE;
-        } else if (val == "begin") {
-            _syllabic = Syllabic::BEGIN;
-        } else if (val == "end") {
-            _syllabic = Syllabic::END;
-        } else if (val == "middle") {
-            _syllabic = Syllabic::MIDDLE;
-        } else {
-            LOGD("bad syllabic property");
-        }
-    } else if (tag == "ticks") {          // obsolete
-        _ticks = e.readFraction();     // will fall back to reading integer ticks on older scores
-    } else if (tag == "ticks_f") {
-        _ticks = e.readFraction();
-    } else if (readProperty(tag, e, Pid::PLACEMENT)) {
-    } else if (!TextBase::readProperties(e)) {
-        return false;
-    }
-    return true;
 }
 
 TranslatableString Lyrics::subtypeUserName() const
@@ -214,11 +134,11 @@ bool Lyrics::isMelisma() const
 
     // hyphenated?
     // if so, it is a melisma only if there is no lyric in same verse on next CR
-    if (_syllabic == Syllabic::BEGIN || _syllabic == Syllabic::MIDDLE) {
+    if (_separator && (_syllabic == LyricsSyllabic::BEGIN || _syllabic == LyricsSyllabic::MIDDLE)) {
         // find next CR on same track and check for existence of lyric in same verse
-        ChordRest* cr  = chordRest();
+        ChordRest* cr = chordRest();
         if (cr) {
-            Segment* s     = cr->segment()->next1();
+            Segment* s = cr->segment()->next1();
             ChordRest* ncr = s ? s->nextChordRest(cr->track()) : 0;
             if (ncr && !ncr->lyrics(_no, placement())) {
                 return true;
@@ -306,6 +226,33 @@ void Lyrics::layout()
         styleChanged();
     }
 
+    ChordRest* cr = chordRest();
+    if (_removeInvalidSegments) {
+        removeInvalidSegments();
+    } else if (_ticks > Fraction(0, 1) || _syllabic == LyricsSyllabic::BEGIN || _syllabic == LyricsSyllabic::MIDDLE) {
+        if (!_separator) {
+            _separator = new LyricsLine(score()->dummy());
+            _separator->setTick(cr->tick());
+            score()->addUnmanagedSpanner(_separator);
+        }
+        _separator->setParent(this);
+        _separator->setTick(cr->tick());
+        // HACK separator should have non-zero length to get its layout
+        // always triggered. A proper ticks length will be set later on the
+        // separator layout.
+        _separator->setTicks(Fraction::fromTicks(1));
+        _separator->setTrack(track());
+        _separator->setTrack2(track());
+        _separator->setVisible(visible());
+        // bbox().setWidth(bbox().width());  // ??
+    } else {
+        if (_separator) {
+            _separator->removeUnmanaged();
+            delete _separator;
+            _separator = 0;
+        }
+    }
+
     if (isMelisma() || hasNumber) {
         // use the melisma style alignment setting
         if (isStyled(Pid::ALIGN)) {
@@ -343,8 +290,6 @@ void Lyrics::layout()
         }
     }
 
-    ChordRest* cr = chordRest();
-
     if (align() == AlignH::HCENTER) {
         //
         // center under notehead, not origin
@@ -359,30 +304,6 @@ void Lyrics::layout()
     }
 
     setPosX(x);
-
-    if (_ticks > Fraction(0, 1) || _syllabic == Syllabic::BEGIN || _syllabic == Syllabic::MIDDLE) {
-        if (!_separator) {
-            _separator = new LyricsLine(score()->dummy());
-            _separator->setTick(cr->tick());
-            score()->addUnmanagedSpanner(_separator);
-        }
-        _separator->setParent(this);
-        _separator->setTick(cr->tick());
-        // HACK separator should have non-zero length to get its layout
-        // always triggered. A proper ticks length will be set later on the
-        // separator layout.
-        _separator->setTicks(Fraction::fromTicks(1));
-        _separator->setTrack(track());
-        _separator->setTrack2(track());
-        _separator->setVisible(visible());
-        // bbox().setWidth(bbox().width());  // ??
-    } else {
-        if (_separator) {
-            _separator->removeUnmanaged();
-            delete _separator;
-            _separator = 0;
-        }
-    }
 
     if (_ticks.isNotZero()) {
         // set melisma end
@@ -431,9 +352,12 @@ void Lyrics::layout2(int nAbove)
 
 void Lyrics::paste(EditData& ed, const String& txt)
 {
-    MuseScoreView* scoreview = ed.view();
+    String correctedText = txt;
+    //! NOTE: Remove formating info. For example, for "<info><info>text" will be "text"
+    correctedText = correctedText.remove(std::regex("\\<(.*?)\\>"));
+
     String regex = String(u"[^\\S") + Char(0xa0) + Char(0x202F) + u"]+";
-    StringList sl = txt.split(std::regex(regex.toStdString()), mu::SkipEmptyParts);
+    StringList sl = correctedText.split(std::regex(regex.toStdString()), mu::SkipEmptyParts);
     if (sl.empty()) {
         return;
     }
@@ -442,6 +366,8 @@ void Lyrics::paste(EditData& ed, const String& txt)
     bool minus = false;
     bool underscore = false;
     score()->startCmd();
+
+    deleteSelectedText(ed);
 
     if (hyph.size() > 1) {
         score()->undo(new InsertText(cursorFromEditData(ed), hyph[0]), &ed);
@@ -479,6 +405,7 @@ void Lyrics::paste(EditData& ed, const String& txt)
 
     score()->endCmd();
 
+    MuseScoreView* scoreview = ed.view();
     if (minus) {
         scoreview->lyricsMinus();
     } else if (underscore) {
@@ -568,19 +495,6 @@ bool Lyrics::isEditAllowed(EditData& ed) const
 }
 
 //---------------------------------------------------------
-//   edit
-//---------------------------------------------------------
-
-bool Lyrics::edit(EditData& ed)
-{
-    if (!isEditAllowed(ed)) {
-        return false;
-    }
-
-    return TextBase::edit(ed);
-}
-
-//---------------------------------------------------------
 //   endEdit
 //---------------------------------------------------------
 
@@ -608,6 +522,11 @@ void Lyrics::removeFromScore()
         _separator->removeUnmanaged();
         delete _separator;
         _separator = 0;
+    }
+    Lyrics* prev = prevLyrics(this);
+    if (prev) {
+        // check to make sure we haven't created an invalid segment by deleting this lyric
+        prev->setRemoveInvalidSegments();
     }
 }
 
@@ -640,7 +559,7 @@ bool Lyrics::setProperty(Pid propertyId, const PropertyValue& v)
         setPlacement(v.value<PlacementV>());
         break;
     case Pid::SYLLABIC:
-        _syllabic = Syllabic(v.toInt());
+        _syllabic = LyricsSyllabic(v.toInt());
         break;
     case Pid::LYRIC_TICKS:
         if (_ticks.isNotZero()) {
@@ -658,6 +577,11 @@ bool Lyrics::setProperty(Pid propertyId, const PropertyValue& v)
         }
 
         _ticks = v.value<Fraction>();
+        if (_ticks <= Fraction(0, 1)) {
+            // if no ticks, we have to relayout in order to remove invalid melisma segments
+            setRemoveInvalidSegments();
+            layout();
+        }
         break;
     case Pid::VERSE:
         _no = v.toInt();
@@ -684,7 +608,7 @@ PropertyValue Lyrics::propertyDefault(Pid id) const
     case Pid::PLACEMENT:
         return score()->styleV(Sid::lyricsPlacement);
     case Pid::SYLLABIC:
-        return int(Syllabic::SINGLE);
+        return int(LyricsSyllabic::SINGLE);
     case Pid::LYRIC_TICKS:
         return Fraction(0, 1);
     case Pid::VERSE:
@@ -696,6 +620,17 @@ PropertyValue Lyrics::propertyDefault(Pid id) const
     // fall through
     default:
         return TextBase::propertyDefault(id);
+    }
+}
+
+void Lyrics::triggerLayout() const
+{
+    if (_separator) {
+        // The separator may extend to next system(s), so we must use Spanner::triggerLayout()
+        _separator->triggerLayout();
+    } else {
+        // In this case is ok to use EngravingItem::triggerLayout()
+        EngravingItem::triggerLayout();
     }
 }
 
@@ -761,5 +696,28 @@ KerningType Lyrics::doComputeKerningType(const EngravingItem* nextItem) const
         return KerningType::NON_KERNING;
     }
     return KerningType::KERNING;
+}
+
+//---------------------------------------------------------
+//   removeInvalidSegments
+//
+// Remove lyric-final melisma lines and reset the alignment of the lyric
+//---------------------------------------------------------
+
+void Lyrics::removeInvalidSegments()
+{
+    _removeInvalidSegments = false;
+    if (_separator && isMelisma() && _ticks < _separator->startCR()->ticks()) {
+        setTicks(Fraction(0, 1));
+        _separator->removeUnmanaged();
+        delete _separator;
+        _separator = nullptr;
+        setAlign(propertyDefault(Pid::ALIGN).value<Align>());
+        if (_syllabic == LyricsSyllabic::BEGIN || _syllabic == LyricsSyllabic::SINGLE) {
+            _syllabic = LyricsSyllabic::SINGLE;
+        } else {
+            _syllabic = LyricsSyllabic::END;
+        }
+    }
 }
 }

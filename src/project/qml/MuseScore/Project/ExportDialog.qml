@@ -46,7 +46,7 @@ StyledDialogView {
         exportModel.load()
     }
 
-    onOpened: {
+    onNavigationActivateRequested: {
         exportScoresListView.focusOnFirst()
     }
 
@@ -162,7 +162,7 @@ StyledDialogView {
                     id: exportButton
 
                     text: qsTrc("project/export", "Export…")
-                    enabled: exportModel.selectionLength > 0;
+                    enabled: exportModel.selectionLength > 0
                     accentButton: enabled
 
                     navigation.name: "Export"
@@ -171,7 +171,7 @@ StyledDialogView {
 
                     onClicked: {
                         if (exportModel.exportScores()) {
-                            root.hide();
+                            root.hide()
                         }
                     }
                 }

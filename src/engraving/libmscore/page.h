@@ -34,7 +34,7 @@ class Factory;
 class System;
 class Text;
 class Measure;
-class XmlWriter;
+
 class Score;
 class MeasureBase;
 
@@ -46,6 +46,7 @@ class MeasureBase;
 class Page final : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, Page)
+    DECLARE_CLASSOF(ElementType::PAGE)
 
     std::vector<System*> _systems;
     page_idx_t _no;                        // page number
@@ -71,9 +72,6 @@ public:
     const std::vector<System*>& systems() const { return _systems; }
     std::vector<System*>& systems() { return _systems; }
     System* system(int idx) { return _systems[idx]; }
-
-    void write(XmlWriter&) const override;
-    void read(XmlReader&) override;
 
     void appendSystem(System* s);
 

@@ -25,13 +25,20 @@
 using namespace mu;
 using namespace mu::draw;
 
-Font::Font(const String& family)
-    : m_family(family)
+bool Font::g_disableFontMerging = false;
+
+Font::Font(const String& family, Type type)
+    : m_family(family), m_type(type)
 {
 }
 
 bool Font::operator ==(const Font& other) const
 {
+    //! NOTE At the moment, the type is entered for information,
+    //! its correct installation is not guaranteed,
+    //! so we do not take it when comparing it yet
+    // && m_type == other.m_type
+
     return m_family == other.m_family
            && RealIsEqual(m_pointSizeF, other.m_pointSizeF)
            && m_weight == other.m_weight
@@ -40,14 +47,20 @@ bool Font::operator ==(const Font& other) const
            && m_hinting == other.m_hinting;
 }
 
-void Font::setFamily(const String& family)
+void Font::setFamily(const String& family, Type type)
 {
     m_family = family;
+    m_type = type;
 }
 
 String Font::family() const
 {
     return m_family;
+}
+
+Font::Type Font::type() const
+{
+    return m_type;
 }
 
 double Font::pointSizeF() const
@@ -58,6 +71,18 @@ double Font::pointSizeF() const
 void Font::setPointSizeF(double s)
 {
     m_pointSizeF = s;
+    m_pixelSize = -1;
+}
+
+int Font::pixelSize() const
+{
+    return m_pixelSize;
+}
+
+void Font::setPixelSize(int s)
+{
+    m_pixelSize = s;
+    m_pointSizeF = -1.0;
 }
 
 Font::Weight Font::weight() const
@@ -117,6 +142,9 @@ void Font::setNoFontMerging(bool arg)
 
 bool Font::noFontMerging() const
 {
+    if (g_disableFontMerging) {
+        return true;
+    }
     return m_noFontMerging;
 }
 
@@ -137,6 +165,8 @@ QFont Font::toQFont() const
 
     if (pointSizeF() > 0) {
         qf.setPointSizeF(pointSizeF());
+    } else if (pixelSize() > 0) {
+        qf.setPixelSize(pixelSize());
     }
     qf.setWeight(static_cast<QFont::Weight>(weight()));
     qf.setBold(bold());
@@ -151,10 +181,14 @@ QFont Font::toQFont() const
     return qf;
 }
 
-Font Font::fromQFont(const QFont& qf)
+Font Font::fromQFont(const QFont& qf, Font::Type type)
 {
-    mu::draw::Font f(qf.family());
-    f.setPointSizeF(qf.pointSizeF());
+    mu::draw::Font f(qf.family(), type);
+    if (qf.pointSizeF() > 0) {
+        f.setPointSizeF(qf.pointSizeF());
+    } else if (qf.pixelSize() > 0) {
+        f.setPixelSize(qf.pixelSize());
+    }
     f.setWeight(static_cast<Font::Weight>(qf.weight()));
     f.setBold(qf.bold());
     f.setItalic(qf.italic());

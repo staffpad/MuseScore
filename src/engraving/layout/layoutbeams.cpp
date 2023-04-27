@@ -26,16 +26,20 @@
 #include "containers.h"
 
 #include "libmscore/beam.h"
+#include "libmscore/tremolo.h"
 #include "libmscore/chord.h"
 #include "libmscore/factory.h"
 #include "libmscore/measure.h"
+#include "libmscore/rest.h"
 #include "libmscore/score.h"
 #include "libmscore/segment.h"
 #include "libmscore/staff.h"
 #include "libmscore/system.h"
 #include "libmscore/timesig.h"
+#include "libmscore/utils.h"
 
 #include "layoutcontext.h"
+#include "layoutchords.h"
 
 using namespace mu::engraving;
 
@@ -111,8 +115,8 @@ void LayoutBeams::restoreBeams(Measure* m)
         for (EngravingItem* e : s->elist()) {
             if (e && e->isChordRest()) {
                 ChordRest* cr = toChordRest(e);
-                if (isTopBeam(cr)) {
-                    Beam* b = cr->beam();
+                Beam* b = cr->beam();
+                if (b && !b->elements().empty() && b->elements().front() == cr) {
                     b->layout();
                     b->addSkyline(m->system()->staff(b->staffIdx())->skyline());
                 }
@@ -286,11 +290,11 @@ void LayoutBeams::createBeams(Score* score, LayoutContext& lc, Measure* measure)
             continue;
         }
 
-        ChordRest* a1    = 0;          // start of (potential) beam
+        ChordRest* a1    = nullptr;          // start of (potential) beam
         bool firstCR     = true;
-        Beam* beam       = 0;          // current beam
+        Beam* beam       = nullptr;          // current beam
         BeamMode bm    = BeamMode::AUTO;
-        ChordRest* prev  = 0;
+        ChordRest* prev  = nullptr;
         bool checkBeats  = false;
         Fraction stretch = Fraction(1, 1);
         std::unordered_map<int, TDuration> beatSubdivision;
@@ -322,7 +326,7 @@ void LayoutBeams::createBeams(Score* score, LayoutContext& lc, Measure* measure)
 
         for (Segment* segment = measure->first(st); segment; segment = segment->next(st)) {
             ChordRest* cr = segment->cr(track);
-            if (cr == 0) {
+            if (!cr) {
                 continue;
             }
 
@@ -330,23 +334,30 @@ void LayoutBeams::createBeams(Score* score, LayoutContext& lc, Measure* measure)
                 firstCR = false;
                 // Handle cross-measure beams
                 BeamMode mode = cr->beamMode();
-                if (mode == BeamMode::MID || mode == BeamMode::END) {
+                if (mode == BeamMode::MID || mode == BeamMode::END || mode == BeamMode::BEGIN32 || mode == BeamMode::BEGIN64) {
                     ChordRest* prevCR = score->findCR(measure->tick() - Fraction::fromTicks(1), track);
                     if (prevCR) {
+                        Beam* prevBeam = prevCR->beam();
                         const Measure* pm = prevCR->measure();
                         if (!beamNoContinue(prevCR->beamMode())
                             && !pm->lineBreak() && !pm->pageBreak() && !pm->sectionBreak()
                             && lc.prevMeasure
                             && !(prevCR->isChord() && prevCR->durationType().type() <= DurationType::V_QUARTER)) {
-                            beam = prevCR->beam();
+                            beam = prevBeam;
                             //a1 = beam ? beam->elements().front() : prevCR;
                             a1 = beam ? nullptr : prevCR;               // when beam is found, a1 is no longer required.
+                        } else if (prevBeam && prevBeam == cr->beam() && prevBeam->elements().front() == prevCR) {
+                            // remove the beam from the previous chordrest because we do not currently
+                            // support cross-system beams
+                            prevCR->removeDeleteBeam(false);
                         }
                     }
                 }
             }
 
-            if (cr->beam() && cr->beam()->hasAllRests()) {
+            bool hasAllRest = cr->beam() && cr->beam()->hasAllRests();
+            bool isARestBeamStart = cr->isRest() && cr->beamMode() == BeamMode::BEGIN;
+            if (hasAllRest && !isARestBeamStart) {
                 cr->removeDeleteBeam(false);
             }
 
@@ -473,112 +484,101 @@ void LayoutBeams::createBeams(Score* score, LayoutContext& lc, Measure* measure)
     }
 }
 
-//---------------------------------------------------------
-//   Spring
-//---------------------------------------------------------
+/************************************************************
+ * layoutNonCrossBeams()
+ * layout all non-cross-staff beams starting on this segment
+ * **********************************************************/
 
-struct Spring {
-    int seg;
-    double stretch;
-    double fix;
-    Spring(int i, double s, double f)
-        : seg(i), stretch(s), fix(f) {}
-};
-
-typedef std::multimap<double, Spring, std::less<double> > SpringMap;
-
-//---------------------------------------------------------
-//   sff2
-//    compute 1/Force for a given Extend
-//---------------------------------------------------------
-
-static double sff2(double width, double xMin, const SpringMap& springs)
+void LayoutBeams::layoutNonCrossBeams(Segment* s)
 {
-    if (width <= xMin) {
-        return 0.0;
-    }
-    auto i = springs.begin();
-    double c  = i->second.stretch;
-    if (c == 0.0) {           //DEBUG
-        c = 1.1;
-    }
-    double f = 0.0;
-    for (; i != springs.end();) {
-        xMin -= i->second.fix;
-        f = (width - xMin) / c;
-        ++i;
-        if (i == springs.end() || f <= i->first) {
-            break;
+    for (EngravingItem* e : s->elist()) {
+        if (!e || !e->isChordRest() || !e->score()->staff(e->staffIdx())->show()) {
+            // the beam and its system may still be referenced when selecting all,
+            // even if the staff is invisible. The old system is invalid and does cause problems in #284012
+            if (e && e->isChordRest() && !e->score()->staff(e->staffIdx())->show() && toChordRest(e)->beam()) {
+                toChordRest(e)->beam()->resetExplicitParent();
+            }
+            continue;
         }
-        c += i->second.stretch;
+        ChordRest* cr = toChordRest(e);
+        // layout beam
+        if (LayoutBeams::isTopBeam(cr)) {
+            cr->beam()->layout();
+            if (!cr->beam()->tremAnchors().empty()) {
+                // there are inset tremolos in here
+                for (ChordRest* beamCr : cr->beam()->elements()) {
+                    if (!beamCr->isChord()) {
+                        continue;
+                    }
+                    Chord* c = toChord(beamCr);
+                    if (c->tremolo() && c->tremolo()->twoNotes()) {
+                        c->tremolo()->layout();
+                    }
+                }
+            }
+        }
+        if (!cr->isChord()) {
+            continue;
+        }
+        for (Chord* grace : toChord(cr)->graceNotes()) {
+            if (LayoutBeams::isTopBeam(grace)) {
+                grace->beam()->layout();
+            }
+        }
     }
-    return f;
 }
 
-//---------------------------------------------------------
-//   respace
-//---------------------------------------------------------
-
-void LayoutBeams::respace(const std::vector<ChordRest*>& elements)
+void LayoutBeams::verticalAdjustBeamedRests(Rest* rest, Beam* beam)
 {
-    ChordRest* cr1 = elements.front();
-    ChordRest* cr2 = elements.back();
-    int n          = int(elements.size());
-    double x1       = cr1->segment()->pos().x();
-    double x2       = cr2->segment()->pos().x();
+    const double spatium = rest->spatium();
+    static constexpr Fraction rest32nd(1, 32);
+    const bool up = beam->up();
 
-#if (!defined (_MSCVER) && !defined (_MSC_VER))
-    double width[n - 1];
-    int ticksList[n - 1];
-#else
-    // MSVC does not support VLA. Replace with std::vector. If profiling determines that the
-    //    heap allocation is slow, an optimization might be used.
-    std::vector<double> width(n - 1);
-    std::vector<int> ticksList(n - 1);
-#endif
-    int minTick = 100000;
-
-    for (int i = 0; i < n - 1; ++i) {
-        ChordRest* cr  = elements[i];
-        ChordRest* ncr = elements[i + 1];
-        width[i]       = cr->shape().minHorizontalDistance(ncr->shape(), cr->score());
-        ticksList[i]   = cr->ticks().ticks();
-        minTick = std::min(ticksList[i], minTick);
+    double restToBeamPadding;
+    if (rest->ticks() <= rest32nd) {
+        restToBeamPadding = 0.2 * spatium;
+    } else {
+        restToBeamPadding = 0.35 * spatium;
     }
 
-    //---------------------------------------------------
-    // compute stretches
-    //---------------------------------------------------
+    Shape beamShape = beam->shape().translated(beam->pagePos());
+    mu::remove_if(beamShape, [&](ShapeElement& el) {
+        return el.toItem && el.toItem->isBeamSegment() && toBeamSegment(el.toItem)->isBeamlet;
+    });
 
-    SpringMap springs;
-    double minimum = 0.0;
-    for (int i = 0; i < n - 1; ++i) {
-        double w   = width[i];
-        int t     = ticksList[i];
-        double str = 1.0 + 0.865617 * log(double(t) / double(minTick));
-        double d   = w / str;
+    Shape restShape = rest->shape().translated(rest->pagePos() - rest->offset());
 
-        springs.insert(std::pair<double, Spring>(d, Spring(i, str, w)));
-        minimum += w;
+    double restToBeamClearance = up ? beamShape.verticalClearance(restShape) : restShape.verticalClearance(beamShape);
+    if (restToBeamClearance > restToBeamPadding) {
+        return;
     }
 
-    //---------------------------------------------------
-    //    distribute stretch to elements
-    //---------------------------------------------------
+    if (up) {
+        rest->verticalClearance().setAbove(restToBeamClearance);
+    } else {
+        rest->verticalClearance().setBelow(restToBeamClearance);
+    }
 
-    double force = sff2(x2 - x1, minimum, springs);
-    for (auto i = springs.begin(); i != springs.end(); ++i) {
-        double stretch = force * i->second.stretch;
-        if (stretch < i->second.fix) {
-            stretch = i->second.fix;
+    bool restIsLocked = rest->verticalClearance().locked();
+    if (!restIsLocked) {
+        double overlap = (restToBeamPadding - restToBeamClearance);
+        double lineDistance = rest->staff()->lineDistance(rest->tick()) * spatium;
+        int lineMoves = ceil(overlap / lineDistance);
+        lineMoves *= up ? 1 : -1;
+        double yMove = lineMoves * lineDistance;
+        rest->movePosY(yMove);
+        for (Rest* mergedRest : rest->mergedRests()) {
+            mergedRest->movePosY(yMove);
         }
-        width[i->second.seg] = stretch;
+
+        Segment* segment = rest->segment();
+        staff_idx_t staffIdx = rest->vStaffIdx();
+        Score* score = rest->score();
+        std::vector<Chord*> chords;
+        std::vector<Rest*> rests;
+        collectChordsAndRest(segment, staffIdx, chords, rests);
+        LayoutChords::resolveRestVSChord(rests, chords, score, segment, staffIdx);
+        LayoutChords::resolveRestVSRest(rests, score, segment, staffIdx, /*considerBeams*/ true);
     }
-    double x = x1;
-    for (int i = 1; i < n - 1; ++i) {
-        x += width[i - 1];
-        ChordRest* cr = elements[i];
-        double dx = x - cr->segment()->pos().x();
-        cr->movePosX(dx);
-    }
+    beam->layout();
 }

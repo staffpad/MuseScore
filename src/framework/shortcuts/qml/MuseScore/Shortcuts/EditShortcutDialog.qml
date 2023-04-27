@@ -21,14 +21,20 @@
  */
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
-import QtQuick.Dialogs 1.3
 
 import MuseScore.Ui 1.0
 import MuseScore.UiComponents 1.0
 import MuseScore.Shortcuts 1.0
 
-Dialog {
+StyledDialogView {
     id: root
+
+    title: qsTrc("shortcuts", "Enter shortcut sequence")
+
+    contentWidth: 538
+    contentHeight: 200
+
+    margins: 20
 
     signal applySequenceRequested(string newSequence, int conflictShortcutIndex)
 
@@ -36,21 +42,6 @@ Dialog {
         model.load(shortcut, allShortcuts)
         open()
         content.forceActiveFocus()
-    }
-
-    height: 240
-    width: 538
-
-    title: qsTrc("shortcuts", "Enter shortcut sequence")
-
-    standardButtons: Dialog.NoButton
-
-    EditShortcutModel {
-        id: model
-
-        onApplyNewSequenceRequested: function(newSequence, conflictShortcutIndex) {
-            root.applySequenceRequested(newSequence, conflictShortcutIndex)
-        }
     }
 
     Rectangle {
@@ -62,9 +53,16 @@ Dialog {
 
         focus: true
 
+        EditShortcutModel {
+            id: model
+
+            onApplyNewSequenceRequested: function(newSequence, conflictShortcutIndex) {
+                root.applySequenceRequested(newSequence, conflictShortcutIndex)
+            }
+        }
+
         Column {
             anchors.fill: parent
-            anchors.margins: 8
 
             spacing: 20
 
@@ -89,11 +87,15 @@ Dialog {
                     text: model.conflictWarning
                 }
 
-                RowLayout {
+                GridLayout {
                     width: parent.width
                     height: childrenRect.height
 
-                    spacing: 12
+                    columnSpacing: 12
+                    rowSpacing: 12
+
+                    columns: 2
+                    rows: 2
 
                     StyledTextLabel {
                         Layout.alignment: Qt.AlignVCenter
@@ -107,13 +109,6 @@ Dialog {
                         enabled: false
                         currentText: model.originSequence
                     }
-                }
-
-                RowLayout {
-                    width: parent.width
-                    height: childrenRect.height
-
-                    spacing: 12
 
                     StyledTextLabel {
                         Layout.alignment: Qt.AlignVCenter
@@ -148,7 +143,7 @@ Dialog {
                 Item { Layout.fillWidth: true }
 
                 FlatButton {
-                    width: parent.buttonWidth
+                    minWidth: parent.buttonWidth
 
                     text: qsTrc("global", "Cancel")
 
@@ -158,7 +153,7 @@ Dialog {
                 }
 
                 FlatButton {
-                    width: parent.buttonWidth
+                    minWidth: parent.buttonWidth
 
                     text: qsTrc("global", "Save")
 
@@ -171,7 +166,7 @@ Dialog {
         }
 
         Keys.onShortcutOverride: function(event) {
-            event.accepted = true
+            event.accepted = event.key !== Qt.Key_Escape && event.key !== Qt.Key_Tab
         }
 
         Keys.onPressed: function(event) {

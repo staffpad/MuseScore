@@ -23,7 +23,7 @@
 #define BEAMSETTINGSMODEL_H
 
 #include "models/abstractinspectormodel.h"
-#include "internal/beammodesmodel.h"
+#include "models/notation/beams/beammodesmodel.h"
 #include "types/beamtypes.h"
 
 namespace mu::inspector {
@@ -79,14 +79,16 @@ signals:
     void featheringModeChanged(BeamTypes::FeatheringMode featheringMode);
     void beamModesModelChanged(QObject* beamModesModel);
 
-protected:
+private:
     void createProperties() override;
     void requestElements() override;
     void loadProperties() override;
     void resetProperties() override;
-    void updatePropertiesOnNotationChanged() override;
+    void onNotationChanged(const mu::engraving::PropertyIdSet& changedPropertyIdSet,
+                           const mu::engraving::StyleIdSet& changedStyleIdSet) override;
 
-private:
+    void loadProperties(const mu::engraving::PropertyIdSet& propertyIdSet);
+
     void loadBeamHeightProperties();
     void setBeamHeightLeft(const qreal left);
     void setBeamHeightRight(const qreal height2);

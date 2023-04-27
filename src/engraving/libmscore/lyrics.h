@@ -23,6 +23,7 @@
 #ifndef __LYRICS_H__
 #define __LYRICS_H__
 
+#include "../types/types.h"
 #include "line.h"
 #include "textbase.h"
 
@@ -36,12 +37,9 @@ class LyricsLine;
 class Lyrics final : public TextBase
 {
     OBJECT_ALLOCATOR(engraving, Lyrics)
+    DECLARE_CLASSOF(ElementType::LYRICS)
+
 public:
-    enum class Syllabic : char {
-        ///.\{
-        SINGLE, BEGIN, END, MIDDLE
-        ///\}
-    };
 
     // MELISMA FIRST UNDERSCORE:
     // used as_ticks value to mark a melisma for which only the first chord has been spanned so far
@@ -57,14 +55,16 @@ public:
 private:
     Fraction _ticks;          ///< if > 0 then draw an underline to tick() + _ticks
                               ///< (melisma)
-    Syllabic _syllabic;
+    LyricsSyllabic _syllabic;
     LyricsLine* _separator;
+    bool _removeInvalidSegments = false;
 
     friend class Factory;
     Lyrics(ChordRest* parent);
     Lyrics(const Lyrics&);
 
     bool isMelisma() const;
+    void removeInvalidSegments();
     void undoChangeProperty(Pid id, const PropertyValue&, PropertyFlags ps) override;
 
 protected:
@@ -89,26 +89,23 @@ public:
 
     void scanElements(void* data, void (* func)(void*, EngravingItem*), bool all=true) override;
 
-    void write(XmlWriter& xml) const override;
-    void read(XmlReader&) override;
-    bool readProperties(XmlReader&) override;
     int subtype() const override { return _no; }
     TranslatableString subtypeUserName() const override;
     void setNo(int n) { _no = n; }
     int no() const { return _no; }
-    bool isEven() const { return _no % 1; }
-    void setSyllabic(Syllabic s) { _syllabic = s; }
-    Syllabic syllabic() const { return _syllabic; }
+    bool isEven() const { return _no % 2; }
+    void setSyllabic(LyricsSyllabic s) { _syllabic = s; }
+    LyricsSyllabic syllabic() const { return _syllabic; }
     void add(EngravingItem*) override;
     void remove(EngravingItem*) override;
     bool isEditAllowed(EditData&) const override;
-    bool edit(EditData&) override;
     void endEdit(EditData&) override;
 
     Fraction ticks() const { return _ticks; }
     void setTicks(const Fraction& tick) { _ticks = tick; }
     Fraction endTick() const;
     void removeFromScore();
+    void setRemoveInvalidSegments() { _removeInvalidSegments = true; }
 
     using EngravingObject::undoChangeProperty;
     void paste(EditData& ed, const String& txt) override;
@@ -116,6 +113,7 @@ public:
     PropertyValue getProperty(Pid propertyId) const override;
     bool setProperty(Pid propertyId, const PropertyValue&) override;
     PropertyValue propertyDefault(Pid id) const override;
+    void triggerLayout() const override;
 };
 
 //---------------------------------------------------------

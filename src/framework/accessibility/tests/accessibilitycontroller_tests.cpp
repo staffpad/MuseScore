@@ -26,7 +26,7 @@
 
 #include "accessibility/internal/accessibilitycontroller.h"
 
-#include "ui/tests/mocks/mainwindowprovidermock.h"
+#include "ui/tests/mocks/mainwindowmock.h"
 #include "global/tests/mocks/applicationmock.h"
 #include "mocks/accessibilityconfigurationmock.h"
 
@@ -46,7 +46,7 @@ public:
     {
         m_controller = std::make_shared<AccessibilityController>();
 
-        m_mainWindow = std::make_shared<ui::MainWindowProviderMock>();
+        m_mainWindow = std::make_shared<ui::MainWindowMock>();
         m_controller->setmainWindow(m_mainWindow);
 
         m_application = std::make_shared<framework::ApplicationMock>();
@@ -64,6 +64,7 @@ public:
         const IAccessible* accessibleParent() const override { return m_parent; }
         size_t accessibleChildCount() const override { return 0; }
         const IAccessible* accessibleChild(size_t) const override { return nullptr; }
+        QWindow* accessibleWindow() const override { return nullptr; }
         IAccessible::Role accessibleRole() const override { return IAccessible::NoRole; }
         QString accessibleName() const override { return QString(); }
         QString accessibleDescription() const override { return QString(); }
@@ -82,6 +83,9 @@ public:
         int accessibleCursorPosition() const override { return 0; }
 
         QString accessibleText(int, int) const override { return QString(); }
+
+        QString accessibleTextBeforeOffset(int, TextBoundaryType, int*, int*) const override { return QString(); }
+        QString accessibleTextAfterOffset(int, TextBoundaryType, int*, int*) const override { return QString(); }
         QString accessibleTextAtOffset(int, TextBoundaryType, int*, int*) const override { return QString(); }
         int accessibleCharacterCount() const override { return 0; }
 
@@ -145,7 +149,7 @@ public:
 #endif
 
     std::shared_ptr<AccessibilityController> m_controller;
-    std::shared_ptr<ui::MainWindowProviderMock> m_mainWindow;
+    std::shared_ptr<ui::MainWindowMock> m_mainWindow;
     std::shared_ptr<AccessibilityConfigurationMock> m_configuration;
     std::shared_ptr<framework::ApplicationMock> m_application;
 };

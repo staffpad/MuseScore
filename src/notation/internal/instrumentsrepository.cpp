@@ -30,10 +30,6 @@ using namespace mu::notation;
 
 void InstrumentsRepository::init()
 {
-    configuration()->instrumentListPathsChanged().onNotify(this, [this]() {
-        load();
-    });
-
     configuration()->scoreOrderListPathsChanged().onNotify(this, [this]() {
         load();
     });
@@ -103,9 +99,14 @@ void InstrumentsRepository::load()
     m_groups.clear();
     mu::engraving::clearInstrumentTemplates();
 
-    for (const io::path_t& filePath: configuration()->instrumentListPaths()) {
-        if (!mu::engraving::loadInstrumentTemplates(filePath.toQString())) {
-            LOGE() << "Could not load instruments from " << filePath.toQString() << "!";
+    io::path_t instrumentsPath = configuration()->instrumentListPath();
+    if (!mu::engraving::loadInstrumentTemplates(instrumentsPath)) {
+        LOGE() << "Could not load instruments from " << instrumentsPath << "!";
+    }
+
+    for (const io::path_t& ordersPath : configuration()->scoreOrderListPaths()) {
+        if (!mu::engraving::loadInstrumentTemplates(ordersPath)) {
+            LOGE() << "Could not load orders from " << ordersPath << "!";
         }
     }
 

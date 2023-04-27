@@ -31,12 +31,15 @@
 #include "ui/imainwindow.h"
 #include "ui/iuiactionsregister.h"
 #include "ui/inavigationcontroller.h"
+#include "ui/iuiconfiguration.h"
 #include "actions/iactionsdispatcher.h"
 #include "workspace/iworkspacemanager.h"
 #include "iappshellconfiguration.h"
 #include "project/irecentprojectsprovider.h"
 #include "internal/iappmenumodelhook.h"
 #include "plugins/ipluginsservice.h"
+#include "update/iupdateconfiguration.h"
+#include "global/iglobalconfiguration.h"
 
 namespace mu::appshell {
 class AppMenuModel : public uicomponents::AbstractMenuModel
@@ -46,17 +49,21 @@ class AppMenuModel : public uicomponents::AbstractMenuModel
     INJECT(appshell, ui::IMainWindow, mainWindow)
     INJECT(appshell, ui::IUiActionsRegister, uiActionsRegister)
     INJECT(appshell, ui::INavigationController, navigationController)
+    INJECT(notation, ui::IUiConfiguration, uiConfiguration)
     INJECT(appshell, actions::IActionsDispatcher, actionsDispatcher)
     INJECT(appshell, workspace::IWorkspaceManager, workspacesManager)
     INJECT(appshell, IAppShellConfiguration, configuration)
     INJECT(appshell, project::IRecentProjectsProvider, recentProjectsProvider)
     INJECT(appshell, IAppMenuModelHook, appMenuModelHook)
     INJECT(appshell, plugins::IPluginsService, pluginsService)
+    INJECT(appshell, update::IUpdateConfiguration, updateConfiguration)
+    INJECT(appshell, framework::IGlobalConfiguration, globalConfiguration)
 
 public:
     explicit AppMenuModel(QObject* parent = nullptr);
 
     Q_INVOKABLE void load() override;
+    Q_INVOKABLE bool isGlobalMenuAvailable();
 
 private:
     void setupConnections();

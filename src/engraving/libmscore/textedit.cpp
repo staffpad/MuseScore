@@ -23,11 +23,11 @@
 #include "textedit.h"
 
 #include "mscoreview.h"
+#include "navigate.h"
 #include "score.h"
-#include "symbolfont.h"
+#include "iengravingfont.h"
 #include "types/symnames.h"
-
-//#include "accessibility/accessibleitem.h"
+#include "lyrics.h"
 
 #include "log.h"
 
@@ -189,6 +189,13 @@ void TextBase::endEdit(EditData& ed)
         }
 
         commitText();
+        if (isLyrics()) {
+            Lyrics* prev = prevLyrics(toLyrics(this));
+            if (prev) {
+                prev->setRemoveInvalidSegments();
+                prev->layout();
+            }
+        }
         return;
     }
 
@@ -225,7 +232,7 @@ void TextBase::insertSym(EditData& ed, SymId id)
     TextCursor* cursor = ted->cursor();
 
     deleteSelectedText(ed);
-    String s = score()->symbolFont()->toString(id);
+    String s = score()->engravingFont()->toString(id);
     CharFormat fmt = *cursor->format();    // save format
     cursor->format()->setFontFamily(u"ScoreText");
     score()->undo(new InsertText(_cursor, s), &ed);
@@ -245,33 +252,116 @@ void TextBase::insertText(EditData& ed, const String& s)
 
 bool TextBase::isEditAllowed(EditData& ed) const
 {
+    // Keep this method closely in sync with TextBase::edit()!
+
     if (ed.key == Key_Shift || ed.key == Key_Escape) {
         return false;
     }
 
+    bool ctrlPressed  = ed.modifiers & ControlModifier;
     bool shiftPressed = ed.modifiers & ShiftModifier;
-    if (shiftPressed && ed.key == Key_F2) {
-        return false; // Toggle Special Characters dialog
+    bool altPressed = ed.modifiers & AltModifier;
+
+    // Hex
+    if (ed.modifiers == (ControlModifier | ShiftModifier | KeypadModifier)) {
+        switch (ed.key) {
+        case Key_0:
+        case Key_1:
+        case Key_2:
+        case Key_3:
+        case Key_4:
+        case Key_5:
+        case Key_6:
+        case Key_7:
+        case Key_8:
+        case Key_9:
+            return true;
+        default: break;
+        }
+    } else if (ed.modifiers == (ControlModifier | ShiftModifier)) {
+        switch (ed.key) {
+        case Key_A:
+        case Key_B:
+        case Key_C:
+        case Key_D:
+        case Key_E:
+        case Key_F:
+            return true;
+        default: break;
+        }
     }
 
-    bool ctrlPressed = ed.modifiers & ControlModifier;
-
-    if (ctrlPressed && !shiftPressed) {
-        static std::set<int> ignore = {
-            Key_B,
-            Key_C,
-            Key_I,
-            Key_U,
-            Key_V,
-            Key_X,
-            Key_Y,
-            Key_Z
-        };
-
-        return !mu::contains(ignore, ed.key);
+    switch (ed.key) {
+    // Basic editing / navigation
+    case Key_Enter:
+    case Key_Return:
+    case Key_Delete:
+    case Key_Backspace:
+    case Key_Left:
+    case Key_Right:
+    case Key_Up:
+    case Key_Down:
+    case Key_Home:
+    case Key_End:
+    case Key_Tab:
+    case Key_Space:
+    case Key_Minus:
+    case Key_Underscore:
+        return true;
+    // Select all is handled by us
+    case Key_A:
+        if (ctrlPressed && !shiftPressed) {
+            return true;
+        }
+        break;
+    // Several commands
+    // TODO: looks like we're hard-coding keyboard shortcuts here, but what if user has edited those?
+    case Key_B:
+    case Key_C:
+    case Key_I:
+    case Key_U:
+    case Key_V:
+    case Key_X:
+    case Key_Y:
+    case Key_Z:
+        if (ctrlPressed && !shiftPressed) {
+            return false; // handled at application level
+        }
+        break;
+    default:
+        break;
     }
 
-    return true;
+    // Insert special characters
+    if (ctrlPressed && shiftPressed) {
+        switch (ed.key) {
+        case Key_U:
+        case Key_B:
+        case Key_NumberSign: // e.g. QWERTY (US)
+        case Key_AsciiTilde: // e.g. QWERTY (GB)
+        case Key_Apostrophe: // e.g. QWERTZ (DE)
+        case Key_periodcentered: // e.g. QWERTY (ES)
+        case Key_3: // e.g. AZERTY (FR, BE)
+        case Key_H:
+        case Key_Space:
+        case Key_F:
+        case Key_M:
+        case Key_N:
+        case Key_P:
+        case Key_S:
+        case Key_R:
+        case Key_Z:
+            return true;
+        }
+    }
+    if (ctrlPressed && altPressed) {
+        if (ed.key == Key_Minus) {
+            return true;
+        }
+    }
+
+    // At least on non-macOS, sometimes ed.s is not empty even if Ctrl is pressed
+    return !ctrlPressed && !ed.s.empty();
 }
 
 //---------------------------------------------------------
@@ -280,6 +370,8 @@ bool TextBase::isEditAllowed(EditData& ed) const
 
 bool TextBase::edit(EditData& ed)
 {
+    // Keep this method closely in sync with TextBase::isEditAllowed()!
+
     if (!isEditAllowed(ed)) {
         return false;
     }
@@ -580,11 +672,11 @@ bool TextBase::edit(EditData& ed)
                 insertSym(ed, SymId::dynamicZ);
                 return true;
             }
-            if (ctrlPressed && altPressed) {
-                if (ed.key == Key_Minus) {
-                    insertSym(ed, SymId::lyricsElision);
-                    return true;
-                }
+        }
+        if (ctrlPressed && altPressed) {
+            if (ed.key == Key_Minus) {
+                insertSym(ed, SymId::lyricsElision);
+                return true;
             }
         }
     }
@@ -727,8 +819,7 @@ EngravingItem* TextBase::drop(EditData& ed)
 
     case ElementType::FSYMBOL:
     {
-        char32_t code = static_cast<char32_t>(toFSymbol(e)->code());
-        String s = String::fromUcs4(&code, 1);
+        String s = toFSymbol(e)->toString();
         delete e;
 
         deleteSelectedText(ed);
@@ -780,9 +871,9 @@ void TextBase::paste(EditData& ed, const String& txt)
                         assert(i + 1 < txt.size());
                         i++;
                         Char lowSurrogate = txt.at(i);
-                        insertText(ed, String(Char::surrogateToUcs4(highSurrogate, lowSurrogate)));
+                        insertText(ed, String::fromUcs4(Char::surrogateToUcs4(highSurrogate, lowSurrogate)));
                     } else {
-                        insertText(ed, String(Char(c.unicode())));
+                        insertText(ed, String(c));
                     }
                 }
             }
@@ -849,7 +940,7 @@ void TextBase::endHexState(EditData& ed)
             TextBlock& t = _layout[cursor->row()];
             String ss   = t.remove(static_cast<int>(c1), hexState + 1, cursor);
             bool ok;
-            int code     = ss.mid(1).toInt(&ok, 16);
+            char16_t code = ss.mid(1).toInt(&ok, 16);
             cursor->setColumn(c1);
             cursor->clearSelection();
             if (ok) {
@@ -899,8 +990,6 @@ bool TextBase::deleteSelectedText(EditData& ed)
                 break;
             }
             TextCursor undoCursor(*_cursor);
-            // can't rely on the cursor's current format as it doesn't preserve the special font "ScoreText"
-            undoCursor.setFormat(*_layout[_cursor->row()].formatAt(static_cast<int>(_cursor->column())));
             score()->undo(new RemoveText(&undoCursor, String(_cursor->currentCharacter())), &ed);
         }
     }

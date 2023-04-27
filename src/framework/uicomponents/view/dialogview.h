@@ -45,8 +45,13 @@ public:
 
 private:
     bool isDialog() const override;
-    void beforeShow() override;
     void onHidden() override;
+
+    QScreen* resolveScreen() const override;
+
+    void updateGeometry() override;
+
+    QRect viewGeometry() const override;
 
     QEventLoop m_loop;
 };

@@ -27,16 +27,14 @@
 using namespace mu::iex::audioexport;
 using namespace mu::framework;
 
-mu::Ret WaveWriter::write(notation::INotationPtr, QIODevice& destinationDevice, const Options&)
+mu::Ret WaveWriter::write(notation::INotationPtr notation, QIODevice& destinationDevice, const Options&)
 {
-    static const audio::SoundTrackFormat format {
+    const audio::SoundTrackFormat format {
         audio::SoundTrackType::WAV,
         static_cast<audio::sample_rate_t>(configuration()->exportSampleRate()),
         2 /* audioChannelsNumber */,
         0 /* bitRate */
     };
 
-    doWriteAndWait(destinationDevice, format);
-
-    return make_ret(Ret::Code::Ok);
+    return doWriteAndWait(notation, destinationDevice, format);
 }

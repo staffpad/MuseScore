@@ -35,7 +35,7 @@ public:
     VstAudioClient() = default;
     ~VstAudioClient();
 
-    void init(VstPluginType&& type, VstPluginPtr plugin, audio::audioch_t&& audioChannelsCount = 2);
+    void init(audio::AudioPluginType type, VstPluginPtr plugin, audio::audioch_t&& audioChannelsCount = 2);
 
     bool handleEvent(const VstEvent& event);
     bool handleParamChange(const PluginParamInfo& param);
@@ -62,6 +62,7 @@ private:
 
     IAudioProcessorPtr pluginProcessor() const;
     PluginComponentPtr pluginComponent() const;
+
     void setUpProcessData();
     void updateProcessSetup();
     void extractInputSamples(const audio::samples_t& sampleCount, const float* sourceBuffer);
@@ -84,12 +85,13 @@ private:
     std::vector<int> m_activeInputBusses;
 
     VstEventList m_eventList;
+    VstParameterChanges m_paramChanges;
     VstProcessData m_processData;
     VstProcessContext m_processContext;
 
     bool m_needUnprepareProcessData = false;
 
-    VstPluginType m_type = VstPluginType::Undefined;
+    audio::AudioPluginType m_type = audio::AudioPluginType::Undefined;
     audio::audioch_t m_audioChannelsCount = 0;
 };
 }

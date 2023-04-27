@@ -47,6 +47,8 @@ public:
     String suffix() const;
     static String suffix(const path_t& filePath);
 
+    EntryType entryType() const;
+
     bool isRelative() const;
     bool isAbsolute() const;
 
@@ -56,6 +58,7 @@ public:
     DateTime birthTime() const;
     DateTime lastModified() const;
 
+    path_t dirPath() const;
     Dir dir() const;
 
 private:

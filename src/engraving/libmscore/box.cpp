@@ -24,8 +24,6 @@
 
 #include <cmath>
 
-#include "rw/xml.h"
-
 #include "actionicon.h"
 #include "factory.h"
 #include "fret.h"
@@ -92,7 +90,7 @@ void HBox::computeMinWidth()
 
 void Box::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     if (score() && score()->printing()) {
         return;
     }
@@ -195,143 +193,6 @@ std::vector<PointF> VBox::gripsPositions(const EditData&) const
 {
     RectF r(abbox());
     return { PointF(r.x() + r.width() * .5, r.bottom()) };
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Box::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   writeProperties
-//---------------------------------------------------------
-
-void Box::writeProperties(XmlWriter& xml) const
-{
-    for (Pid id : {
-            Pid::BOX_HEIGHT, Pid::BOX_WIDTH, Pid::TOP_GAP, Pid::BOTTOM_GAP,
-            Pid::LEFT_MARGIN, Pid::RIGHT_MARGIN, Pid::TOP_MARGIN, Pid::BOTTOM_MARGIN, Pid::BOX_AUTOSIZE }) {
-        writeProperty(xml, id);
-    }
-    EngravingItem::writeProperties(xml);
-    for (const EngravingItem* e : el()) {
-        e->write(xml);
-    }
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Box::read(XmlReader& e)
-{
-    _leftMargin      = 0.0;
-    _rightMargin     = 0.0;
-    _topMargin       = 0.0;
-    _bottomMargin    = 0.0;
-    _boxHeight       = Spatium(0);       // override default set in constructor
-    _boxWidth        = Spatium(0);
-    MeasureBase::read(e);
-    if (score()->mscVersion() < 302) {
-        _isAutoSizeEnabled = false;     // disable auto-size for older scores by default.
-    }
-}
-
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool Box::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-    if (tag == "height") {
-        _boxHeight = Spatium(e.readDouble());
-    } else if (tag == "width") {
-        _boxWidth = Spatium(e.readDouble());
-    } else if (tag == "topGap") {
-        _topGap = e.readDouble();
-        if (score()->mscVersion() >= 206) {
-            _topGap *= score()->spatium();
-        }
-        setPropertyFlags(Pid::TOP_GAP, PropertyFlags::UNSTYLED);
-    } else if (tag == "bottomGap") {
-        _bottomGap = e.readDouble();
-        if (score()->mscVersion() >= 206) {
-            _bottomGap *= score()->spatium();
-        }
-        setPropertyFlags(Pid::BOTTOM_GAP, PropertyFlags::UNSTYLED);
-    } else if (tag == "leftMargin") {
-        _leftMargin = e.readDouble();
-    } else if (tag == "rightMargin") {
-        _rightMargin = e.readDouble();
-    } else if (tag == "topMargin") {
-        _topMargin = e.readDouble();
-    } else if (tag == "bottomMargin") {
-        _bottomMargin = e.readDouble();
-    } else if (tag == "boxAutoSize") {
-        _isAutoSizeEnabled = e.readBool();
-    } else if (tag == "Text") {
-        Text* t;
-        if (isTBox()) {
-            t = toTBox(this)->text();
-            t->read(e);
-        } else {
-            t = Factory::createText(this);
-            t->read(e);
-            if (t->empty()) {
-                LOGD("read empty text");
-            } else {
-                add(t);
-            }
-        }
-    } else if (tag == "Symbol") {
-        Symbol* s = new Symbol(this);
-        s->read(e);
-        add(s);
-    } else if (tag == "Image") {
-        if (MScore::noImages) {
-            e.skipCurrentElement();
-        } else {
-            Image* image = new Image(this);
-            image->setTrack(e.context()->track());
-            image->read(e);
-            add(image);
-        }
-    } else if (tag == "FretDiagram") {
-        FretDiagram* f = Factory::createFretDiagram(this->score()->dummy()->segment());
-        f->read(e);
-        //! TODO Looks like a bug.
-        //! The FretDiagram parent must be Segment
-        //! there is a method: `Segment* segment() const { return toSegment(parent()); }`,
-        //! but when we add it to Box, the parent will be rewritten.
-        add(f);
-    } else if (tag == "HBox") {
-        HBox* hb = new HBox(this->system());
-        hb->read(e);
-        //! TODO Looks like a bug.
-        //! The HBox parent must be System
-        //! there is a method: `System* system() const { return (System*)parent(); }`,
-        //! but when we add it to Box, the parent will be rewritten.
-        add(hb);
-    } else if (tag == "VBox") {
-        VBox* vb = new VBox(this->system());
-        vb->read(e);
-        //! TODO Looks like a bug.
-        //! The VBox parent must be System
-        //! there is a method: `System* system() const { return (System*)parent(); }`,
-        //! but when we add it to Box, the parent will be rewritten.
-        add(vb);
-    } else if (MeasureBase::readProperties(e)) {
-    } else {
-        return false;
-    }
-    return true;
 }
 
 //---------------------------------------------------------
@@ -670,47 +531,12 @@ RectF HBox::drag(EditData& data)
 }
 
 //---------------------------------------------------------
-//   endEditDrag
-//---------------------------------------------------------
-
-void HBox::endEditDrag(EditData&)
-{
-    triggerLayout();
-    score()->update();
-}
-
-//---------------------------------------------------------
 //   isMovable
 //---------------------------------------------------------
 
 bool HBox::isMovable() const
 {
     return explicitParent() && (explicitParent()->isHBox() || explicitParent()->isVBox());
-}
-
-//---------------------------------------------------------
-//   writeProperties
-//---------------------------------------------------------
-
-void HBox::writeProperties(XmlWriter& xml) const
-{
-    writeProperty(xml, Pid::CREATE_SYSTEM_HEADER);
-    Box::writeProperties(xml);
-}
-
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool HBox::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-    if (readProperty(tag, e, Pid::CREATE_SYSTEM_HEADER)) {
-    } else if (Box::readProperties(e)) {
-    } else {
-        return false;
-    }
-    return true;
 }
 
 //---------------------------------------------------------

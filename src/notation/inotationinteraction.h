@@ -132,10 +132,11 @@ public:
     virtual void editText(QInputMethodEvent* event) = 0;
     virtual void endEditText() = 0;
     virtual void changeTextCursorPosition(const PointF& newCursorPos) = 0;
+    virtual void selectText(mu::engraving::SelectTextType type) = 0;
     virtual const TextBase* editedText() const = 0;
     virtual async::Notification textEditingStarted() const = 0;
     virtual async::Notification textEditingChanged() const = 0;
-    virtual async::Notification textEditingEnded() const = 0;
+    virtual async::Channel<TextBase*> textEditingEnded() const = 0;
 
     // Display
     virtual async::Channel<ScoreConfigType> scoreConfigChanged() const = 0;
@@ -175,7 +176,7 @@ public:
     virtual void addHairpinsToSelection(HairpinType type) = 0;
     virtual void addAccidentalToSelection(AccidentalType type) = 0;
     virtual void putRestToSelection() = 0;
-    virtual void putRest(DurationType duration) = 0;
+    virtual void putRest(Duration duration) = 0;
     virtual void addBracketsToSelection(BracketsType type) = 0;
     virtual void changeSelectedNotesArticulation(SymbolId articulationSymbolId) = 0;
     virtual void addGraceNotesToSelectedNotes(GraceNoteType type) = 0;
@@ -233,13 +234,13 @@ public:
     virtual void resetShapesAndPosition() = 0;
 
     virtual ScoreConfig scoreConfig() const = 0;
-    virtual void setScoreConfig(ScoreConfig config) = 0;
+    virtual void setScoreConfig(const ScoreConfig& config) = 0;
 
     virtual void addMelisma() = 0;
     virtual void addLyricsVerse() = 0;
 
     // Text navigation
-    virtual void navigateToLyrics(MoveDirection direction) = 0;
+    virtual void navigateToLyrics(MoveDirection direction, bool moveOnly = false) = 0;
     virtual void navigateToLyricsVerse(MoveDirection direction) = 0;
 
     virtual void navigateToNextSyllable() = 0;
@@ -265,7 +266,6 @@ public:
     virtual void changeAccidental(mu::engraving::AccidentalType) = 0;
     virtual void transposeSemitone(int) = 0;
     virtual void transposeDiatonicAlterations(mu::engraving::TransposeDirection) = 0;
-    virtual void toggleGlobalOrLocalInsert() = 0;
     virtual void toggleAutoplace(bool all) = 0;
     virtual void getLocation() = 0;
     virtual void execute(void (mu::engraving::Score::*)()) = 0;

@@ -107,7 +107,7 @@ void MidiRemote::setCurrentActionEvent(const Event& ev)
 mu::Ret MidiRemote::process(const Event& ev)
 {
     if (needIgnoreEvent(ev)) {
-        return make_ret(Ret::Code::Ok);
+        return Ret(Ret::Code::Undefined);
     }
 
     RemoteEvent event = remoteEventFromMidiEvent(ev);
@@ -206,6 +206,11 @@ void MidiRemote::writeMidiMapping(XmlWriter& writer, const MidiControlsMapping& 
 bool MidiRemote::needIgnoreEvent(const Event& event) const
 {
     if (isSettingMode()) {
+        return true;
+    }
+
+    if (event.opcode() != Event::Opcode::NoteOn && event.opcode() != Event::Opcode::NoteOff
+        && event.opcode() != Event::Opcode::ControlChange) {
         return true;
     }
 

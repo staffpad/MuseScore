@@ -27,6 +27,7 @@
 
 #include "modularity/ioc.h"
 #include "async/asyncable.h"
+#include "types/retval.h"
 
 #include "abstractaudiosource.h"
 #include "mixerchannel.h"
@@ -45,7 +46,8 @@ public:
     IAudioSourcePtr mixedSource();
 
     RetVal<MixerChannelPtr> addChannel(const TrackId trackId, IAudioSourcePtr source);
-    Ret removeChannel(const TrackId id);
+    RetVal<MixerChannelPtr> addAuxChannel(const TrackId trackId);
+    Ret removeChannel(const TrackId trackId);
 
     void setAudioChannelsCount(const audioch_t count);
 
@@ -54,6 +56,7 @@ public:
 
     AudioOutputParams masterOutputParams() const;
     void setMasterOutputParams(const AudioOutputParams& params);
+    void clearMasterOutputParams();
     async::Channel<AudioOutputParams> masterOutputParamsChanged() const;
 
     async::Channel<audioch_t, AudioSignalVal> masterAudioSignalChanges() const;
@@ -66,7 +69,7 @@ public:
 
 private:
     void mixOutputFromChannel(float* outBuffer, float* inBuffer, unsigned int samplesCount);
-    void completeOutput(float* buffer, const samples_t& samplesPerChannel);
+    void completeOutput(float* buffer, samples_t samplesPerChannel);
     void notifyAboutAudioSignalChanges(const audioch_t audioChannelNumber, const float linearRms) const;
 
     std::vector<float> m_writeCacheBuff;
@@ -75,7 +78,9 @@ private:
     async::Channel<AudioOutputParams> m_masterOutputParamsChanged;
     std::vector<IFxProcessorPtr> m_masterFxProcessors = {};
 
-    std::map<TrackId, MixerChannelPtr> m_mixerChannels = {};
+    std::map<TrackId, MixerChannelPtr> m_trackChannels = {};
+    std::map<TrackId, MixerChannelPtr> m_auxChannels = {};
+
     dsp::LimiterPtr m_limiter = nullptr;
 
     std::set<IClockPtr> m_clocks;

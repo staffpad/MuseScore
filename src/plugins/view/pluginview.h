@@ -25,22 +25,20 @@
 
 #include <QQuickView>
 
-#include "io/path.h"
+#include "types/ret.h"
 
 #include "modularity/ioc.h"
 #include "framework/ui/iuiengine.h"
-#include "ipluginsconfiguration.h"
+#include "plugins/ipluginsconfiguration.h"
 
-#include "plugins/pluginstypes.h"
+#include "uicomponents/view/dialogview.h"
 
-namespace mu::engraving {
-class QmlPlugin;
-}
-
-class QQuickView;
 class QQmlComponent;
+class QQuickView;
 
 namespace mu::plugins {
+class QmlPlugin;
+
 class PluginView : public QObject
 {
     Q_OBJECT
@@ -49,14 +47,18 @@ class PluginView : public QObject
     INJECT(plugins, IPluginsConfiguration, configuration)
 
 public:
-    PluginView(const QUrl& url, QObject* parent = nullptr);
+    PluginView(QObject* parent = nullptr);
     ~PluginView();
+
+    Ret load(const QUrl& url);
 
     QString name() const;
     QString description() const;
     QVersionNumber version() const;
     QString thumbnailName() const;
     QString categoryCode() const;
+
+    QmlPlugin* qmlPlugin() const;
 
     void run();
 
@@ -71,9 +73,9 @@ private:
 
     void destroyView();
 
-    mu::engraving::QmlPlugin* m_qmlPlugin = nullptr;
+    QmlPlugin* m_qmlPlugin = nullptr;
     QQmlComponent* m_component = nullptr;
-    QQuickView* m_view = nullptr;
+    uicomponents::DialogView* m_dialogView = nullptr;
 };
 }
 

@@ -261,6 +261,15 @@ TEST_F(Global_Types_StringTests, String_Replace)
         //! CHECK
         EXPECT_EQ(str, u"abcdef");
     }
+
+    {
+        //! GIVEN Some String
+        String str = u"123deПыф";
+        //! DO
+        str.replace(u"", u"");
+        //! CHECK
+        EXPECT_EQ(str, u"123deПыф");
+    }
 }
 
 TEST_F(Global_Types_StringTests, String_PlusAssign)
@@ -501,6 +510,45 @@ TEST_F(Global_Types_StringTests, String_Args)
         //! CHECK
         EXPECT_EQ(newStr, u"100%100% 100%%100%%");
     }
+
+    {
+        //! GIVEN Some Strings containing a %1 and starting with a number
+        String str = u"1-%1";
+        String str2 = u"2-%1";
+        //! DO
+        String newStr = str.arg(6);
+        String newStr2 = str2.arg(6);
+        //! CHECK
+        EXPECT_EQ(newStr, u"1-6");
+        EXPECT_EQ(newStr2, u"2-6");
+    }
+
+    {
+        //! GIVEN Some String containing a %1 and %2 with chained calls to .arg
+        String str = u"%1-%2";
+        //! DO
+        String newStr = str.arg(2).arg(6);
+        //! CHECK
+        EXPECT_EQ(newStr, u"2-6");
+    }
+
+    {
+        //! GIVEN Some String containing a %1, %2, ..., %9 except %8, given not enough args
+        String str = u"%1%3%2%4%9%7%6%5";
+        //! DO
+        String newStr = str.arg(u"a", u"b", u"c", u"d", u"e");
+        //! CHECK
+        EXPECT_EQ(newStr, u"acbd%4%2%1e");
+    }
+
+    {
+        //! GIVEN Some String containing a %1, %2, ..., %9 except %8, given not enough args in chained calls to .arg
+        String str = u"%1%3%2%4%9%7%6%5";
+        //! DO
+        String newStr = str.arg(u"a").arg(u"b", u"c").arg(u"d").arg(u"e");
+        //! CHECK
+        EXPECT_EQ(newStr, u"acbd%4%2%1e");
+    }
 }
 
 TEST_F(Global_Types_StringTests, String_Number)
@@ -567,6 +615,28 @@ TEST_F(Global_Types_StringTests, String_ToInt)
     {
         //! GIVEN Some string
         String s("2abc");
+        //! DO
+        bool ok = false;
+        int v = s.toInt(&ok);
+        //! CHECK
+        EXPECT_FALSE(ok);
+        EXPECT_EQ(v, 0);
+    }
+
+    {
+        //! GIVEN Some string
+        String s("123.456");
+        //! DO
+        bool ok = false;
+        int v = s.toInt(&ok);
+        //! CHECK
+        EXPECT_TRUE(ok);
+        EXPECT_EQ(v, 123);
+    }
+
+    {
+        //! GIVEN Some string
+        String s("123.456a");
         //! DO
         bool ok = false;
         int v = s.toInt(&ok);
@@ -695,6 +765,28 @@ TEST_F(Global_Types_StringTests, AsciiString_ToInt)
         EXPECT_FALSE(ok);
         EXPECT_EQ(v, 0);
     }
+
+    {
+        //! GIVEN Some string
+        String s("123.456");
+        //! DO
+        bool ok = false;
+        int v = s.toInt(&ok);
+        //! CHECK
+        EXPECT_TRUE(ok);
+        EXPECT_EQ(v, 123);
+    }
+
+    {
+        //! GIVEN Some string
+        String s("123.456а");
+        //! DO
+        bool ok = false;
+        int v = s.toInt(&ok);
+        //! CHECK
+        EXPECT_FALSE(ok);
+        EXPECT_EQ(v, 0);
+    }
 }
 
 TEST_F(Global_Types_StringTests, AsciiString_ToDouble)
@@ -719,6 +811,50 @@ TEST_F(Global_Types_StringTests, AsciiString_ToDouble)
         //! CHECK
         EXPECT_TRUE(ok);
         EXPECT_DOUBLE_EQ(v, 2.1);
+    }
+
+    {
+        //! GIVEN Some string
+        AsciiStringView s("2.1a");
+        //! DO
+        bool ok = false;
+        double v = s.toDouble(&ok);
+        //! CHECK
+        EXPECT_TRUE(ok);
+        EXPECT_DOUBLE_EQ(v, 2.1);
+    }
+
+    {
+        //! GIVEN Some string
+        AsciiStringView s("234a1");
+        //! DO
+        bool ok = false;
+        double v = s.toDouble(&ok);
+        //! CHECK
+        EXPECT_TRUE(ok);
+        EXPECT_DOUBLE_EQ(v, 234.0);
+    }
+
+    {
+        //! GIVEN Some string
+        AsciiStringView s("2.");
+        //! DO
+        bool ok = false;
+        double v = s.toDouble(&ok);
+        //! CHECK
+        EXPECT_TRUE(ok);
+        EXPECT_DOUBLE_EQ(v, 2.0);
+    }
+
+    {
+        //! GIVEN Some string
+        AsciiStringView s(".2");
+        //! DO
+        bool ok = false;
+        double v = s.toDouble(&ok);
+        //! CHECK
+        EXPECT_TRUE(ok);
+        EXPECT_DOUBLE_EQ(v, 0.2);
     }
 
     {

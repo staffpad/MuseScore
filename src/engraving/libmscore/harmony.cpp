@@ -29,8 +29,6 @@
 #include "draw/fontmetrics.h"
 #include "draw/types/brush.h"
 #include "draw/types/pen.h"
-#include "rw/writecontext.h"
-#include "rw/xml.h"
 
 #include "chordlist.h"
 #include "fret.h"
@@ -183,7 +181,6 @@ void Harmony::resolveDegreeList()
 const ElementStyle chordSymbolStyle {
     { Sid::harmonyPlacement, Pid::PLACEMENT },
     { Sid::minHarmonyDistance, Pid::MIN_DISTANCE },
-    { Sid::harmonyPlay, Pid::PLAY },
     { Sid::harmonyVoiceLiteral, Pid::HARMONY_VOICE_LITERAL },
     { Sid::harmonyVoicing, Pid::HARMONY_VOICING },
     { Sid::harmonyDuration, Pid::HARMONY_DURATION }
@@ -209,6 +206,7 @@ Harmony::Harmony(Segment* parent)
     _harmonyType = HarmonyType::STANDARD;
     _leftParen  = false;
     _rightParen = false;
+    _play = true;
     _realizedHarmony = RealizedHarmony(this);
     initElementStyle(&chordSymbolStyle);
 }
@@ -257,164 +255,8 @@ Harmony::~Harmony()
     }
 }
 
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Harmony::write(XmlWriter& xml) const
+void Harmony::afterRead()
 {
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    xml.startElement(this);
-    writeProperty(xml, Pid::HARMONY_TYPE);
-    if (_leftParen) {
-        xml.tag("leftParen");
-    }
-    if (_rootTpc != Tpc::TPC_INVALID || _baseTpc != Tpc::TPC_INVALID) {
-        int rRootTpc = _rootTpc;
-        int rBaseTpc = _baseTpc;
-        if (staff()) {
-            // parent can be a fret diagram
-            Segment* segment = getParentSeg();
-            Fraction tick = segment ? segment->tick() : Fraction(-1, 1);
-            const Interval& interval = part()->instrument(tick)->transpose();
-            if (xml.context()->clipboardmode() && !score()->styleB(Sid::concertPitch) && interval.chromatic) {
-                rRootTpc = transposeTpc(_rootTpc, interval, true);
-                rBaseTpc = transposeTpc(_baseTpc, interval, true);
-            }
-        }
-        if (rRootTpc != Tpc::TPC_INVALID) {
-            xml.tag("root", rRootTpc);
-            if (_rootCase != NoteCaseType::CAPITAL) {
-                xml.tag("rootCase", static_cast<int>(_rootCase));
-            }
-        }
-        if (_id > 0) {
-            xml.tag("extension", _id);
-        }
-        // parser uses leading "=" as a hidden specifier for minor
-        // this may or may not currently be incorporated into _textName
-        String writeName = _textName;
-        if (_parsedForm && _parsedForm->name().startsWith(u'=') && !writeName.startsWith(u'=')) {
-            writeName = u"=" + writeName;
-        }
-        if (!writeName.isEmpty()) {
-            xml.tag("name", writeName);
-        }
-
-        if (rBaseTpc != Tpc::TPC_INVALID) {
-            xml.tag("base", rBaseTpc);
-            if (_baseCase != NoteCaseType::CAPITAL) {
-                xml.tag("baseCase", static_cast<int>(_baseCase));
-            }
-        }
-        for (const HDegree& hd : _degreeList) {
-            HDegreeType tp = hd.type();
-            if (tp == HDegreeType::ADD || tp == HDegreeType::ALTER || tp == HDegreeType::SUBTRACT) {
-                xml.startElement("degree");
-                xml.tag("degree-value", hd.value());
-                xml.tag("degree-alter", hd.alter());
-                switch (tp) {
-                case HDegreeType::ADD:
-                    xml.tag("degree-type", "add");
-                    break;
-                case HDegreeType::ALTER:
-                    xml.tag("degree-type", "alter");
-                    break;
-                case HDegreeType::SUBTRACT:
-                    xml.tag("degree-type", "subtract");
-                    break;
-                default:
-                    break;
-                }
-                xml.endElement();
-            }
-        }
-    } else {
-        xml.tag("name", _textName);
-    }
-    if (!_function.isEmpty()) {
-        xml.tag("function", _function);
-    }
-    TextBase::writeProperties(xml, false, true);
-    //Pid::PLAY, Pid::HARMONY_VOICE_LITERAL, Pid::HARMONY_VOICING, Pid::HARMONY_DURATION
-    //written by the above function call because they are part of element style
-    if (_rightParen) {
-        xml.tag("rightParen");
-    }
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Harmony::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "base") {
-            setBaseTpc(e.readInt());
-        } else if (tag == "baseCase") {
-            _baseCase = static_cast<NoteCaseType>(e.readInt());
-        } else if (tag == "extension") {
-            setId(e.readInt());
-        } else if (tag == "name") {
-            _textName = e.readText();
-        } else if (tag == "root") {
-            setRootTpc(e.readInt());
-        } else if (tag == "rootCase") {
-            _rootCase = static_cast<NoteCaseType>(e.readInt());
-        } else if (tag == "function") {
-            _function = e.readText();
-        } else if (tag == "degree") {
-            int degreeValue = 0;
-            int degreeAlter = 0;
-            String degreeType;
-            while (e.readNextStartElement()) {
-                const AsciiStringView t(e.name());
-                if (t == "degree-value") {
-                    degreeValue = e.readInt();
-                } else if (t == "degree-alter") {
-                    degreeAlter = e.readInt();
-                } else if (t == "degree-type") {
-                    degreeType = e.readText();
-                } else {
-                    e.unknown();
-                }
-            }
-            if (degreeValue <= 0 || degreeValue > 13
-                || degreeAlter < -2 || degreeAlter > 2
-                || (degreeType != "add" && degreeType != "alter" && degreeType != "subtract")) {
-                LOGD("incorrect degree: degreeValue=%d degreeAlter=%d degreeType=%s",
-                     degreeValue, degreeAlter, muPrintable(degreeType));
-            } else {
-                if (degreeType == "add") {
-                    addDegree(HDegree(degreeValue, degreeAlter, HDegreeType::ADD));
-                } else if (degreeType == "alter") {
-                    addDegree(HDegree(degreeValue, degreeAlter, HDegreeType::ALTER));
-                } else if (degreeType == "subtract") {
-                    addDegree(HDegree(degreeValue, degreeAlter, HDegreeType::SUBTRACT));
-                }
-            }
-        } else if (tag == "leftParen") {
-            _leftParen = true;
-            e.readNext();
-        } else if (tag == "rightParen") {
-            _rightParen = true;
-            e.readNext();
-        } else if (readProperty(tag, e, Pid::POS_ABOVE)) {
-        } else if (readProperty(tag, e, Pid::HARMONY_TYPE)) {
-        } else if (readProperty(tag, e, Pid::PLAY)) {
-        } else if (readProperty(tag, e, Pid::HARMONY_VOICE_LITERAL)) {
-        } else if (readProperty(tag, e, Pid::HARMONY_VOICING)) {
-        } else if (readProperty(tag, e, Pid::HARMONY_DURATION)) {
-        } else if (!TextBase::readProperties(e)) {
-            e.unknown();
-        }
-    }
-
     // TODO: now that we can render arbitrary chords,
     // we could try to construct a full representation from a degree list.
     // These will typically only exist for chords imported from MusicXML prior to MuseScore 2.0
@@ -852,6 +694,7 @@ bool Harmony::isEditAllowed(EditData& ed) const
     }
 
     if (ed.key == Key_Return || ed.key == Key_Enter) {
+        // This "edit" is actually handled in NotationInteraction::editElement
         return true;
     }
 
@@ -866,11 +709,6 @@ bool Harmony::edit(EditData& ed)
 {
     if (!isEditAllowed(ed)) {
         return false;
-    }
-
-    if (ed.key == Key_Return || ed.key == Key_Enter) {
-        endEdit(ed);
-        return true;
     }
 
     bool rv = TextBase::edit(ed);
@@ -1439,7 +1277,7 @@ void Harmony::layout1()
     if (textBlockList().empty()) {
         textBlockList().push_back(TextBlock());
     }
-    calculateBoundingRect();      // for normal symbols this is called in layout: computeMinWidth()
+    calculateBoundingRect();
     if (hasFrame()) {
         layoutFrame();
     }
@@ -1453,39 +1291,37 @@ void Harmony::layout1()
 PointF Harmony::calculateBoundingRect()
 {
     const double ypos = (placeBelow() && staff()) ? staff()->height() : 0.0;
-    const FretDiagram* fd   = (explicitParent() && explicitParent()->isFretDiagram()) ? toFretDiagram(explicitParent()) : nullptr;
-    const double cw   = symWidth(SymId::noteheadBlack);
-    double newx = 0.0;
-    double newy = 0.0;
+    const FretDiagram* fd = (explicitParent() && explicitParent()->isFretDiagram()) ? toFretDiagram(explicitParent()) : nullptr;
+    const double cw = symWidth(SymId::noteheadBlack);
+
+    double newPosX = 0.0;
+    double newPosY = 0.0;
 
     if (textList.empty()) {
         TextBase::layout1();
 
-        // When in EDIT mode, the bbox is different as in NORMAL mode.
-        // Adjust the position so the both bbox have the same alignment.
-
-        double xx = 0.0;
-        double yy = 0.0;
         if (fd) {
-            if (align() == AlignH::RIGHT) {
-                xx = fd->width() / 2.0;
-            }
-            yy = this->ypos();
+            newPosY = this->ypos();
         } else {
-            if (align() == AlignH::RIGHT) {
-                xx = cw;
-            } else if (align() == AlignH::HCENTER) {
-                xx = cw / 2.0;
-            }
-            yy = ypos - ((align() == AlignV::BOTTOM) ? _harmonyHeight - bbox().height() : 0.0);
+            newPosY = ypos - ((align() == AlignV::BOTTOM) ? _harmonyHeight - bbox().height() : 0.0);
         }
-
-        newx = xx;
-        newy = yy;
     } else {
         RectF bb;
         for (TextSegment* ts : textList) {
             bb.unite(ts->tightBoundingRect().translated(ts->x, ts->y));
+        }
+
+        double xx = 0.0;
+        switch (align().horizontal) {
+        case AlignH::LEFT:
+            xx = -bb.left();
+            break;
+        case AlignH::HCENTER:
+            xx = -(bb.center().x());
+            break;
+        case AlignH::RIGHT:
+            xx = -bb.right();
+            break;
         }
 
         double yy = -bb.y();      // Align::TOP
@@ -1497,25 +1333,10 @@ PointF Harmony::calculateBoundingRect()
             yy = -bb.height() - bb.y();
         }
 
-        double xx = -bb.x();     // AlignH::LEFT
         if (fd) {
-            if (align() == AlignH::RIGHT) {
-                xx = fd->bbox().width() - bb.width();
-            } else if (align() == AlignH::HCENTER) {
-                xx = fd->centerX() - bb.width() / 2.0;
-            }
-
-            newx = 0.0;
-            newy = ypos - yy - score()->styleMM(Sid::harmonyFretDist);
+            newPosY = ypos - yy - score()->styleMM(Sid::harmonyFretDist);
         } else {
-            if (align() == AlignH::RIGHT) {
-                xx = -bb.x() - bb.width() + cw;
-            } else if (align() == AlignH::HCENTER) {
-                xx = -bb.x() - bb.width() / 2.0 + cw / 2.0;
-            }
-
-            newx = 0.0;
-            newy = ypos;
+            newPosY = ypos;
         }
 
         for (TextSegment* ts : textList) {
@@ -1524,32 +1345,35 @@ PointF Harmony::calculateBoundingRect()
 
         setbbox(bb.translated(xx, yy));
         _harmonyHeight = bbox().height();
+    }
 
-        for (size_t i = 0; i < rows(); ++i) {
-            TextBlock& t = textBlockList()[i];
-
-            // when MS switch to editing Harmony MS draws text defined by textBlockList().
-            // When MS switches back to normal state it draws text from textList
-            // To correct placement of text in editing we need to layout textBlockList() elements
-            t.layout(this);
-            for (auto& s : t.fragments()) {
-                s.pos = PointF();
-            }
+    if (fd) {
+        switch (align().horizontal) {
+        case AlignH::LEFT:
+            newPosX = 0.0;
+            break;
+        case AlignH::HCENTER:
+            newPosX = fd->centerX();
+            break;
+        case AlignH::RIGHT:
+            newPosX = fd->rightX();
+            break;
+        }
+    } else {
+        switch (align().horizontal) {
+        case AlignH::LEFT:
+            newPosX = 0.0;
+            break;
+        case AlignH::HCENTER:
+            newPosX = cw * 0.5;
+            break;
+        case AlignH::RIGHT:
+            newPosX = cw;
+            break;
         }
     }
 
-    return PointF(newx, newy);
-}
-
-//---------------------------------------------------------
-//   xShapeOffset
-//    Returns the offset for the shapes.
-//---------------------------------------------------------
-
-double Harmony::xShapeOffset() const
-{
-    const FretDiagram* fd = (explicitParent() && explicitParent()->isFretDiagram()) ? toFretDiagram(explicitParent()) : nullptr;
-    return (fd && textList.empty()) ? fd->centerX() : 0.0;
+    return PointF(newPosX, newPosY);
 }
 
 //---------------------------------------------------------
@@ -1558,7 +1382,7 @@ double Harmony::xShapeOffset() const
 
 void Harmony::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     using namespace mu::draw;
     // painter->setPen(curColor());
     if (textList.empty()) {
@@ -1808,7 +1632,7 @@ void Harmony::render()
         mu::draw::Font ff(font());
         ff.setPointSizeF(ff.pointSizeF() * cf.mag);
         if (!(cf.family.isEmpty() || cf.family == "default")) {
-            ff.setFamily(cf.family);
+            ff.setFamily(cf.family, draw::Font::Type::Harmony);
         }
         fontList.push_back(ff);
     }
@@ -2028,7 +1852,7 @@ const std::vector<HDegree>& Harmony::degreeList() const
 //   parsedForm
 //---------------------------------------------------------
 
-const ParsedChord* Harmony::parsedForm()
+const ParsedChord* Harmony::parsedForm() const
 {
     if (!_parsedForm) {
         ChordList* cl = score()->chordList();
@@ -2121,11 +1945,14 @@ String Harmony::generateScreenReaderInfo() const
             { u"i", u"1" },
         };
         static std::vector<std::pair<String, String> > symbolReplacements {
-            { u"b", u"♭" },
-            { u"h", u"♮" },
-            { u"#", u"♯" },
             { u"bb", u"𝄫" },
             { u"##", u"𝄪" },
+            { u"h", u"♮" },
+            { u"\\♮", u"h" }, // \h should be h, so need to correct replacing in the previous step
+            { u"#", u"♯" },
+            { u"\\♯", u"#" }, // \# should be #, so need to correct replacing in the previous step
+            { u"b", u"♭" },
+            { u"\\♭", u"b" }, // \b should be b, so need to correct replacing in the previous step
             // TODO: use SMuFL glyphs and translate
             //{ "o", ""},
             //{ "0", ""},
@@ -2136,10 +1963,7 @@ String Harmony::generateScreenReaderInfo() const
             aux.replace(r.first, r.second);
         }
         for (auto const& r : symbolReplacements) {
-            // only replace when not preceded by backslash
-            String s = u"(?<!\\\\)" + r.first;
-            std::regex re(s.toStdString());
-            aux.replace(re, r.second);
+            aux.replace(r.first, r.second);
         }
         // construct string one  character at a time
         for (size_t i = 0; i < aux.size(); ++i) {
@@ -2261,7 +2085,7 @@ bool Harmony::setProperty(Pid pid, const PropertyValue& v)
 {
     switch (pid) {
     case Pid::PLAY:
-        setPlay(v.toBool());
+        _play = v.toBool();
         break;
     case Pid::HARMONY_TYPE:
         setHarmonyType(HarmonyType(v.toInt()));
@@ -2313,6 +2137,9 @@ PropertyValue Harmony::propertyDefault(Pid id) const
         }
     }
     break;
+    case Pid::PLAY:
+        v = true;
+        break;
     case Pid::OFFSET:
         if (explicitParent() && explicitParent()->isFretDiagram()) {
             v = PropertyValue::fromValue(PointF(0.0, 0.0));

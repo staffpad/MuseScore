@@ -43,16 +43,20 @@ class Note;
 class ChordLine final : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, ChordLine)
-protected:
+    DECLARE_CLASSOF(ElementType::CHORDLINE)
 
-    ChordLineType _chordLineType;
-    bool _straight;
-    mu::draw::PainterPath path;
-    bool modified;
-    double _lengthX;
-    double _lengthY;
+private:
+
+    bool _straight = false;
+    bool _wavy = false;
+
+    ChordLineType _chordLineType = ChordLineType::NOTYPE;
+    draw::PainterPath m_path;
+    bool m_modified = false;
+    double _lengthX = 0.0;
+    double _lengthY = 0.0;
     Note* _note = nullptr;
-    static constexpr double _baseLength = 1.0;
+    static constexpr double _waveAngle = 20;
 
     friend class Factory;
 
@@ -60,6 +64,8 @@ protected:
     ChordLine(const ChordLine&);
 
     bool sameVoiceKerningLimited() const override { return true; }
+    bool alwaysKernable() const override { return true; }
+    KerningType doComputeKerningType(const EngravingItem* nextItem) const override;
 
 public:
 
@@ -71,13 +77,19 @@ public:
     ChordLineType chordLineType() const { return _chordLineType; }
     bool isStraight() const { return _straight; }
     void setStraight(bool straight) { _straight =  straight; }
+    bool isWavy() const { return _wavy; }
+    void setWavy(bool wavy) { _wavy =  wavy; }
     void setLengthX(double length) { _lengthX = length; }
+    double lengthX() const { return _lengthX; }
     void setLengthY(double length) { _lengthY = length; }
+    double lengthY() const { return _lengthY; }
+    void setPath(const draw::PainterPath& p) { m_path = p; }
+    const draw::PainterPath& path() const { return m_path; }
+    void setModified(bool m) { m_modified = m; }
+    bool modified() const { return m_modified; }
 
     const TranslatableString& chordLineTypeName() const;
 
-    void read(XmlReader&) override;
-    void write(XmlWriter& xml) const override;
     void layout() override;
     void draw(mu::draw::Painter*) const override;
 
@@ -91,7 +103,7 @@ public:
     PropertyValue propertyDefault(Pid) const override;
 
     bool needStartEditingAfterSelecting() const override { return true; }
-    int gripsCount() const override { return _straight ? 1 : static_cast<int>(path.elementCount()); }
+    int gripsCount() const override { return _straight ? 1 : static_cast<int>(m_path.elementCount()); }
     Grip initialEditModeGrip() const override { return Grip(gripsCount() - 1); }
     Grip defaultGrip() const override { return initialEditModeGrip(); }
     std::vector<mu::PointF> gripsPositions(const EditData&) const override;

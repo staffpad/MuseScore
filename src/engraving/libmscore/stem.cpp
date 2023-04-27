@@ -23,7 +23,6 @@
 
 #include <cmath>
 
-#include "rw/xml.h"
 #include "draw/types/brush.h"
 
 #include "beam.h"
@@ -34,6 +33,8 @@
 #include "staff.h"
 #include "stafftype.h"
 #include "tremolo.h"
+
+#include "log.h"
 
 using namespace mu;
 using namespace mu::draw;
@@ -149,7 +150,7 @@ PointF Stem::flagPosition() const
 
 void Stem::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     if (!chord()) { // may be need assert?
         return;
     }
@@ -219,37 +220,6 @@ void Stem::draw(mu::draw::Painter* painter) const
     }
 }
 
-void Stem::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    EngravingItem::writeProperties(xml);
-    writeProperty(xml, Pid::USER_LEN);
-    writeProperty(xml, Pid::LINE_WIDTH);
-    xml.endElement();
-}
-
-void Stem::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        if (!readProperties(e)) {
-            e.unknown();
-        }
-    }
-}
-
-bool Stem::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-
-    if (readProperty(tag, e, Pid::USER_LEN)) {
-    } else if (readStyledProperty(e, tag)) {
-    } else if (EngravingItem::readProperties(e)) {
-    } else {
-        return false;
-    }
-    return true;
-}
-
 std::vector<mu::PointF> Stem::gripsPositions(const EditData&) const
 {
     return { pagePos() + m_line.p2() };
@@ -258,6 +228,13 @@ std::vector<mu::PointF> Stem::gripsPositions(const EditData&) const
 void Stem::startEdit(EditData& ed)
 {
     EngravingItem::startEdit(ed);
+    ElementEditDataPtr eed = ed.getData(this);
+    eed->pushProperty(Pid::USER_LEN);
+}
+
+void Stem::startEditDrag(EditData& ed)
+{
+    EngravingItem::startEditDrag(ed);
     ElementEditDataPtr eed = ed.getData(this);
     eed->pushProperty(Pid::USER_LEN);
 }

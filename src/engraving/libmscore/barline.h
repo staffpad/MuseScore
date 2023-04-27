@@ -64,13 +64,14 @@ struct BarLineTableItem {
 class BarLine final : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, BarLine)
+    DECLARE_CLASSOF(ElementType::BAR_LINE)
 
     int _spanStaff          { 0 };         // span barline to next staff if true, values > 1 are used for importing from 2.x
     int _spanFrom           { 0 };         // line number on start and end staves
     int _spanTo             { 0 };
     BarLineType _barLineType { BarLineType::NORMAL };
-    mutable double y1;
-    mutable double y2;
+    mutable double y1 = 0.0;
+    mutable double y2 = 0.0;
     ElementList _el;          ///< fermata or other articulations
 
     friend class Factory;
@@ -102,8 +103,6 @@ public:
 
     BarLine* clone() const override { return new BarLine(*this); }
     Fraction playTick() const override;
-    void write(XmlWriter& xml) const override;
-    void read(XmlReader&) override;
     void draw(mu::draw::Painter*) const override;
     mu::PointF canvasPos() const override;      ///< position in canvas coordinates
     mu::PointF pagePos() const override;        ///< position in page coordinates
@@ -151,7 +150,7 @@ public:
     void undoChangeProperty(Pid id, const PropertyValue&, PropertyFlags ps) override;
     using EngravingObject::undoChangeProperty;
 
-    static double layoutWidth(Score*, BarLineType);
+    double layoutWidth() const;
     mu::RectF layoutRect() const;
 
     EngravingItem* nextSegmentElement() override;

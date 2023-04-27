@@ -25,22 +25,18 @@
 
 #include "log.h"
 
-#include "libmscore/rendermidi.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/tempo.h"
-#include "libmscore/part.h"
-#include "libmscore/instrument.h"
-#include "libmscore/repeatlist.h"
-#include "libmscore/measure.h"
-#include "libmscore/segment.h"
-#include "libmscore/system.h"
-#include "libmscore/page.h"
-#include "libmscore/staff.h"
 #include "libmscore/chordrest.h"
-#include "libmscore/chord.h"
-#include "libmscore/harmony.h"
-#include "libmscore/tempotext.h"
+#include "libmscore/instrument.h"
+#include "libmscore/masterscore.h"
+#include "libmscore/measure.h"
+#include "libmscore/page.h"
+#include "libmscore/part.h"
+#include "libmscore/repeatlist.h"
+#include "libmscore/segment.h"
+#include "libmscore/staff.h"
+#include "libmscore/system.h"
 #include "libmscore/tempo.h"
+#include "libmscore/tempotext.h"
 
 #include "notationerrors.h"
 
@@ -49,6 +45,8 @@ using namespace mu::notation;
 using namespace mu::midi;
 using namespace mu::async;
 using namespace mu::engraving;
+
+static constexpr int PLAYBACK_TAIL_SECS = 3;
 
 NotationPlayback::NotationPlayback(IGetScore* getScore,
                                    async::Notification notationChanged)
@@ -71,6 +69,8 @@ void NotationPlayback::init(INotationUndoStackPtr undoStack)
     }
 
     m_playbackModel.setPlayRepeats(configuration()->isPlayRepeatsEnabled());
+    m_playbackModel.setPlayChordSymbols(configuration()->isPlayChordSymbolsEnabled());
+
     m_playbackModel.load(score());
 
     updateTotalPlayTime();
@@ -82,6 +82,14 @@ void NotationPlayback::init(INotationUndoStackPtr undoStack)
         bool expandRepeats = configuration()->isPlayRepeatsEnabled();
         if (expandRepeats != m_playbackModel.isPlayRepeatsEnabled()) {
             m_playbackModel.setPlayRepeats(expandRepeats);
+            m_playbackModel.reload();
+        }
+    });
+
+    configuration()->isPlayChordSymbolsChanged().onNotify(this, [this]() {
+        bool playChordSymbols = configuration()->isPlayChordSymbolsEnabled();
+        if (playChordSymbols != m_playbackModel.isPlayChordSymbolsEnabled()) {
+            m_playbackModel.setPlayChordSymbols(playChordSymbols);
             m_playbackModel.reload();
         }
     });
@@ -100,9 +108,14 @@ const engraving::InstrumentTrackId& NotationPlayback::metronomeTrackId() const
     return m_playbackModel.metronomeTrackId();
 }
 
-const engraving::InstrumentTrackId& NotationPlayback::chordSymbolsTrackId() const
+engraving::InstrumentTrackId NotationPlayback::chordSymbolsTrackId(const ID& partId) const
 {
-    return m_playbackModel.chordSymbolsTrackId();
+    return m_playbackModel.chordSymbolsTrackId(partId);
+}
+
+bool NotationPlayback::isChordSymbolsTrack(const engraving::InstrumentTrackId& trackId) const
+{
+    return m_playbackModel.isChordSymbolsTrack(trackId);
 }
 
 const mpe::PlaybackData& NotationPlayback::trackPlaybackData(const engraving::InstrumentTrackId& trackId) const
@@ -113,6 +126,11 @@ const mpe::PlaybackData& NotationPlayback::trackPlaybackData(const engraving::In
 void NotationPlayback::triggerEventsForItems(const std::vector<const EngravingItem*>& items)
 {
     m_playbackModel.triggerEventsForItems(items);
+}
+
+void NotationPlayback::triggerMetronome(int tick)
+{
+    m_playbackModel.triggerMetronome(tick);
 }
 
 InstrumentTrackIdSet NotationPlayback::existingTrackIdSet() const
@@ -150,8 +168,9 @@ void NotationPlayback::updateTotalPlayTime()
         return;
     }
 
-    int lastTick = score->repeatList().ticks();
+    int lastTick = score->repeatList(m_playbackModel.isPlayRepeatsEnabled()).ticks();
     qreal secs = score->utick2utime(lastTick);
+    secs += PLAYBACK_TAIL_SECS;
 
     audio::msecs_t newPlayTime = secs * 1000.f;
 
@@ -195,7 +214,7 @@ tick_t NotationPlayback::secToTick(float sec) const
 
     tick_t utick = secToPlayedTick(sec);
 
-    return score()->repeatList().utick2tick(utick);
+    return score()->repeatList(m_playbackModel.isPlayRepeatsEnabled()).utick2tick(utick);
 }
 
 RetVal<midi::tick_t> NotationPlayback::playPositionTickByRawTick(midi::tick_t tick) const
@@ -204,7 +223,7 @@ RetVal<midi::tick_t> NotationPlayback::playPositionTickByRawTick(midi::tick_t ti
         return make_ret(Err::Undefined);
     }
 
-    midi::tick_t playbackTick = score()->repeatList().tick2utick(tick);
+    midi::tick_t playbackTick = score()->repeatList(m_playbackModel.isPlayRepeatsEnabled()).tick2utick(tick);
 
     return RetVal<midi::tick_t>::make_ok(std::move(playbackTick));
 }
@@ -352,7 +371,16 @@ double NotationPlayback::tempoMultiplier() const
 
 void NotationPlayback::setTempoMultiplier(double multiplier)
 {
-    if (score()) {
-        score()->tempomap()->setTempoMultiplier(multiplier);
+    Score* score = this->score();
+    if (!score) {
+        return;
     }
+
+    if (!score->tempomap()->setTempoMultiplier(multiplier)) {
+        return;
+    }
+
+    score->masterScore()->updateRepeatListTempo();
+
+    m_playbackModel.reload();
 }

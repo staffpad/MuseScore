@@ -23,6 +23,7 @@
 #define MU_NOTATION_INOTATIONCONFIGURATION_H
 
 #include <QColor>
+#include <optional>
 
 #include "modularity/imoduleexport.h"
 #include "async/channel.h"
@@ -41,7 +42,6 @@ public:
 
     virtual QColor backgroundColor() const = 0;
     virtual void setBackgroundColor(const QColor& color) = 0;
-    virtual void resetCurrentBackgroundColorToDefault() = 0;
 
     virtual io::path_t backgroundWallpaperPath() const = 0;
     virtual const QPixmap& backgroundWallpaper() const = 0;
@@ -49,6 +49,9 @@ public:
 
     virtual bool backgroundUseColor() const = 0;
     virtual void setBackgroundUseColor(bool value) = 0;
+
+    virtual void resetBackground() = 0;
+
     virtual async::Notification backgroundChanged() const = 0;
 
     virtual QColor foregroundColor() const = 0;
@@ -60,6 +63,9 @@ public:
 
     virtual bool foregroundUseColor() const = 0;
     virtual void setForegroundUseColor(bool value) = 0;
+
+    virtual void resetForeground() = 0;
+
     virtual async::Notification foregroundChanged() const = 0;
 
     virtual io::path_t wallpapersDefaultDirPath() const = 0;
@@ -117,6 +123,10 @@ public:
     virtual void setIsPlayRepeatsEnabled(bool enabled) = 0;
     virtual async::Notification isPlayRepeatsChanged() const = 0;
 
+    virtual bool isPlayChordSymbolsEnabled() const = 0;
+    virtual void setIsPlayChordSymbolsEnabled(bool enabled) = 0;
+    virtual async::Notification isPlayChordSymbolsChanged() const = 0;
+
     virtual bool isMetronomeEnabled() const = 0;
     virtual void setIsMetronomeEnabled(bool enabled) = 0;
 
@@ -142,14 +152,10 @@ public:
     virtual int notePlayDurationMilliseconds() const = 0;
     virtual void setNotePlayDurationMilliseconds(int durationMs) = 0;
 
-    virtual void setTemplateModeEnabled(bool enabled) = 0;
-    virtual void setTestModeEnabled(bool enabled) = 0;
+    virtual void setTemplateModeEnabled(std::optional<bool> enabled) = 0;
+    virtual void setTestModeEnabled(std::optional<bool> enabled) = 0;
 
-    virtual io::paths_t instrumentListPaths() const = 0;
-    virtual async::Notification instrumentListPathsChanged() const = 0;
-
-    virtual io::paths_t userInstrumentListPaths() const = 0;
-    virtual void setUserInstrumentListPaths(const io::paths_t& paths) = 0;
+    virtual io::path_t instrumentListPath() const = 0;
 
     virtual io::paths_t scoreOrderListPaths() const = 0;
     virtual async::Notification scoreOrderListPathsChanged() const = 0;
@@ -169,11 +175,14 @@ public:
     virtual bool needToShowAddFiguredBassErrorMessage() const = 0;
     virtual void setNeedToShowAddFiguredBassErrorMessage(bool show) = 0;
 
-    virtual bool needToShowAddBoxesErrorMessage() const = 0;
-    virtual void setNeedToShowAddBoxesErrorMessage(bool show) = 0;
+    virtual bool needToShowMScoreError(const std::string& errorKey) const = 0;
+    virtual void setNeedToShowMScoreError(const std::string& errorKey, bool show) = 0;
 
     virtual ValCh<int> pianoKeyboardNumberOfKeys() const = 0;
     virtual void setPianoKeyboardNumberOfKeys(int number) = 0;
+
+    virtual io::path_t styleFileImportPath() const = 0;
+    virtual void setStyleFileImportPath(const io::path_t& path) = 0;
 };
 }
 

@@ -22,8 +22,9 @@
 
 #include "playtechannotation.h"
 
-#include "rw/xml.h"
 #include "segment.h"
+
+#include "log.h"
 
 using namespace mu;
 using namespace mu::engraving;
@@ -59,29 +60,6 @@ void PlayTechAnnotation::layout()
 {
     StaffTextBase::layout();
     autoplaceSegmentElement();
-}
-
-void PlayTechAnnotation::write(XmlWriter& writer) const
-{
-    writer.startElement(this);
-    writeProperty(writer, Pid::PLAY_TECH_TYPE);
-    StaffTextBase::writeProperties(writer);
-    writer.endElement();
-}
-
-void PlayTechAnnotation::read(XmlReader& reader)
-{
-    while (reader.readNextStartElement()) {
-        const AsciiStringView tag(reader.name());
-
-        if (readProperty(tag, reader, Pid::PLAY_TECH_TYPE)) {
-            continue;
-        }
-
-        if (!StaffTextBase::readProperties(reader)) {
-            reader.unknown();
-        }
-    }
 }
 
 PropertyValue PlayTechAnnotation::getProperty(Pid id) const

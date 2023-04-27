@@ -22,8 +22,7 @@
 #include "aboutmodel.h"
 
 #include "translation.h"
-#include "version.h"
-#include "config.h"
+#include "muversion.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -39,7 +38,7 @@ AboutModel::AboutModel(QObject* parent)
 QString AboutModel::museScoreVersion() const
 {
     QString version = QString::fromStdString(configuration()->museScoreVersion());
-    return mu::framework::Version::unstable()
+    return mu::framework::MUVersion::unstable()
            ? qtrc("appshell/about", "Unstable prerelease for %1").arg(version)
            : version;
 }
@@ -69,7 +68,7 @@ QVariantMap AboutModel::museScoreContributionUrl() const
 
 QVariantMap AboutModel::museScorePrivacyPolicyUrl() const
 {
-    QUrl museScorePrivacyPolicyUrl(QString::fromStdString(configuration()->museScorePrivacyPolicyUrl()));
+    QUrl museScorePrivacyPolicyUrl(QString::fromStdString(updateConfiguration()->museScorePrivacyPolicyUrl()));
     return makeUrl(museScorePrivacyPolicyUrl);
 }
 
@@ -92,9 +91,14 @@ void AboutModel::copyRevisionToClipboard() const
         .arg(QSysInfo::prettyProductName())
         .arg(QSysInfo::currentCpuArchitecture())
         .arg(QSysInfo::WordSize)
-        .arg(VERSION)
-        .arg(BUILD_NUMBER)
+        .arg(MUSESCORE_VERSION)
+        .arg(MUSESCORE_BUILD_NUMBER)
         .arg(MUSESCORE_REVISION));
+}
+
+void AboutModel::toggleDevMode()
+{
+    globalConfiguration()->setDevModeEnabled(!globalConfiguration()->devModeEnabled());
 }
 
 QVariantMap AboutModel::makeUrl(const QUrl& url, bool showPath) const

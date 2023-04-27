@@ -31,8 +31,9 @@
 
 namespace mu::engraving {
 class EngravingObject;
+}
 
-namespace PluginAPI {
+namespace mu::plugins::api {
 //---------------------------------------------------------
 //   Ownership
 ///   \cond PLUGIN_API \private \endcond
@@ -93,12 +94,12 @@ public:
     int type() const;
 
     QVariant get(mu::engraving::Pid pid) const;
-    void set(mu::engraving::Pid pid, QVariant val);
+    void set(mu::engraving::Pid pid, const QVariant& val);
     /// \endcond
 
     Q_INVOKABLE QString userName() const;
     /// Checks whether two variables represent the same object. \since MuseScore 3.3
-    Q_INVOKABLE bool is(mu::engraving::PluginAPI::ScoreElement* other) { return other && element() == other->element(); }
+    Q_INVOKABLE bool is(mu::plugins::api::ScoreElement* other) { return other && element() == other->element(); }
 };
 
 //---------------------------------------------------------
@@ -173,6 +174,6 @@ QmlListAccess<T, Container> wrapContainerProperty(QObject* obj, Container& c)
 {
     return QmlListAccess<T, Container>(obj, c);
 }
-} // namespace PluginAPI
-} // namespace Ms
+} // namespace mu::plugins::api
+
 #endif

@@ -32,8 +32,8 @@
 #include "realfn.h"
 
 #include "layout/layoutchords.h"
-#include "rw/measurerw.h"
-#include "rw/xml.h"
+#include "rw/400/measurerw.h"
+
 #include "style/style.h"
 
 #include "accidental.h"
@@ -234,7 +234,11 @@ void Measure::layoutStaffLines()
     for (MStaff* ms : m_mstaves) {
         if (isCutawayClef(staffIdx) && (score()->staff(staffIdx)->cutaway() || !visible(staffIdx))) {
             // draw short staff lines for a courtesy clef on a hidden measure
-            ms->lines()->layoutPartialWidth(width(), 4.0, true);
+            Segment* clefSeg = findSegmentR(SegmentType::Clef, ticks());
+            double staffMag = score()->staff(staffIdx)->staffMag(tick());
+            double partialWidth = clefSeg ? width() - clefSeg->x() + clefSeg->minLeft() + score()->styleMM(Sid::clefLeftMargin) * staffMag
+                                  : 0.0;
+            ms->lines()->layoutPartialWidth(width(), partialWidth / (spatium() * staffMag), true);
         } else {
             // normal staff lines
             ms->lines()->layout();
@@ -1176,12 +1180,19 @@ void Measure::spatiumChanged(double /*oldValue*/, double /*newValue*/)
 
 void Measure::moveTicks(const Fraction& diff)
 {
-    std::set<Tuplet*> tuplets;
-    setTick(tick() + diff);
+    // This part must be run also for diff = 0
     for (Segment* segment = last(); segment; segment = segment->prev()) {
         if (segment->segmentType() & (SegmentType::EndBarLine | SegmentType::TimeSigAnnounce)) {
             segment->setRtick(ticks());
-        } else if (segment->isChordRestType()) {
+        }
+    }
+    if (diff.numerator() == 0) {
+        return;
+    }
+    std::set<Tuplet*> tuplets;
+    setTick(tick() + diff);
+    for (Segment* segment = last(); segment; segment = segment->prev()) {
+        if (segment->isChordRestType()) {
             // Tuplet ticks are stored as absolute ticks, so they must be adjusted.
             // But each tuplet must only be adjusted once.
             for (EngravingItem* e : segment->elist()) {
@@ -1234,7 +1245,7 @@ void Measure::insertStaves(staff_idx_t sStaff, staff_idx_t eStaff)
             continue;
         }
         staff_idx_t staffIdx = e->staffIdx();
-        if (staffIdx >= sStaff && !e->systemFlag()) {
+        if (moveDownWhenAddingStaves(e, sStaff, eStaff)) {
             voice_idx_t voice = e->voice();
             staffIdx += eStaff - sStaff;
             e->setTrack(staffIdx * VOICES + voice);
@@ -1256,13 +1267,6 @@ void Measure::cmdRemoveStaves(staff_idx_t sStaff, staff_idx_t eStaff)
     track_idx_t sTrack = sStaff * VOICES;
     track_idx_t eTrack = eStaff * VOICES;
 
-    auto removingAllowed = [this, sStaff, eStaff](const EngravingItem* item) {
-        staff_idx_t staffIndex = item->staffIdx();
-        size_t staffCount = score()->nstaves();
-
-        return (staffIndex >= sStaff) && (staffIndex < eStaff) && (!item->systemFlag() || staffCount == 1);
-    };
-
     for (Segment* s = first(); s; s = s->next()) {
         for (int track = static_cast<int>(eTrack) - 1; track >= static_cast<int>(sTrack); --track) {
             EngravingItem* el = s->element(track);
@@ -1272,8 +1276,10 @@ void Measure::cmdRemoveStaves(staff_idx_t sStaff, staff_idx_t eStaff)
             }
         }
 
-        for (EngravingItem* e : s->annotations()) {
-            if (removingAllowed(e)) {
+        // Create copy, because s->annotations() will be modified during the loop
+        std::vector<EngravingItem*> annotations = s->annotations();
+        for (EngravingItem* e : annotations) {
+            if (allowRemoveWhenRemovingStaves(e, sStaff, eStaff)) {
                 e->undoUnlink();
                 score()->undo(new RemoveElement(e));
             }
@@ -1285,7 +1291,7 @@ void Measure::cmdRemoveStaves(staff_idx_t sStaff, staff_idx_t eStaff)
             continue;
         }
 
-        if (removingAllowed(e)) {
+        if (allowRemoveWhenRemovingStaves(e, sStaff, eStaff)) {
             e->undoUnlink();
             score()->undo(new RemoveElement(e));
         }
@@ -1596,7 +1602,7 @@ EngravingItem* Measure::drop(EditData& data)
     case ElementType::BRACKET:
     {
         Bracket* b = toBracket(e);
-        int level = 0;
+        size_t level = 0;
         staff_idx_t firstStaff = 0;
         for (Staff* s : score()->staves()) {
             for (const BracketItem* bi : s->brackets()) {
@@ -1950,7 +1956,8 @@ void Measure::adjustToLen(Fraction nf, bool appendRestsIfNecessary)
                 for (Segment* segment = m->last(); segment;) {
                     Segment* pseg = segment->prev();
                     if (segment->segmentType() == SegmentType::ChordRest) {
-                        for (EngravingItem* a : segment->annotations()) {
+                        const auto annotations = segment->annotations(); // make a copy since we alter the list
+                        for (EngravingItem* a : annotations) {
                             if (a->track() == trk) {
                                 s->undoRemoveElement(a);
                             }
@@ -1998,62 +2005,6 @@ void Measure::adjustToLen(Fraction nf, bool appendRestsIfNecessary)
                 s->undoRemoveElement(e);
             }
         }
-    }
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Measure::write(XmlWriter& xml, staff_idx_t staff, bool writeSystemElements, bool forceTimeSig) const
-{
-    rw::MeasureRW::writeMeasure(this, xml, staff, writeSystemElements, forceTimeSig);
-}
-
-void Measure::read(XmlReader& xml)
-{
-    ReadContext ctx(score());
-    rw::MeasureRW::readMeasure(this, xml, ctx, 0);
-}
-
-//---------------------------------------------------------
-//   Measure::readAddConnector
-//---------------------------------------------------------
-
-void Measure::readAddConnector(ConnectorInfoReader* info, bool pasteMode)
-{
-    const ElementType type = info->type();
-    switch (type) {
-    case ElementType::HAIRPIN:
-    case ElementType::PEDAL:
-    case ElementType::OTTAVA:
-    case ElementType::TRILL:
-    case ElementType::TEXTLINE:
-    case ElementType::LET_RING:
-    case ElementType::GRADUAL_TEMPO_CHANGE:
-    case ElementType::VIBRATO:
-    case ElementType::PALM_MUTE:
-    case ElementType::WHAMMY_BAR:
-    case ElementType::RASGUEADO:
-    case ElementType::HARMONIC_MARK:
-    case ElementType::VOLTA:
-    {
-        Spanner* sp = toSpanner(info->connector());
-        const Location& l = info->location();
-        Fraction lTick    = l.frac();
-        Fraction spTick   = pasteMode ? lTick : (tick() + lTick);
-        if (info->isStart()) {
-            sp->setTrack(l.track());
-            sp->setTick(spTick);
-            score()->addSpanner(sp);
-        } else if (info->isEnd()) {
-            sp->setTrack2(l.track());
-            sp->setTick2(spTick);
-        }
-    }
-    break;
-    default:
-        break;
     }
 }
 
@@ -2144,7 +2095,7 @@ void Measure::scanElements(void* data, void (* func)(void*, EngravingItem*), boo
     MeasureBase::scanElements(data, func, all);
 
     for (staff_idx_t staffIdx = 0; staffIdx < nstaves; ++staffIdx) {
-        if (!all && !(visible(staffIdx) && score()->staff(staffIdx)->show())) {
+        if (!all && !(visible(staffIdx) && score()->staff(staffIdx)->show()) && !isCutawayClef(staffIdx)) {
             continue;
         }
         MStaff* ms = m_mstaves[staffIdx];
@@ -2260,7 +2211,7 @@ void Measure::sortStaves(std::vector<staff_idx_t>& dst)
     }
 
     for (EngravingItem* e : el()) {
-        if (e->track() == mu::nidx /* || e->systemFlag()*/) {
+        if (e->track() == mu::nidx || e->isTopSystemObject()) {
             continue;
         }
         voice_idx_t voice    = e->voice();
@@ -2324,7 +2275,7 @@ void Measure::checkMultiVoices(staff_idx_t staffIdx)
 //   hasVoices
 //---------------------------------------------------------
 
-bool Measure::hasVoices(staff_idx_t staffIdx, Fraction stick, Fraction len) const
+bool Measure::hasVoices(staff_idx_t staffIdx, Fraction stick, Fraction len, bool considerInvisible) const
 {
     Staff* st = score()->staff(staffIdx);
     if (st->isTabStaff(stick)) {
@@ -2352,9 +2303,13 @@ bool Measure::hasVoices(staff_idx_t staffIdx, Fraction stick, Fraction len) cons
                 if (cr->tick() + cr->actualTicks() <= stick) {
                     continue;
                 }
+                if (considerInvisible) {
+                    return true;
+                }
                 bool v = false;
                 if (cr->isChord()) {
                     Chord* c = toChord(cr);
+
                     // consider a chord visible if stem, hook(s) or beam(s) are visible
                     if ((c->stem() && c->stem()->visible())
                         || (c->hook() && c->hook()->visible())
@@ -2977,6 +2932,17 @@ int Measure::measureRepeatCount(staff_idx_t staffIdx) const
     return m_mstaves[staffIdx]->measureRepeatCount();
 }
 
+bool Measure::containsMeasureRepeat(const staff_idx_t staffIdxFrom, const staff_idx_t staffIdxTo) const
+{
+    for (staff_idx_t idx = staffIdxFrom; idx <= staffIdxTo; ++idx) {
+        if (measureRepeatCount(idx) > 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void Measure::setMeasureRepeatCount(int n, staff_idx_t staffIdx)
 {
     if (staffIdx >= m_mstaves.size()) {
@@ -3051,7 +3017,7 @@ MeasureRepeat* Measure::measureRepeatElement(staff_idx_t staffIdx) const
         track_idx_t etrack = staff2track(staffIdx + 1);
         for (track_idx_t track = strack; track < etrack; ++track) {
             // should only be in first track, but just in case
-            for (Segment* s = m->first(SegmentType::ChordRest); s && s != m->last(); s = s->next(SegmentType::ChordRest)) {
+            for (Segment* s = m->first(SegmentType::ChordRest); s; s = s->next(SegmentType::ChordRest)) {
                 // should only be in first segment, but just in case
                 EngravingItem* e = s->element(track);
                 if (e && e->isMeasureRepeat()) {
@@ -3225,6 +3191,7 @@ void Measure::layoutMeasureElements()
                 continue;
             }
             staff_idx_t staffIdx = e->staffIdx();
+            bool modernMMRest = e->isMMRest() && !score()->styleB(Sid::oldStyleMultiMeasureRests);
             if ((e->isRest() && toRest(e)->isFullMeasureRest()) || e->isMMRest() || e->isMeasureRepeat()) {
                 //
                 // element has to be centered in free space
@@ -3235,11 +3202,17 @@ void Measure::layoutMeasureElements()
                 for (s1 = s.prevActive(); s1 && s1->allElementsInvisible(); s1 = s1->prevActive()) {
                 }
                 Segment* s2;
-                for (s2 = s.nextActive(); s2; s2 = s2->nextActive()) {
-                    if (!s2->isChordRestType() && s2->element(staffIdx * VOICES)) {
-                        break;
+                if (modernMMRest) {
+                    for (s2 = s.nextActive(); s2; s2 = s2->nextActive()) {
+                        if (!s2->isChordRestType() && s2->element(staffIdx * VOICES)) {
+                            break;
+                        }
                     }
+                } else {
+                    // Ignore any stuff before the end bar line (such as courtesy clefs)
+                    s2 = findSegment(SegmentType::EndBarLine, endTick());
                 }
+
                 double x1 = s1 ? s1->x() + s1->minRight() : 0;
                 double x2 = s2 ? s2->x() - s2->minLeft() : width();
 
@@ -3262,6 +3235,7 @@ void Measure::layoutMeasureElements()
                     e->setPosX(measureWidth - .5 * e->width());
                 } else {
                     // full measure rest or one-measure repeat, center within this measure
+                    e->layout();
                     e->setPosX((x2 - x1 - e->width()) * .5 + x1 - s.x() - e->bbox().x());
                 }
                 s.createShape(staffIdx);            // DEBUG
@@ -3275,6 +3249,16 @@ void Measure::layoutMeasureElements()
                     Chord* c2 = tr->chord2();
                     if (!tr->twoNotes() || (c1 && !c1->staffMove() && c2 && !c2->staffMove())) {
                         tr->layout();
+                    }
+                }
+                for (Chord* g : c->graceNotes()) {
+                    if (g->tremolo()) {
+                        Tremolo* tr = g->tremolo();
+                        Chord* c1 = tr->chord1();
+                        Chord* c2 = tr->chord2();
+                        if (!tr->twoNotes() || (c1 && !c1->staffMove() && c2 && !c2->staffMove())) {
+                            tr->layout();
+                        }
                     }
                 }
             } else if (e->isBarLine()) {
@@ -3306,7 +3290,10 @@ void Measure::layoutCrossStaff()
             }
             if (e->isChord()) {
                 Chord* c = toChord(e);
-                if (c->beam() && (c->beam()->cross() || c->beam()->userModified())) {
+                Beam* beam = c->beam();
+                Tremolo* tremolo = c->tremolo();
+                if ((beam && (beam->cross() || beam->userModified()))
+                    || (tremolo && tremolo->twoNotes() && tremolo->userModified())) {
                     c->computeUp(); // for cross-staff beams
                 }
                 if (!c->graceNotes().empty()) {
@@ -3745,7 +3732,9 @@ void Measure::addSystemHeader(bool isFirstSystem)
                 clef->layout();
             } else if (clef) {
                 clef->parentItem()->remove(clef);
-                delete clef;
+                if (clef->generated()) {
+                    delete clef;
+                }
             }
             //cSegment->createShape(staffIdx);
             cSegment->setEnabled(true);
@@ -3782,8 +3771,9 @@ void Measure::addSystemHeader(bool isFirstSystem)
         }
 
         needKeysig = needKeysig && (keyIdx.key() != Key::C || keyIdx.custom() || keyIdx.isAtonal());
+        bool isPitchedStaff = staff->isPitchedStaff(tick());
 
-        if (needKeysig) {
+        if (needKeysig && isPitchedStaff) {
             KeySig* keysig;
             if (!kSegment) {
                 kSegment = Factory::createSegment(this, SegmentType::KeySig, Fraction(0, 1));
@@ -3807,33 +3797,36 @@ void Measure::addSystemHeader(bool isFirstSystem)
             keysig->layout();
             //kSegment->createShape(staffIdx);
             kSegment->setEnabled(true);
-        } else {
-            if (kSegment && staff->isPitchedStaff(tick())) {
-                // do not disable user modified keysigs
-                bool disable = true;
-                for (size_t i = 0; i < score()->nstaves(); ++i) {
-                    EngravingItem* e = kSegment->element(i * VOICES);
-                    Key key = score()->staff(i)->key(tick());
-                    if ((e && !e->generated()) || (key != keyIdx.key())) {
-                        disable = false;
-                    } else if (e && e->generated() && key == keyIdx.key() && keyIdx.key() == Key::C) {
-                        // If a key sig segment is disabled, it may be re-enabled if there is
-                        // a transposing instrument using a different key sig.
-                        // To prevent this from making the wrong key sig display, remove any key
-                        // sigs on staves where the key in this measure is C.
-                        kSegment->remove(e);
-                    }
+        } else if (kSegment && isPitchedStaff) {
+            // do not disable user modified keysigs
+            bool disable = true;
+            for (size_t i = 0; i < score()->nstaves(); ++i) {
+                EngravingItem* e = kSegment->element(i * VOICES);
+                Key key = score()->staff(i)->key(tick());
+                if ((e && !e->generated()) || (key != keyIdx.key())) {
+                    disable = false;
+                } else if (e && e->generated() && key == keyIdx.key() && keyIdx.key() == Key::C) {
+                    // If a key sig segment is disabled, it may be re-enabled if there is
+                    // a transposing instrument using a different key sig.
+                    // To prevent this from making the wrong key sig display, remove any key
+                    // sigs on staves where the key in this measure is C.
+                    kSegment->remove(e);
                 }
+            }
 
-                if (disable) {
-                    kSegment->setEnabled(false);
-                } else {
-                    EngravingItem* e = kSegment->element(track);
-                    if (e && e->isKeySig()) {
-                        KeySig* keysig = toKeySig(e);
-                        keysig->layout();
-                    }
+            if (disable) {
+                kSegment->setEnabled(false);
+            } else {
+                EngravingItem* e = kSegment->element(track);
+                if (e && e->isKeySig()) {
+                    KeySig* keysig = toKeySig(e);
+                    keysig->layout();
                 }
+            }
+        } else if (kSegment && !isPitchedStaff) {
+            EngravingItem* e = kSegment->element(track);
+            if (e && e->isKeySig()) {
+                kSegment->remove(e);
             }
         }
 
@@ -3846,12 +3839,27 @@ void Measure::addSystemHeader(bool isFirstSystem)
         kSegment->createShapes();
     }
 
-    //
-    // create systemic barline
-    //
+    createSystemBeginBarLine();
+
+    checkHeader();
+}
+
+void Measure::createSystemBeginBarLine()
+{
+    if (!system()) {
+        return;
+    }
     Segment* s  = findSegment(SegmentType::BeginBarLine, tick());
-    size_t n = score()->nstaves();
-    if ((n > 1 && score()->styleB(Sid::startBarlineMultiple)) || (n == 1 && score()->styleB(Sid::startBarlineSingle))) {
+    size_t n = 0;
+    if (system()) {
+        for (SysStaff* sysStaff : system()->staves()) {
+            if (sysStaff->show()) {
+                ++n;
+            }
+        }
+    }
+    if ((n > 1 && score()->styleB(Sid::startBarlineMultiple))
+        || (n == 1 && (score()->styleB(Sid::startBarlineSingle) || system()->brackets().size()))) {
         if (!s) {
             s = Factory::createSegment(this, SegmentType::BeginBarLine, Fraction(0, 1));
             add(s);
@@ -3876,7 +3884,6 @@ void Measure::addSystemHeader(bool isFirstSystem)
     } else if (s) {
         s->setEnabled(false);
     }
-    checkHeader();
 }
 
 //---------------------------------------------------------
@@ -3911,7 +3918,9 @@ void Measure::addSystemTrailer(Measure* nm)
                     s->setTrailer(true);
                     add(s);
                 }
+
                 s->setEnabled(true);
+
                 for (track_idx_t track = 0; track < nstaves * VOICES; track += VOICES) {
                     TimeSig* nts = toTimeSig(tss->element(track));
                     if (!nts) {
@@ -3924,6 +3933,7 @@ void Measure::addSystemTrailer(Measure* nm)
                         ts->setGenerated(true);
                         ts->setParent(s);
                         score()->undoAddElement(ts);
+                        s->setTrailer(true);
                     }
                     ts->setFrom(nts);
                     ts->layout();
@@ -3949,6 +3959,7 @@ void Measure::addSystemTrailer(Measure* nm)
     for (staff_idx_t staffIdx = 0; staffIdx < n; ++staffIdx) {
         track_idx_t track = staffIdx * VOICES;
         Staff* staff = score()->staff(staffIdx);
+        bool staffIsPitchedAtNextMeas = nextMeasure() && staff->isPitchedStaff(nextMeasure()->tick());
 
         if (show) {
             if (!s) {
@@ -3956,24 +3967,37 @@ void Measure::addSystemTrailer(Measure* nm)
                 s->setTrailer(true);
                 add(s);
             }
-            KeySig* ks = toKeySig(s->element(track));
-            KeySigEvent key2 = staff->keySigEvent(endTick());
 
-            if (!ks) {
-                ks = Factory::createKeySig(s);
-                ks->setTrack(track);
-                ks->setGenerated(true);
-                ks->setParent(s);
-                s->add(ks);
+            if (staffIsPitchedAtNextMeas) {
+                KeySig* ks = toKeySig(s->element(track));
+                KeySigEvent key2 = staff->keySigEvent(endTick());
+
+                if (!ks) {
+                    ks = Factory::createKeySig(s);
+                    ks->setTrack(track);
+                    ks->setGenerated(true);
+                    ks->setParent(s);
+                    s->add(ks);
+                    s->setTrailer(true);
+                }
+                //else if (!(ks->keySigEvent() == key2)) {
+                //      score()->undo(new ChangeKeySig(ks, key2, ks->showCourtesy()));
+                //      }
+                ks->setKeySigEvent(key2);
+                ks->layout();
+                //s->createShape(track / VOICES);
+                s->setEnabled(true);
+            } else { /// !staffIsPitchedAtNextMeas
+                KeySig* keySig = nullptr;
+                EngravingItem* keySigElem = s->element(track);
+                if (keySigElem && keySigElem->isKeySig()) {
+                    keySig = toKeySig(keySigElem);
+                }
+                if (keySig) {
+                    s->remove(keySig);
+                }
             }
-            //else if (!(ks->keySigEvent() == key2)) {
-            //      score()->undo(new ChangeKeySig(ks, key2, ks->showCourtesy()));
-            //      }
-            ks->setKeySigEvent(key2);
-            ks->layout();
-            //s->createShape(track / VOICES);
-            s->setEnabled(true);
-        } else {
+        } else { /// !show
             // remove any existent courtesy key signature
             if (s) {
                 s->setEnabled(false);
@@ -4065,95 +4089,6 @@ void Measure::checkTrailer()
 }
 
 //---------------------------------------------------------
-//   hasAccidental
-//---------------------------------------------------------
-
-static bool hasAccidental(Segment* s)
-{
-    Score* score = s->score();
-    for (track_idx_t track = 0; track < s->score()->ntracks(); ++track) {
-        Staff* staff = score->staff(track2staff(track));
-        if (!staff->show()) {
-            continue;
-        }
-        EngravingItem* e = s->element(track);
-        if (!e || !e->isChord()) {
-            continue;
-        }
-        Chord* c = toChord(e);
-        for (Note* n : c->notes()) {
-            if (n->accidental() && n->accidental()->addToSkyline()) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-//---------------------------------------------------------
-//      durationStretch
-//      Computes the stretch for a given segment depending
-//      on its duration with respect to the shortest one.
-//      Three different options proposed (see documentation).
-//---------------------------------------------------------
-float Measure::durationStretch(Fraction curTicks, const Fraction minTicks, const Fraction maxTicks) const
-{
-    double slope = score()->styleD(Sid::measureSpacing);
-
-    static constexpr int maxMMRestWidth = 20; // At most, MM rests will be spaced "as if" they were 20 bars long.
-    static double longNoteThreshold = Fraction(1, 16).ticks();
-
-    if (curTicks > m_timesig) { // This is the case of MM rests
-        curTicks = curTicks - m_timesig; // A 2-bar MM rests receives the same space as one bar.
-        if (curTicks > m_timesig * maxMMRestWidth) {
-            curTicks = m_timesig * maxMMRestWidth; // Avoids long MM rests being excessively wide.
-        }
-    }
-
-    //------------------------------------------------------------------------
-    // Prevent long notes from exploding in the presence of very short ones.
-    // maxRatio defines the maximum accepted ratio between the longest and
-    // shortest note of the system. If this ratio is exceeded, the subsequent
-    // calculations ensure that the highest ratio is renormalized to maxRatio
-    // and all other ratios are scaled accordingly.
-    //------------------------------------------------------------------------
-    static constexpr double maxRatio = 32.0;
-    double minSysTicks = double(minTicks.ticks());
-    double maxSysTicks = double(maxTicks.ticks());
-    double maxSysRatio = maxSysTicks / minSysTicks;
-    if ((maxSysTicks / minSysTicks >= 2) && minSysTicks < longNoteThreshold) {
-        /* HACK: we trick the system to ignore the shortest note and use the "next"
-         * shortest. For example, if the shortest is a 32nd, we make it a 16th. */
-        minSysTicks *= 2.0;
-    }
-    double ratio = double(curTicks.ticks()) / minSysTicks;
-    if (maxSysRatio > maxRatio) {
-        double A = (minSysTicks * (maxRatio - 1)) / (maxSysTicks - minSysTicks);
-        double B = (maxSysTicks - (maxRatio * minSysTicks)) / (maxSysTicks - minSysTicks);
-        ratio = A * ratio + B;
-    }
-
-    //TODO: choose formula in style settings
-    // Linear spacing
-    //double str = 1 - 0.112 * slope +  0.112 * slope * double(curTicks.ticks()) / double(minTicks.ticks());
-    // Logarithmic spacing (MS 3.6)
-    //double str = 1.0 + 0.721 * slope * log(double(curTicks.ticks()) / double(minTicks.ticks()));
-    // Quadratic spacing
-    // double str = 1 - slope + slope * sqrt(ratio);
-    // Custom spacing
-    double str = pow(slope, log2(ratio));
-
-    // Prevents long notes from being too narrow in the absence of shorter ones. The
-    // numeric factor and the formula itself are purely empirical. They "look good".
-    if (minSysTicks > longNoteThreshold) {
-        double empFactor = 0.6;
-        str = str * (1 - empFactor + empFactor * sqrt(minSysTicks / longNoteThreshold));
-    }
-
-    return str;
-}
-
-//---------------------------------------------------------
 //   computeWidth
 //   Computes the width of a measure depending on note durations
 //   (and given the shortest note of the system minTicks) and
@@ -4162,7 +4097,8 @@ float Measure::durationStretch(Fraction curTicks, const Fraction minTicks, const
 //   to compute the minimum non-collision distance between elements.
 //---------------------------------------------------------
 
-void Measure::computeWidth(Segment* s, double x, bool isSystemHeader, Fraction minTicks, Fraction maxTicks, double stretchCoeff)
+void Measure::computeWidth(Segment* s, double x, bool isSystemHeader, Fraction minTicks, Fraction maxTicks, double stretchCoeff,
+                           bool overrideMinMeasureWidth)
 {
     Segment* fs = firstEnabled();
     if (!fs->visible()) {           // first enabled could be a clef change on invisible staff
@@ -4175,23 +4111,24 @@ void Measure::computeWidth(Segment* s, double x, bool isSystemHeader, Fraction m
     double minNoteSpace = score()->noteHeadWidth() + spacingMultiplier * score()->styleMM(Sid::minNoteDistance);
     double usrStretch = std::max(userStretch(), double(0.1)); // Avoids stretch going to zero
     usrStretch = std::min(usrStretch, double(10)); // Higher values may cause the spacing to break (10 is already ridiculously high and no user should even use that)
-    double durStretch = 1;
 
+    // PASS 1: compute the spacing of all left-aligned segments by stacking them one after the other
     while (s) {
+        s->setWidthOffset(0.0);
         s->setPosX(x);
         // skip disabled / invisible segments
         // segments with all elements invisible are skipped, though these are already
         // skipped in computeMinWidth() -- the only way this would be an issue here is
         // if this method was called specifically with the invisible segment specified
         // which I'm pretty sure doesn't happen at this point. still...
-        if (!s->enabled() || !s->visible() || s->allElementsInvisible()) {
+        if (!s->enabled() || !s->visible() || s->allElementsInvisible() || s->isRightAligned()) {
             s->setWidth(0);
             s = s->next();
             continue;
         }
 
         Segment* ns = s->nextActive();
-        while (ns && ns->allElementsInvisible()) {
+        while (ns && (ns->allElementsInvisible() || ns->isRightAligned())) {
             ns = ns->nextActive();
         }
         // end barline might be disabled
@@ -4200,14 +4137,7 @@ void Measure::computeWidth(Segment* s, double x, bool isSystemHeader, Fraction m
             ns = s->next(SegmentType::BarLineType);
         }
 
-        Segment* ps = s->prevActive();
-
         double w;
-
-        bool hasAdjacent = (s->isChordRestType() && s->shortestChordRest() == s->ticks());
-        bool prevHasAdjacent = ps && (ps->isChordRestType() && ps->shortestChordRest() == ps->ticks());
-        // The actual duration of a segment, i.e. ticks(), can be shorter than its shortest note if
-        // another voice comes in. In such case, hasAdjacent = false. This info is key to correct spacing.
 
         if (ns) {
             if (isSystemHeader && (ns->isStartRepeatBarLineType() || ns->isChordRestType() || (ns->isClefType() && !ns->header()))) {
@@ -4216,53 +4146,37 @@ void Measure::computeWidth(Segment* s, double x, bool isSystemHeader, Fraction m
                 isSystemHeader = false;
             } else {
                 w = s->minHorizontalDistance(ns, false);
-                // New spacing algorithm: we apply an additional spacing which depends on the duration of
-                // the note with respect to the shortest note *of the system*.
                 if (s->isChordRestType()) {
-                    if (hasAdjacent || isMMRest()) { // Normal segments
-                        durStretch = durationStretch(s->ticks(), minTicks, maxTicks);
-                    } else { // The following calculations are key to correct spacing of polyrythms
-                        Fraction curTicks = s->shortestChordRest();
-                        Fraction prevTicks = ps ? ps->shortestChordRest() : Fraction(0, 1);
-                        if (ps && !prevHasAdjacent && prevTicks < curTicks) {
-                            durStretch
-                                = durationStretch(prevTicks, minTicks, maxTicks) * (double(s->ticks().ticks()) / double(prevTicks.ticks()));
-                        } else {
-                            durStretch
-                                = durationStretch(curTicks, minTicks, maxTicks) * (double(s->ticks().ticks()) / double(curTicks.ticks()));
-                        }
-                    }
+                    Segment* ps = s->prevActive();
+                    double durStretch = s->computeDurationStretch(ps, minTicks, maxTicks);
+                    s->setStretch(durStretch * usrStretch);
+                    // durStretch := spacing factor purely determined by the duration of the note.
+                    // usrStretch := spacing factor determined by user settings.
+                    // stretchCoeff := spacing factor used internally for computations
                     double minStretchedWidth = minNoteSpace * durStretch * usrStretch * stretchCoeff;
-                    // NOTE: durStretch is the spacing factor purely determined by the duration of the note.
-                    // usrStretch is the spacing factor determined by user settings.
-                    // stretchCoeff is the spacing factor used to justify the systems, i.e. getting the systems to fill the page.
-                    _squeezableSpace += hasAdjacent ? minStretchedWidth - w : 0;
+                    _squeezableSpace += s->shortestChordRest() == s->ticks() ? minStretchedWidth - w : 0.0;
                     w = std::max(w, minStretchedWidth);
                 }
             }
-            // Clefs (or breaths) are justified right-to-left. It is the clef (or breath) that needs to move left
-            //(if there's space), not the following segment that needs to move right.
-            if ((ns->isClefType() || ns->isBreathType()) && ns->next()) {
-                w -= std::max(ns->minHorizontalCollidingDistance(ns->next()), double(score()->styleMM(Sid::clefKeyRightMargin)));
-            }
 
-            // Adjust the spacing for cross-staff beams situations
-            if (s->isChordRestType() && ns->isChordRestType()) {
-                CrossStaffContent thisCS = s->crossStaffContent();
-                CrossStaffContent nextCS = ns->crossStaffContent();
-                bool thisIsDown = thisCS.movedDown;
-                bool thisIsUp = thisCS.movedUp;
-                bool nextIsDown = nextCS.movedDown;
-                bool nextIsUp = nextCS.movedUp;
-                double displacement = score()->noteHeadWidth() - score()->styleMM(Sid::stemWidth);
-                if ((thisIsDown && !nextIsDown) || (nextIsUp && !thisIsUp)) {
-                    w += displacement;
-                    _squeezableSpace -= score()->noteHeadWidth();
-                }
-                if ((thisIsUp && !nextIsUp) || (nextIsDown && !thisIsDown)) {
-                    w -= displacement;
-                    _squeezableSpace -= score()->noteHeadWidth();
-                }
+            // Adjust spacing for cross-beam situations
+            s->computeCrossBeamType(ns);
+            CrossBeamType crossBeamType = s->crossBeamType();
+            double displacement = score()->noteHeadWidth() - score()->styleMM(Sid::stemWidth);
+            if (crossBeamType.upDown && crossBeamType.canBeAdjusted) {
+                s->setWidthOffset(s->widthOffset() + displacement);
+                w += displacement;
+                _squeezableSpace -= displacement;
+            } else if (crossBeamType.downUp && crossBeamType.canBeAdjusted) {
+                s->setWidthOffset(s->widthOffset() - displacement);
+                w -= displacement;
+                _squeezableSpace -= displacement;
+            }
+            if (crossBeamType.upDown) {
+                // Even if it can't be adjusted, the up-down case needs enforced
+                // this minimum width to avoid stems overlapping weirdly
+                w = std::max(w, 2 * displacement);
+                _squeezableSpace -= 2 * displacement;
             }
 
             // look back for collisions with previous segments
@@ -4272,15 +4186,16 @@ void Measure::computeWidth(Segment* s, double x, bool isSystemHeader, Fraction m
             }
 
             int n = 1;
-            for (Segment* ps = s; ps && !ps->isMMRestSegment(); ps=ps->prevActive()) {
-                double ww;
-
-                assert(ps);         // ps should never be nullptr but better be safe.
+            for (Segment* ps = s; ps; ps=ps->prevActive()) {
+                assert(ps); // ps should never be nullptr but better be safe.
                 if (!ps) {
                     break;
                 }
+                if (ps->isRightAligned()) {
+                    continue;
+                }
 
-                ww = ps->minHorizontalCollidingDistance(ns) - (s->x() - ps->x());
+                double ww = ps->minHorizontalCollidingDistance(ns) - (s->x() - ps->x());
                 if (ps == fs) {
                     ww = std::max(ww, ns->minLeft(ls) - s->x());
                 }
@@ -4304,7 +4219,7 @@ void Measure::computeWidth(Segment* s, double x, bool isSystemHeader, Fraction m
                         ns1->setPosX(xx);
                         ss = ns1;
                     }
-                    if (s->isChordRestType()) {
+                    if (s->isChordRestType() || ps == s) {
                         w += d;
                     }
                     x = xx;
@@ -4314,6 +4229,10 @@ void Measure::computeWidth(Segment* s, double x, bool isSystemHeader, Fraction m
                     ++n;
                 }
             }
+            double extraLeadingSpace = ns->extraLeadingSpace().val() * spatium();
+            s->setWidthOffset(s->widthOffset() + extraLeadingSpace);
+            extraLeadingSpace = std::max(extraLeadingSpace, -w);
+            w += extraLeadingSpace;
         } else {
             w = s->minRight();
         }
@@ -4321,16 +4240,24 @@ void Measure::computeWidth(Segment* s, double x, bool isSystemHeader, Fraction m
         x += w;
         s = s->next();
     }
-    if (isMMRest()) {
-        _squeezableSpace = std::max(x - score()->styleMM(Sid::minMMRestWidth), 0.0);
-    } else {
-        _squeezableSpace = std::max(0.0, std::min(_squeezableSpace, x - score()->styleMM(Sid::minMeasureWidth)));
-    }
+    _squeezableSpace = std::max(0.0, std::min(_squeezableSpace, x - score()->styleMM(Sid::minMeasureWidth)));
     setLayoutStretch(stretchCoeff);
     setWidth(x);
+
+    // PASS 2: now put in the right-aligned segments
+    spaceRightAlignedSegments();
+
+    // Check against minimum width and increase if needed (MMRest minWidth is guaranteed elsewhere)
+    double minWidth = computeMinMeasureWidth();
+    if (width() < minWidth && !overrideMinMeasureWidth) {
+        stretchToTargetWidth(minWidth);
+        setWidthLocked(true);
+    } else {
+        setWidthLocked(false);
+    }
 }
 
-void Measure::computeWidth(Fraction minTicks, Fraction maxTicks, double stretchCoeff)
+void Measure::computeWidth(Fraction minTicks, Fraction maxTicks, double stretchCoeff, bool overrideMinMeasureWidth)
 {
     Segment* s;
 
@@ -4351,12 +4278,12 @@ void Measure::computeWidth(Fraction minTicks, Fraction maxTicks, double stretchC
     //
     Shape ls(first ? RectF(0.0, -1000000.0, 0.0, 2000000.0) : RectF(0.0, 0.0, 0.0, spatium() * 4));
 
-    x = s->isMMRestSegment() ? 0 : s->minLeft(ls);
+    x = s->minLeft(ls);
 
     if (s->isStartRepeatBarLineType()) {
         System* sys = system();
         MeasureBase* pmb = prev();
-        if (pmb->isMeasure() && pmb->system() == sys && pmb->repeatEnd()) {
+        if (pmb && pmb->isMeasure() && pmb->system() == sys && pmb->repeatEnd()) {
             Segment* seg = toMeasure(pmb)->last();
             // overlap end repeat barline with start repeat barline
             if (seg->isEndBarLineType()) {
@@ -4366,27 +4293,17 @@ void Measure::computeWidth(Fraction minTicks, Fraction maxTicks, double stretchC
     }
 
     LayoutChords::updateGraceNotes(this);
-    LayoutChords::updateLineAttachPoints(this);
 
     x = computeFirstSegmentXPosition(s);
     bool isSystemHeader = s->header();
 
     _squeezableSpace = 0;
-    computeWidth(s, x, isSystemHeader, minTicks, maxTicks, stretchCoeff);
-
-    // Check against minimum width and increase if needed
-    double minWidth = computeMinMeasureWidth();
-    if (width() < minWidth) {
-        setWidthToTargetValue(s, x, isSystemHeader, minTicks, stretchCoeff, minWidth);
-        setWidthLocked(true);
-    } else {
-        setWidthLocked(false);
-    }
+    computeWidth(s, x, isSystemHeader, minTicks, maxTicks, stretchCoeff, overrideMinMeasureWidth);
 }
 
 double Measure::computeMinMeasureWidth() const
 {
-    double minWidth = isMMRest() ? score()->styleMM(Sid::minMMRestWidth) : score()->styleMM(Sid::minMeasureWidth);
+    double minWidth = score()->styleMM(Sid::minMeasureWidth);
     double maxWidth = system()->width() - system()->leftMargin(); // maximum available system width (left margin accounts for possible indentation)
     if (maxWidth <= 0) {
         // System width may not yet be available for the linear mode (e.g. continuous view)
@@ -4394,6 +4311,9 @@ double Measure::computeMinMeasureWidth() const
         maxWidth = minWidth;
     }
     minWidth = std::min(minWidth, maxWidth); // Accounts for a case where the user may set the minMeasureWidth to a value larger than the available system width
+    if (ticks() < timesig()) { // Accounts for shortened measure (e.g. anacrusis)
+        minWidth *= (ticks() / timesig()).toDouble();
+    }
     Segment* firstCRSegment = findFirstR(SegmentType::ChordRest, Fraction(0, 1));
     if (!firstCRSegment) {
         return minWidth;
@@ -4414,23 +4334,66 @@ double Measure::computeMinMeasureWidth() const
     return minWidth;
 }
 
-void Measure::setWidthToTargetValue(Segment* s, double x, bool isSystemHeader, Fraction minTicks, double stretchCoeff, double targetWidth)
+void Measure::spaceRightAlignedSegments()
 {
-    // The input parameters of this method rely on Measure::computeWidth(), so always call this method from there
-    const double epsilon = 0.1 * spatium();
-    static constexpr double multiplier = 1.4; // Empirical value for fastest convergence of the following loop
-    static constexpr int maxIter = 50;
-    // Different measures need different numbers of iterations of the following loop to reach the target width.
-    // The average is about 2 iterations, and the maximum I've ever seen (very rare) is around 10-15 iterations.
-    // maxIter just serves as a safety exit to not get stuck in the loop in case a measure can't be justified
-    // (which can only happen if errors are made before getting here). It's set to a very high value to make
-    // sure that the measure really can't be justified, and it isn't just a "tricky" one needing more iterations.
-    int iter = 0;
-    for (double rest = targetWidth - width(); abs(rest) > epsilon && iter < maxIter; rest = targetWidth - width()) {
-        stretchCoeff *= (1 + multiplier * rest / width());
-        computeWidth(s, x, isSystemHeader, minTicks, system()->maxSysTicks(), stretchCoeff);
-        iter++;
+    // Collect all the right-aligned segments starting from the back
+    std::vector<Segment*> rightAlignedSegments;
+    for (Segment* segment = m_segments.last(); segment; segment = segment->prev()) {
+        if (segment->enabled() && segment->isRightAligned()) {
+            rightAlignedSegments.push_back(segment);
+        }
     }
+    // Compute spacing
+    static constexpr double arbitraryLowReal = -10000.0;
+    for (Segment* raSegment : rightAlignedSegments) {
+        // 1) right-align the segment against the following ones
+        double minDistAfter = arbitraryLowReal;
+        for (Segment* seg = raSegment->nextActive(); seg; seg = seg->nextActive()) {
+            double xDiff = seg->x() - raSegment->x();
+            double minDist = raSegment->minHorizontalCollidingDistance(seg);
+            minDistAfter = std::max(minDistAfter, minDist - xDiff);
+        }
+        if (minDistAfter != arbitraryLowReal && raSegment->prevActive()) {
+            Segment* prevSegment = raSegment->prev();
+            prevSegment->setWidth(prevSegment->width() - minDistAfter);
+            prevSegment->setWidthOffset(prevSegment->widthOffset() - minDistAfter);
+            raSegment->movePosX(-minDistAfter);
+            raSegment->setWidth(raSegment->width() + minDistAfter);
+        }
+        // 2) Make sure the segment isn't colliding with anything behind
+        double minDistBefore = 0.0;
+        for (Segment* seg = raSegment->prevActive(); seg; seg = seg->prevActive()) {
+            double xDiff = raSegment->x() - seg->x();
+            double minDist = seg->minHorizontalCollidingDistance(raSegment);
+            minDistBefore = std::max(minDistBefore, minDist - xDiff);
+        }
+        Segment* prevSegment = raSegment->prevActive();
+        if (prevSegment) {
+            prevSegment->setWidth(prevSegment->width() + minDistBefore);
+        }
+        for (Segment* seg = raSegment; seg; seg = seg->next()) {
+            seg->movePosX(minDistBefore);
+        }
+        setWidth(width() + minDistBefore);
+    }
+}
+
+void Measure::stretchToTargetWidth(double targetWidth)
+{
+    if (targetWidth < width()) {
+        return;
+    }
+    std::vector<Spring> springs;
+    for (Segment& s : m_segments) {
+        if (s.isChordRestType() && s.visible() && s.enabled() && !s.allElementsInvisible()) {
+            double springConst = 1 / s.stretch();
+            double width = s.width() - s.widthOffset();
+            double preTension = width * springConst;
+            springs.push_back(Spring(springConst, width, preTension, &s));
+        }
+    }
+    Segment::stretchSegmentsToWidth(springs, targetWidth - width());
+    respaceSegments();
 }
 
 void Measure::layoutSegmentsInPracticeMode(const std::vector<int>& visibleParts)
@@ -4445,7 +4408,7 @@ double Measure::computeFirstSegmentXPosition(Segment* segment)
     Shape ls(RectF(0.0, 0.0, 0.0, spatium() * 4));
 
     // First, try to compute first segment x-position by padding against end barline of previous measure
-    Measure* prevMeas = (prev() && prev()->isMeasure()) ? toMeasure(prev()) : nullptr;
+    Measure* prevMeas = (prev() && prev()->isMeasure() && prev()->system() == system()) ? toMeasure(prev()) : nullptr;
     Segment* prevMeasEnd = prevMeas ? prevMeas->last() : nullptr;
     if (prevMeasEnd && prevMeasEnd->isEndBarLineType()
         && !(segment->isBeginBarLineType() || segment->isStartRepeatBarLineType() || segment->isBarLineType())) {
@@ -4454,7 +4417,7 @@ double Measure::computeFirstSegmentXPosition(Segment* segment)
     if (x <= 0) { // If that doesn't succeed (e.g. first bar) then just use left-margins
         x = segment->minLeft(ls);
         if (segment->isChordRestType()) {
-            x += score()->styleMM(hasAccidental(segment) ? Sid::barAccidentalDistance : Sid::barNoteDistance);
+            x += score()->styleMM(segment->hasAccidentals() ? Sid::barAccidentalDistance : Sid::barNoteDistance);
         } else if (segment->isClefType() || segment->isHeaderClefType()) {
             x += score()->styleMM(Sid::clefLeftMargin);
         } else if (segment->isKeySigType()) {
@@ -4466,6 +4429,16 @@ double Measure::computeFirstSegmentXPosition(Segment* segment)
     if (prevMeas && prevMeas->repeatEnd() && segment->isStartRepeatBarLineType() && (prevMeas->system() == system())) {
         // The start-repeat should overlap the end-repeat of the previous measure
         x -= score()->styleMM(Sid::endBarWidth);
+    }
+    // Do a final check of chord distances (invisible items may in some cases elude the 2 previous steps)
+    if (segment->isChordRestType()) {
+        double barNoteDist = score()->styleMM(Sid::barNoteDistance).val();
+        for (EngravingItem* e : segment->elist()) {
+            if (!e || !e->isChordRest() || (e->staff() && e->staff()->isTabStaff(e->tick()))) {
+                continue;
+            }
+            x = std::max(x, barNoteDist * e->mag() - e->pos().x());
+        }
     }
     x += segment->extraLeadingSpace().val() * spatium();
     return x;
@@ -4684,8 +4657,11 @@ Fraction Measure::maxTicks() const
 {
     Segment* s = first();
     Fraction maxticks = Fraction(0, 1);
+    if (isMMRest()) {
+        return timesig();
+    }
     while (s) {
-        if (s->enabled() && s->isChordRestType() && !s->isMMRestSegment()) {
+        if (s->enabled() && s->isChordRestType()) {
             maxticks = std::max(maxticks, s->ticks());
         }
         s = s->next();
@@ -4708,5 +4684,26 @@ Fraction Measure::shortestChordRest() const
         s = s->next();
     }
     return shortest;
+}
+
+void Measure::respaceSegments()
+{
+    double x = 0.0;
+    // Find starting x position (i.e. position of first relevant segment)
+    for (Segment& s : m_segments) {
+        if (s.enabled() && s.visible() && !s.allElementsInvisible()) {
+            x = s.x();
+            break;
+        }
+    }
+    // Start respacing segments
+    for (Segment& s : m_segments) {
+        s.setPosX(x);
+        if (s.enabled() && s.visible() && !s.allElementsInvisible()) {
+            x += s.width();
+        }
+    }
+    // Update measure width
+    setWidth(x);
 }
 }

@@ -23,28 +23,32 @@
 #ifndef MU_APPSHELL_SPLASHSCREEN_H
 #define MU_APPSHELL_SPLASHSCREEN_H
 
-#include <QSplashScreen>
+#include <QWidget>
 
 #include "modularity/ioc.h"
 #include "ui/iuiconfiguration.h"
+#include "languages/ilanguagesservice.h"
 
 class QSvgRenderer;
 
 namespace mu::appshell {
-class SplashScreen : public QSplashScreen
+class SplashScreen : public QWidget
 {
     Q_OBJECT
 
-    //! The uiConfiguration has not yet been initialized, so we can't use user settings.
-    //! We only use it for querying the default system font
     INJECT(appshell, ui::IUiConfiguration, uiConfiguration)
+    INJECT(appshell, languages::ILanguagesService, languagesService)
 
 public:
     SplashScreen();
 
 private:
-    void drawContents(QPainter* painter) override;
+    bool event(QEvent* event) override;
+    void repaint();
+    void draw(QPainter* painter);
+    void setSize(const QSize& size);
 
+    QString m_message;
     QSvgRenderer* m_backgroundRenderer = nullptr;
 };
 }

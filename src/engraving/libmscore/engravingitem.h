@@ -42,6 +42,7 @@
 
 namespace mu::engraving {
 class Factory;
+class XmlReader;
 
 #ifndef ENGRAVING_NO_ACCESSIBILITY
 class AccessibleItem;
@@ -50,8 +51,6 @@ typedef std::shared_ptr<AccessibleItem> AccessibleItemPtr;
 
 enum class Pid;
 class StaffType;
-class XmlReader;
-class XmlWriter;
 
 //---------------------------------------------------------
 //   OffsetChange
@@ -112,6 +111,7 @@ enum class KerningType
     LIMITED_KERNING,
     SAME_VOICE_LIMIT,
     KERNING_UNTIL_ORIGIN,
+    ALLOW_COLLISION,
     NOT_SET,
 };
 
@@ -147,18 +147,15 @@ class EngravingItem : public EngravingObject
     ///< valid after call to layout()
     unsigned int _tag;                    ///< tag bitmask
 
-#ifndef ENGRAVING_NO_ACCESSIBILITY
-    AccessibleItemPtr m_accessible;
-#endif
-
-    bool m_accessibleEnabled = false;
-
     bool m_colorsInversionEnabled = true;
 
     virtual bool sameVoiceKerningLimited() const { return false; }
     virtual bool neverKernable() const { return false; }
     virtual bool alwaysKernable() const { return false; }
     KerningType _userSetKerning = KerningType::NOT_SET;
+
+    std::vector<Spanner*> _startingSpanners; ///< spanners starting on this item
+    std::vector<Spanner*> _endingSpanners; ///< spanners ending on this item
 
 protected:
     mutable int _z;
@@ -171,6 +168,7 @@ protected:
 
 #ifndef ENGRAVING_NO_ACCESSIBILITY
     virtual AccessibleItemPtr createAccessible();
+    void notifyAboutNameChanged();
 #endif
 
     virtual KerningType doComputeKerningType(const EngravingItem*) const { return KerningType::KERNING; }
@@ -195,7 +193,7 @@ public:
 
     void deleteLater();
 
-    EngravingItem* parentItem() const;
+    EngravingItem* parentItem(bool explicitParent = true) const;
     EngravingItemList childrenItems() const;
 
     EngravingItem* findAncestor(ElementType t);
@@ -281,6 +279,7 @@ public:
     double ypos() { return _pos.y(); }
     virtual void move(const PointF& s) { _pos += s; }
     bool skipDraw() const { return _skipDraw; }
+    void setSkipDraw(bool val) { _skipDraw = val; }
 
     virtual PointF pagePos() const;            ///< position in page coordinates
     virtual PointF canvasPos() const;          ///< position in canvas coordinates
@@ -321,16 +320,16 @@ public:
     virtual Shape shape() const { return Shape(bbox(), this); }
     virtual double baseLine() const { return -height(); }
 
+    virtual mu::RectF hitBBox() const { return _bbox; }
+    virtual Shape hitShape() const { return shape(); }
+    Shape canvasHitShape() const { return hitShape().translate(canvasPos()); }
+    bool hitShapeContains(const PointF& p) const;
+    bool hitShapeIntersects(const mu::RectF& rr) const;
+
     virtual int subtype() const { return -1; }                    // for select gui
 
     virtual void draw(mu::draw::Painter*) const {}
     void drawAt(mu::draw::Painter* p, const PointF& pt) const { p->translate(pt); draw(p); p->translate(-pt); }
-
-    virtual void writeProperties(XmlWriter& xml) const;
-    virtual bool readProperties(XmlReader&);
-
-    virtual void write(XmlWriter&) const;
-    virtual void read(XmlReader&);
 
 //       virtual ElementGroup getElementGroup() { return SingleElementGroup(this); }
     virtual std::unique_ptr<ElementGroup> getDragGroup(std::function<bool(const EngravingItem*)> /*isDragged*/)
@@ -511,9 +510,8 @@ public:
     virtual bool isUserModified() const;
 
     void drawSymbol(SymId id, mu::draw::Painter* p, const PointF& o = PointF(), double scale = 1.0) const;
-    void drawSymbol(SymId id, mu::draw::Painter* p, const PointF& o, int n) const;
     void drawSymbols(const SymIdList&, mu::draw::Painter* p, const PointF& o = PointF(), double scale = 1.0) const;
-    void drawSymbols(const SymIdList&, mu::draw::Painter* p, const PointF& o, const mu::SizeF& scale) const;
+    void drawSymbols(const SymIdList&, mu::draw::Painter* p, const PointF& o, const SizeF& scale) const;
     double symHeight(SymId id) const;
     double symWidth(SymId id) const;
     double symWidth(const SymIdList&) const;
@@ -533,7 +531,9 @@ public:
 
 #ifndef ENGRAVING_NO_ACCESSIBILITY
     AccessibleItemPtr accessible() const;
+    void initAccessibleIfNeed();
 #endif
+
     virtual String accessibleInfo() const;
     virtual String screenReaderInfo() const { return accessibleInfo(); }
     //  if the screen-reader needs a special string (see note for example)
@@ -560,8 +560,16 @@ public:
 
     std::pair<int, float> barbeat() const;
 
+    std::vector<Spanner*>& startingSpanners() { return _startingSpanners; }
+    std::vector<Spanner*>& endingSpanners() { return _endingSpanners; }
+
 private:
-    void initAccessibleIfNeed();
+#ifndef ENGRAVING_NO_ACCESSIBILITY
+    void doInitAccessible();
+    AccessibleItemPtr m_accessible;
+#endif
+
+    bool m_accessibleEnabled = false;
 };
 
 using ElementPtr = std::shared_ptr<EngravingItem>;
@@ -617,8 +625,6 @@ public:
     ElementList() {}
     bool remove(EngravingItem*);
     void replace(EngravingItem* old, EngravingItem* n);
-    void write(XmlWriter&) const;
-    void write(XmlWriter&, const char* name) const;
 };
 
 //---------------------------------------------------------

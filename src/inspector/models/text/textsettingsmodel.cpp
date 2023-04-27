@@ -26,10 +26,12 @@
 #include "types/commontypes.h"
 #include "types/texttypes.h"
 
-#include "libmscore/textbase.h"
+#include "engraving/libmscore/textbase.h"
+#include "engraving/types/typesconv.h"
 
 #include "translation.h"
 #include "log.h"
+#include "realfn.h"
 
 using namespace mu::inspector;
 using namespace mu::engraving;
@@ -52,12 +54,21 @@ void TextSettingsModel::createProperties()
     m_fontFamily = buildPropertyItem(mu::engraving::Pid::FONT_FACE);
     m_fontStyle = buildPropertyItem(mu::engraving::Pid::FONT_STYLE);
     m_fontSize = buildPropertyItem(mu::engraving::Pid::FONT_SIZE);
+    m_textLineSpacing = buildPropertyItem(mu::engraving::Pid::TEXT_LINE_SPACING);
 
     m_horizontalAlignment = buildPropertyItem(mu::engraving::Pid::ALIGN, [this](const mu::engraving::Pid pid, const QVariant& newValue) {
         onPropertyValueChanged(pid, QVariantList({ newValue.toInt(), m_verticalAlignment->value().toInt() }));
+    }, [this](const mu::engraving::Sid sid, const QVariant& newValue) {
+        updateStyleValue(sid, QVariantList({ newValue.toInt(), m_verticalAlignment->value().toInt() }));
+
+        emit requestReloadPropertyItems();
     });
     m_verticalAlignment = buildPropertyItem(mu::engraving::Pid::ALIGN, [this](const mu::engraving::Pid pid, const QVariant& newValue) {
         onPropertyValueChanged(pid, QVariantList({ m_horizontalAlignment->value().toInt(), newValue.toInt() }));
+    }, [this](const mu::engraving::Sid sid, const QVariant& newValue) {
+        updateStyleValue(sid, QVariantList({ m_horizontalAlignment->value().toInt(), newValue.toInt() }));
+
+        emit requestReloadPropertyItems();
     });
 
     m_isSizeSpatiumDependent = buildPropertyItem(mu::engraving::Pid::SIZE_SPATIUM_DEPENDENT);
@@ -101,11 +112,13 @@ void TextSettingsModel::loadProperties()
     m_fontStyle->setIsEnabled(true);
 
     loadPropertyItem(m_fontSize, [](const QVariant& elementPropertyValue) -> QVariant {
-        return elementPropertyValue.toInt() == mu::engraving::TextBase::UNDEFINED_FONT_SIZE
-               ? QVariant() : elementPropertyValue.toInt();
+        return RealIsEqual(elementPropertyValue.toDouble(), mu::engraving::TextBase::UNDEFINED_FONT_SIZE)
+               ? QVariant() : elementPropertyValue.toDouble();
     });
 
     m_fontSize->setIsEnabled(true);
+
+    loadPropertyItem(m_textLineSpacing, formatDoubleFunc);
 
     loadPropertyItem(m_horizontalAlignment, [](const QVariant& elementPropertyValue) -> QVariant {
         QVariantList list = elementPropertyValue.toList();
@@ -143,6 +156,7 @@ void TextSettingsModel::resetProperties()
     m_fontFamily->resetToDefault();
     m_fontStyle->resetToDefault();
     m_fontSize->resetToDefault();
+    m_textLineSpacing->resetToDefault();
     m_isSizeSpatiumDependent->resetToDefault();
 
     m_frameType->resetToDefault();
@@ -155,6 +169,30 @@ void TextSettingsModel::resetProperties()
     m_textType->resetToDefault();
     m_textPlacement->resetToDefault();
     m_textScriptAlignment->resetToDefault();
+}
+
+void TextSettingsModel::onNotationChanged(const PropertyIdSet&, const StyleIdSet& changedStyleIds)
+{
+    for (Sid s : {
+        Sid::user1Name,
+        Sid::user2Name,
+        Sid::user3Name,
+        Sid::user4Name,
+        Sid::user5Name,
+        Sid::user6Name,
+        Sid::user7Name,
+        Sid::user8Name,
+        Sid::user9Name,
+        Sid::user10Name,
+        Sid::user11Name,
+        Sid::user12Name
+    }) {
+        if (changedStyleIds.find(s) != changedStyleIds.cend()) {
+            m_textStyles.clear();
+            emit textStylesChanged();
+            return;
+        }
+    }
 }
 
 void TextSettingsModel::insertSpecialCharacters()
@@ -180,6 +218,11 @@ PropertyItem* TextSettingsModel::fontStyle() const
 PropertyItem* TextSettingsModel::fontSize() const
 {
     return m_fontSize;
+}
+
+PropertyItem* TextSettingsModel::textLineSpacing() const
+{
+    return m_textLineSpacing;
 }
 
 PropertyItem* TextSettingsModel::horizontalAlignment() const
@@ -240,6 +283,28 @@ PropertyItem* TextSettingsModel::textPlacement() const
 PropertyItem* TextSettingsModel::textScriptAlignment() const
 {
     return m_textScriptAlignment;
+}
+
+QVariantList TextSettingsModel::textStyles()
+{
+    if (m_textStyles.empty()) {
+        m_textStyles.reserve(int(TextStyleType::TEXT_TYPES));
+
+        auto notation = currentNotation();
+        Score* score = notation ? notation->elements()->msScore() : nullptr;
+
+        for (int t = int(TextStyleType::DEFAULT) + 1; t < int(TextStyleType::TEXT_TYPES); ++t) {
+            QVariantMap style;
+            style["text"] = (score
+                             ? score->getTextStyleUserName(static_cast<TextStyleType>(t))
+                             : TConv::userName(static_cast<TextStyleType>(t)))
+                            .qTranslated();
+            style["value"] = t;
+            m_textStyles << style;
+        }
+    }
+
+    return m_textStyles;
 }
 
 bool TextSettingsModel::areStaffTextPropertiesAvailable() const

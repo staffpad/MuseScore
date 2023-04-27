@@ -156,8 +156,6 @@ private:
     int               parsePrefixSuffix(String& str, bool bPrefix);
 
     void              setDisplayText(const String& s) { _displayText = s; }
-    // read / write MusicXML support
-    String            Modifier2MusicXML(FiguredBassItem::Modifier prefix) const;
 
 public:
 
@@ -165,18 +163,12 @@ public:
 
     FiguredBassItem& operator=(const FiguredBassItem&) = delete;
 
-    FiguredBassItem::Modifier MusicXML2Modifier(const String prefix) const;
-
     // standard re-implemented virtual functions
     FiguredBassItem* clone() const override { return new FiguredBassItem(*this); }
 
     void              draw(mu::draw::Painter* painter) const override;
     void              layout() override;
-    void              read(XmlReader&) override;
-    void              write(XmlWriter& xml) const override;
 
-    // read / write MusicXML
-    void              writeMusicXML(XmlWriter& xml, bool isOriginalFigure, int crEndTick, int fbEndTick) const;
     bool              startsWithParenthesis() const;
 
     // specific API
@@ -196,11 +188,11 @@ public:
     ContLine          contLine() const { return _contLine; }
     void              setContLine(const ContLine& v) { _contLine = v; }
     void              undoSetContLine(ContLine val);
-    Parenthesis       parenth1() { return parenth[0]; }
-    Parenthesis       parenth2() { return parenth[1]; }
-    Parenthesis       parenth3() { return parenth[2]; }
-    Parenthesis       parenth4() { return parenth[3]; }
-    Parenthesis       parenth5() { return parenth[4]; }
+    Parenthesis       parenth1() const { return parenth[0]; }
+    Parenthesis       parenth2() const { return parenth[1]; }
+    Parenthesis       parenth3() const { return parenth[2]; }
+    Parenthesis       parenth4() const { return parenth[3]; }
+    Parenthesis       parenth5() const { return parenth[4]; }
 
     void              setParenth1(Parenthesis v) { parenth[0] = v; }
     void              setParenth2(Parenthesis v) { parenth[1] = v; }
@@ -248,8 +240,9 @@ struct FiguredBassFont {
 class FiguredBass final : public TextBase
 {
     OBJECT_ALLOCATOR(engraving, FiguredBass)
+    DECLARE_CLASSOF(ElementType::FIGURED_BASS)
 
-    std::vector<FiguredBassItem*> items;        // the individual lines of the F.B.
+    std::vector<FiguredBassItem*> m_items;        // the individual lines of the F.B.
     std::vector<double> _lineLengths;                // lengths of duration indicator lines (in raster units)
     bool _onNote;                               // true if this element is on a staff note | false if it is between notes
     Fraction _ticks;                            // the duration (used for cont. lines and for multiple F.B.
@@ -282,19 +275,13 @@ public:
 
     FiguredBassItem* createItem(int line) { return new FiguredBassItem(this, line); }
 
-    void      draw(mu::draw::Painter* painter) const override;
-    void      layout() override;
-    void      read(XmlReader&) override;
-    void      setSelected(bool f) override;
-    void      setVisible(bool f) override;
-    void      startEdit(EditData&) override;
-    bool      isEditAllowed(EditData&) const override;
-    bool      edit(EditData&) override;
-    void      endEdit(EditData&) override;
-    void      write(XmlWriter& xml) const override;
-
-    // read / write MusicXML
-    void writeMusicXML(XmlWriter& xml, bool isOriginalFigure, int crEndTick, int fbEndTick, bool writeDuration, int divisions) const;
+    void draw(mu::draw::Painter* painter) const override;
+    void layout() override;
+    void setSelected(bool f) override;
+    void setVisible(bool f) override;
+    void startEdit(EditData&) override;
+    bool isEditAllowed(EditData&) const override;
+    void endEdit(EditData&) override;
 
     double lineLength(size_t idx) const
     {
@@ -306,7 +293,7 @@ public:
 
     double             printedLineLength() const { return _printedLineLength; }
     bool              onNote() const { return _onNote; }
-    size_t            numOfItems() const { return items.size(); }
+    size_t            numOfItems() const { return m_items.size(); }
     void              setOnNote(bool val) { _onNote = val; }
     Segment* segment() const { return (Segment*)(explicitParent()); }
     Fraction          ticks() const { return _ticks; }
@@ -319,7 +306,9 @@ public:
     bool setProperty(Pid propertyId, const PropertyValue&) override;
     PropertyValue  propertyDefault(Pid) const override;
 
-    void appendItem(FiguredBassItem* item) { items.push_back(item); }
+    void appendItem(FiguredBassItem* item) { m_items.push_back(item); }
+
+    const std::vector<FiguredBassItem*>& items() const { return m_items; }
 };
 } // namespace mu::engraving
 

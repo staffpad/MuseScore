@@ -66,6 +66,7 @@
 #ifdef Q_OS_MAC
 #include "view/appmenumodel.h"
 #include "view/internal/platform/macos/macosappmenumodelhook.h"
+#include "view/internal/platform/macos/macosscrollinghook.h"
 #else
 #include "view/navigableappmenumodel.h"
 #endif
@@ -80,6 +81,10 @@ static std::shared_ptr<ApplicationActionController> s_applicationActionControlle
 static std::shared_ptr<ApplicationUiActions> s_applicationUiActions = std::make_shared<ApplicationUiActions>(s_applicationActionController);
 static std::shared_ptr<AppShellConfiguration> s_appShellConfiguration = std::make_shared<AppShellConfiguration>();
 static std::shared_ptr<SessionsManager> s_sessionsManager = std::make_shared<SessionsManager>();
+
+#ifdef Q_OS_MAC
+static std::shared_ptr<MacOSScrollingHook> s_scrollingHook = std::make_shared<MacOSScrollingHook>();
+#endif
 
 static void appshell_init_qrc()
 {
@@ -157,8 +162,11 @@ void AppShellModule::registerUiTypes()
     qmlRegisterType<IOPreferencesModel>("MuseScore.Preferences", 1, 0, "IOPreferencesModel");
     qmlRegisterType<CommonAudioApiConfigurationModel>("MuseScore.Preferences", 1, 0, "CommonAudioApiConfigurationModel");
 
-#ifdef Q_OS_MACOS
-    qmlRegisterType<AppMenuModel>("MuseScore.AppShell", 1, 0, "AppMenuModel");
+#if defined(Q_OS_MACOS)
+    qmlRegisterType<AppMenuModel>("MuseScore.AppShell", 1, 0, "PlatformAppMenuModel");
+#elif defined(Q_OS_LINUX)
+    qmlRegisterType<AppMenuModel>("MuseScore.AppShell", 1, 0, "PlatformAppMenuModel");
+    qmlRegisterType<NavigableAppMenuModel>("MuseScore.AppShell", 1, 0, "AppMenuModel");
 #else
     qmlRegisterType<NavigableAppMenuModel>("MuseScore.AppShell", 1, 0, "AppMenuModel");
 #endif
@@ -176,14 +184,43 @@ void AppShellModule::registerUiTypes()
     qmlRegisterType<WindowDropArea>("MuseScore.Ui", 1, 0, "WindowDropArea");
 }
 
-void AppShellModule::onInit(const IApplication::RunMode&)
+void AppShellModule::onPreInit(const framework::IApplication::RunMode& mode)
 {
+    if (mode == framework::IApplication::RunMode::AudioPluginRegistration) {
+        return;
+    }
+
+    s_applicationActionController->preInit();
+}
+
+void AppShellModule::onInit(const IApplication::RunMode& mode)
+{
+    if (mode == framework::IApplication::RunMode::AudioPluginRegistration) {
+        return;
+    }
+
     DockSetup::onInit();
 
     s_appShellConfiguration->init();
     s_applicationActionController->init();
     s_applicationUiActions->init();
     s_sessionsManager->init();
+
+#ifdef Q_OS_MAC
+    s_scrollingHook->init();
+#endif
+}
+
+void AppShellModule::onAllInited(const framework::IApplication::RunMode& mode)
+{
+    if (mode == framework::IApplication::RunMode::AudioPluginRegistration) {
+        return;
+    }
+
+    //! NOTE: process QEvent::FileOpen as early as possible if it was postponed
+#ifdef Q_OS_MACOS
+    qApp->processEvents();
+#endif
 }
 
 void AppShellModule::onDeinit()

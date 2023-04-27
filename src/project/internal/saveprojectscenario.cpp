@@ -60,8 +60,7 @@ RetVal<SaveLocation> SaveProjectScenario::askSaveLocation(INotationProjectPtr pr
             RetVal<io::path_t> path = askLocalPath(project, mode);
             switch (path.ret.code()) {
             case int(Ret::Code::Ok): {
-                SaveLocation::LocalInfo localInfo { path.val };
-                return RetVal<SaveLocation>::make_ok(SaveLocation(localInfo));
+                return RetVal<SaveLocation>::make_ok(SaveLocation(path.val));
             }
             case RET_CODE_CHANGE_SAVE_LOCATION_TYPE:
                 type = SaveLocationType::Cloud;
@@ -72,7 +71,7 @@ RetVal<SaveLocation> SaveProjectScenario::askSaveLocation(INotationProjectPtr pr
         }
 
         case SaveLocationType::Cloud: {
-            RetVal<SaveLocation::CloudInfo> info = doAskCloudLocation(project, true, CloudProjectVisibility::Private);
+            RetVal<CloudProjectInfo> info = askCloudLocation(project, mode);
             switch (info.ret.code()) {
             case int(Ret::Code::Ok):
                 return RetVal<SaveLocation>::make_ok(SaveLocation(info.val));
@@ -90,21 +89,21 @@ RetVal<SaveLocation> SaveProjectScenario::askSaveLocation(INotationProjectPtr pr
 RetVal<io::path_t> SaveProjectScenario::askLocalPath(INotationProjectPtr project, SaveMode saveMode) const
 {
     QString dialogTitle = qtrc("project/save", "Save score");
-    QString filenameAddition;
+    std::string filenameAddition;
 
     if (saveMode == SaveMode::SaveCopy) {
         //: used to form a filename suggestion, like "originalFile - copy"
-        filenameAddition = " - " + qtrc("project/save", "copy", "a copy of a file");
+        filenameAddition = " - " + trc("project/save", "copy", "a copy of a file");
     } else if (saveMode == SaveMode::SaveSelection) {
         //: used to form a filename suggestion, like "originalFile - selection"
-        filenameAddition = " - " + qtrc("project/save", "selection");
+        filenameAddition = " - " + trc("project/save", "selection");
     }
 
     io::path_t defaultPath = configuration()->defaultSavingFilePath(project, filenameAddition);
 
-    QStringList filter {
-        qtrc("project", "MuseScore file") + " (*.mscz)",
-        qtrc("project", "Uncompressed MuseScore folder (experimental)")
+    std::vector<std::string> filter {
+        trc("project", "MuseScore file") + " (*.mscz)",
+        trc("project", "Uncompressed MuseScore folder (experimental)")
 #ifdef Q_OS_MAC
         + " (*)"
 #else
@@ -112,7 +111,7 @@ RetVal<io::path_t> SaveProjectScenario::askLocalPath(INotationProjectPtr project
 #endif
     };
 
-    io::path_t selectedPath = interactive()->selectSavingFile(dialogTitle, defaultPath, filter.join(";;"));
+    io::path_t selectedPath = interactive()->selectSavingFile(dialogTitle, defaultPath, filter);
 
     if (selectedPath.empty()) {
         return make_ret(Ret::Code::Cancel);
@@ -162,20 +161,30 @@ RetVal<SaveLocationType> SaveProjectScenario::askSaveLocationType() const
     return RetVal<SaveLocationType>::make_ok(type);
 }
 
-RetVal<SaveLocation::CloudInfo> SaveProjectScenario::askCloudLocation(INotationProjectPtr project,
-                                                                      CloudProjectVisibility defaultVisibility) const
+RetVal<CloudProjectInfo> SaveProjectScenario::askCloudLocation(INotationProjectPtr project, SaveMode mode) const
 {
-    return doAskCloudLocation(project, false, defaultVisibility);
+    return doAskCloudLocation(project, mode, false);
 }
 
-RetVal<SaveLocation::CloudInfo> SaveProjectScenario::doAskCloudLocation(INotationProjectPtr project, bool canSaveLocallyInstead,
-                                                                        CloudProjectVisibility defaultVisibility) const
+RetVal<CloudProjectInfo> SaveProjectScenario::askPublishLocation(INotationProjectPtr project) const
 {
+    return doAskCloudLocation(project, SaveMode::Save, true);
+}
+
+RetVal<CloudProjectInfo> SaveProjectScenario::doAskCloudLocation(INotationProjectPtr project, SaveMode mode, bool isPublish) const
+{
+    Ret ret = authorizationService()->ensureAuthorization(
+        trc("project/save", "Login or create a free account on musescore.com to save this score to the cloud."));
+    if (!ret) {
+        return ret;
+    }
+
     // TODO(save-to-cloud): better name?
     QString defaultName = project->displayName();
+    cloud::Visibility defaultVisibility = isPublish ? cloud::Visibility::Public : cloud::Visibility::Private;
 
     UriQuery query("musescore://project/savetocloud");
-    query.addParam("canSaveToComputer", Val(canSaveLocallyInstead));
+    query.addParam("isPublish", Val(isPublish));
     query.addParam("name", Val(defaultName));
     query.addParam("visibility", Val(defaultVisibility));
 
@@ -196,45 +205,80 @@ RetVal<SaveLocation::CloudInfo> SaveProjectScenario::doAskCloudLocation(INotatio
         break;
     }
 
-    QString name = vals["name"].toString();
-    auto visibility = static_cast<CloudProjectVisibility>(vals["visibility"].toInt());
+    CloudProjectInfo result;
+    result.name = vals["name"].toString();
+    result.visibility = static_cast<cloud::Visibility>(vals["visibility"].toInt());
 
-    LOGD() << "name: " << name;
-    LOGD() << "visibility: " << int(visibility);
+    if (!warnBeforePublishing(isPublish, result.visibility)) {
+        return make_ret(Ret::Code::Cancel);
+    }
 
-    if (visibility == CloudProjectVisibility::Public) {
-        if (!warnBeforePublishing()) {
-            return make_ret(Ret::Code::Cancel);
+    if (mode == SaveMode::Save) {
+        result.sourceUrl = project->cloudInfo().sourceUrl;
+    }
+
+    return RetVal<CloudProjectInfo>::make_ok(result);
+}
+
+bool SaveProjectScenario::warnBeforePublishing(bool isPublish, cloud::Visibility visibility) const
+{
+    if (isPublish) {
+        if (!configuration()->shouldWarnBeforePublish()) {
+            return true;
+        }
+    } else {
+        if (!configuration()->shouldWarnBeforeSavingPubliclyToCloud()) {
+            return true;
         }
     }
 
-    return make_ret(Ret::Code::Ok);
-}
-
-bool SaveProjectScenario::warnBeforePublishing() const
-{
-    if (!configuration()->shouldWarnBeforePublishing()) {
-        return true;
-    }
+    std::string title, message;
 
     IInteractive::ButtonDatas buttons = {
         IInteractive::ButtonData(IInteractive::Button::Cancel, trc("global", "Cancel")),
-        IInteractive::ButtonData(IInteractive::Button::Ok, trc("project/save", "Publish online"), true)
+        IInteractive::ButtonData(IInteractive::Button::Ok, trc("project/save", "Publish"), true)
+    };
+
+    IInteractive::Options options = IInteractive::Option::WithIcon | IInteractive::Option::WithDontShowAgainCheckBox;
+
+    if (isPublish) {
+        title = trc("project/save", "Publish changes online?");
+        message = trc("project/save", "We will need to generate a new MP3 for web playback.");
+    } else if (visibility == cloud::Visibility::Public) {
+        title = trc("project/save", "Publish this score online?"),
+        message = trc("project/save", "All saved changes will be publicly visible on MuseScore.com. "
+                                      "If you want to make frequent changes, we recommend saving this "
+                                      "score privately until you’re ready to share it to the world.");
+    } else {
+        return true;
+    }
+
+    IInteractive::Result result = interactive()->warning(title, message, buttons, int(IInteractive::Button::Ok), options);
+
+    bool ok = result.standardButton() == IInteractive::Button::Ok;
+    if (ok && !result.showAgain()) {
+        if (isPublish) {
+            configuration()->setShouldWarnBeforePublish(false);
+        } else {
+            configuration()->setShouldWarnBeforeSavingPubliclyToCloud(false);
+        }
+    }
+
+    return ok;
+}
+
+bool SaveProjectScenario::warnBeforeSavingToExistingPubliclyVisibleCloudProject() const
+{
+    IInteractive::ButtonDatas buttons = {
+        IInteractive::ButtonData(IInteractive::Button::Cancel, trc("global", "Cancel")),
+        IInteractive::ButtonData(IInteractive::Button::Ok, trc("project/save", "Publish"), true)
     };
 
     IInteractive::Result result = interactive()->warning(
-        trc("project/save", "Publish this score online?"),
-        trc("project/save", "All saved changes will be publicly visible on MuseScore.com. "
-                            "If you want to make frequent changes, we recommend saving this "
-                            "score privately until you’re ready to share it to the world. "),
-        buttons,
-        int(IInteractive::Button::Ok),
-        IInteractive::Option::WithIcon | IInteractive::Option::WithDontShowAgainCheckBox);
+        trc("project/save", "Publish changes online?"),
+        trc("project/save", "Your saved changes will be publicly visible. We will also "
+                            "need to generate a new MP3 for public playback."),
+        buttons, int(IInteractive::Button::Ok));
 
-    bool publish = result.standardButton() == IInteractive::Button::Ok;
-    if (publish && !result.showAgain()) {
-        configuration()->setShouldWarnBeforePublishing(false);
-    }
-
-    return publish;
+    return result.standardButton() == IInteractive::Button::Ok;
 }

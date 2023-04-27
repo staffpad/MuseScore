@@ -22,6 +22,8 @@
 
 #include "glissandosrenderer.h"
 
+#include "libmscore/glissando.h"
+
 using namespace mu::engraving;
 using namespace mu::mpe;
 
@@ -53,21 +55,36 @@ void GlissandosRenderer::doRender(const EngravingItem* item, const mpe::Articula
 
 void GlissandosRenderer::renderDiscreteGlissando(const Note* note, const RenderingContext& context, mpe::PlaybackEventList& result)
 {
-    const mpe::ArticulationAppliedData& articulationData = context.commonArticulations.at(ArticulationType::DiscreteGlissando);
-    size_t stepsCount = pitchStepsCount(articulationData.meta.overallPitchChangesRange);
+    const Glissando* glissando = nullptr;
+    for (const Spanner* spanner : note->spannerFor()) {
+        if (spanner->type() == ElementType::GLISSANDO) {
+            glissando = toGlissando(spanner);
+            break;
+        }
+    }
+
+    if (!glissando) {
+        return;
+    }
+
+    std::vector<int> pitchSteps;
+    if (!Glissando::pitchSteps(glissando, pitchSteps)) {
+        return;
+    }
+
+    size_t stepsCount = pitchSteps.size();
 
     float durationStep = context.nominalDuration / static_cast<float>(stepsCount);
-    mpe::pitch_level_t pitchStep = pitchLevelStep(articulationData);
 
     for (size_t i = 0; i < stepsCount; ++i) {
-        if (!isNotePlayable(note)) {
+        if (!isNotePlayable(note, context.commonArticulations)) {
             continue;
         }
 
         NominalNoteCtx noteCtx(note, context);
         noteCtx.duration = durationStep;
         noteCtx.timestamp += i * durationStep;
-        noteCtx.pitchLevel += static_cast<pitch_level_t>(i) * pitchStep;
+        noteCtx.pitchLevel += pitchSteps.at(i) * mpe::PITCH_LEVEL_STEP;
 
         updateArticulationBoundaries(ArticulationType::DiscreteGlissando,
                                      noteCtx.timestamp,
@@ -80,7 +97,7 @@ void GlissandosRenderer::renderDiscreteGlissando(const Note* note, const Renderi
 
 void GlissandosRenderer::renderContinuousGlissando(const Note* note, const RenderingContext& context, mpe::PlaybackEventList& result)
 {
-    if (!isNotePlayable(note)) {
+    if (!isNotePlayable(note, context.commonArticulations)) {
         return;
     }
 

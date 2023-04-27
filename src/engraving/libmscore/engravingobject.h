@@ -33,6 +33,8 @@
 #include "types/propertyvalue.h"
 #include "types/types.h"
 
+#include "../infrastructure/rtti.h"
+
 #include "modularity/ioc.h"
 #include "diagnostics/iengravingelementsprovider.h"
 
@@ -54,6 +56,7 @@ class BSymbol;
 class BagpipeEmbellishment;
 class BarLine;
 class Beam;
+class BeamSegment;
 class Bend;
 class Box;
 class Bracket;
@@ -63,7 +66,7 @@ class Chord;
 class ChordLine;
 class ChordRest;
 class Clef;
-class ConnectorInfoReader;
+class DeadSlapped;
 class DurationElement;
 class Dynamic;
 class EngravingItem;
@@ -121,6 +124,8 @@ class PalmMuteSegment;
 class Part;
 class Pedal;
 class PedalSegment;
+class PickScrape;
+class PickScrapeSegment;
 class PlayTechAnnotation;
 class Rasgueado;
 class RasgueadoSegment;
@@ -172,9 +177,7 @@ class Volta;
 class VoltaSegment;
 class WhammyBar;
 class WhammyBarSegment;
-
-class XmlReader;
-class XmlWriter;
+class FretCircle;
 
 class LinkedObjects;
 
@@ -254,7 +257,6 @@ public:
     virtual bool setProperty(Pid, const PropertyValue&) = 0;
     virtual PropertyValue propertyDefault(Pid) const;
     virtual void resetProperty(Pid id);
-    PropertyValue propertyDefault(Pid pid, TextStyleType tid) const;
     virtual bool sizeIsSpatiumDependent() const { return true; }
     virtual bool offsetIsSpatiumDependent() const { return true; }
 
@@ -271,11 +273,6 @@ public:
     void setPropertyFlags(Pid, PropertyFlags);
 
     virtual Sid getPropertyStyle(Pid) const;
-    bool readProperty(const mu::AsciiStringView&, XmlReader&, Pid);
-    void readProperty(XmlReader&, Pid);
-    bool readStyledProperty(XmlReader& e, const mu::AsciiStringView& tag);
-
-    virtual void readAddConnector(ConnectorInfoReader* info, bool pasteMode);
 
     virtual void styleChanged();
 
@@ -284,14 +281,13 @@ public:
     void undoResetProperty(Pid id);
 
     void undoPushProperty(Pid);
-    void writeProperty(XmlWriter& xml, Pid id) const;
-    void writeStyledProperties(XmlWriter&) const;
 
     std::list<EngravingObject*> linkList() const;
 
     void linkTo(EngravingObject*);
     void unlink();
     bool isLinked(EngravingObject* se = nullptr) const;
+    EngravingObject* findLinkedInScore(Score* score) const;
 
     virtual void undoUnlink();
     LinkedObjects* links() const { return _links; }
@@ -312,6 +308,7 @@ public:
     CONVERT(Note,          NOTE)
     CONVERT(Rest,          REST)
     CONVERT(MMRest,        MMREST)
+    CONVERT(DeadSlapped,   DEAD_SLAPPED)
     CONVERT(Chord,         CHORD)
     CONVERT(BarLine,       BAR_LINE)
     CONVERT(Articulation,  ARTICULATION)
@@ -345,6 +342,7 @@ public:
     CONVERT(Lyrics,        LYRICS)
     CONVERT(Stem,          STEM)
     CONVERT(Beam,          BEAM)
+    CONVERT(BeamSegment,   BEAM_SEGMENT)
     CONVERT(Hook,          HOOK)
     CONVERT(StemSlash,     STEM_SLASH)
     CONVERT(SlurSegment,   SLUR_SEGMENT)
@@ -390,6 +388,8 @@ public:
     CONVERT(RasgueadoSegment, RASGUEADO_SEGMENT)
     CONVERT(HarmonicMark,      HARMONIC_MARK)
     CONVERT(HarmonicMarkSegment, HARMONIC_MARK_SEGMENT)
+    CONVERT(PickScrape,      PICK_SCRAPE)
+    CONVERT(PickScrapeSegment, PICK_SCRAPE_SEGMENT)
     CONVERT(VibratoSegment,  VIBRATO_SEGMENT)
     CONVERT(Symbol,        SYMBOL)
     CONVERT(FSymbol,       FSYMBOL)
@@ -418,6 +418,7 @@ public:
     CONVERT(Lasso,         LASSO)
     CONVERT(Sticking,      STICKING)
     CONVERT(GraceNotesGroup, GRACE_NOTES_GROUP)
+    CONVERT(FretCircle, FRET_CIRCLE)
 #undef CONVERT
 
     virtual bool isEngravingItem() const { return false; }   // overridden in element.h
@@ -629,6 +630,18 @@ static inline const StaffTextBase* toStaffTextBase(const EngravingObject* e)
     return (const StaffTextBase*)e;
 }
 
+static inline Bend* toBend(EngravingObject* e)
+{
+    assert(e == 0 || e->isBend() || e->isStretchedBend());
+    return (Bend*)e;
+}
+
+static inline const Bend* toBend(const EngravingObject* e)
+{
+    assert(e == 0 || e->isBend() || e->isStretchedBend());
+    return (const Bend*)e;
+}
+
 #define CONVERT(a)  \
     static inline a* to##a(EngravingObject * e) { assert(e == 0 || e->is##a()); return (a*)e; } \
     static inline const a* to##a(const EngravingObject * e) { assert(e == 0 || e->is##a()); return (const a*)e; }
@@ -671,6 +684,7 @@ CONVERT(System)
 CONVERT(Lyrics)
 CONVERT(Stem)
 CONVERT(Beam)
+CONVERT(BeamSegment)
 CONVERT(Hook)
 CONVERT(StemSlash)
 CONVERT(LineSegment)
@@ -687,7 +701,6 @@ CONVERT(MeasureNumber)
 CONVERT(MMRestRange)
 CONVERT(Hairpin)
 CONVERT(HairpinSegment)
-CONVERT(Bend)
 CONVERT(StretchedBend)
 CONVERT(TremoloBar)
 CONVERT(MeasureRepeat)
@@ -722,6 +735,8 @@ CONVERT(Rasgueado)
 CONVERT(RasgueadoSegment)
 CONVERT(HarmonicMark)
 CONVERT(HarmonicMarkSegment)
+CONVERT(PickScrape)
+CONVERT(PickScrapeSegment)
 CONVERT(Symbol)
 CONVERT(FSymbol)
 CONVERT(Fingering)
@@ -743,6 +758,8 @@ CONVERT(Lasso)
 CONVERT(BagpipeEmbellishment)
 CONVERT(Sticking)
 CONVERT(GraceNotesGroup)
+CONVERT(FretCircle)
+CONVERT(DeadSlapped)
 #undef CONVERT
 }
 

@@ -68,14 +68,16 @@ private:
     void loadNotations();
     void listenProjectSavingStatusChanged();
     void listenNotationOpeningStatus(INotationPtr notation);
-    void listenNotationTitleChanged(INotationPtr notation);
+    void listenExcerptNotationTitleChanged(IExcerptNotationPtr excerptNotation);
+
     bool isIndexValid(int index) const;
 
     bool isMasterNotation(const INotationPtr notation) const;
 
     enum Roles {
         RoleTitle = Qt::UserRole + 1,
-        RoleNeedSave
+        RoleNeedSave,
+        RoleIsCloud
     };
 
     QList<INotationPtr> m_notations;

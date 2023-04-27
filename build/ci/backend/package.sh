@@ -64,7 +64,7 @@ ARTIFACT_NAME=MuseScore-${BUILD_VERSION}
 
 # Make AppImage
 bash ./build/ci/linux/tools/make_appimage.sh "${INSTALL_DIR}" "${APP_IMAGE_NAME}.AppImage"
-mv "${BUILD_DIR}/${APP_IMAGE_NAME}.AppImage" "${ARTIFACTS_DIR}/"
+mv "${INSTALL_DIR}/../${APP_IMAGE_NAME}.AppImage" "${ARTIFACTS_DIR}/"
 
 cd $ARTIFACTS_DIR
 
@@ -79,6 +79,7 @@ mv squashfs-root "$APP_DIR"
 
 # Add offscreen platform plugin
 cp $QT_PATH/plugins/platforms/libqoffscreen.so $APP_DIR/plugins/platforms/libqoffscreen.so
+cp /usr/lib/x86_64-linux-gnu/libstdc++.so.6 $APP_DIR/lib/libstdc++.so.6
 
 # Add run file
 cp $HERE/convertor.in $APP_DIR/convertor

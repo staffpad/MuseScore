@@ -22,6 +22,8 @@
 #ifndef MU_NOTATION_NOTATIONVIEWINPUTCONTROLLER_H
 #define MU_NOTATION_NOTATIONVIEWINPUTCONTROLLER_H
 
+#include <QtEvents>
+
 #include "modularity/ioc.h"
 
 #include "actions/iactionsdispatcher.h"
@@ -36,7 +38,6 @@
 
 #include "playback/iplaybackcontroller.h"
 
-class QMouseEvent;
 class QQuickItem;
 
 namespace mu::notation {
@@ -175,6 +176,7 @@ private:
 
     bool m_readonly = false;
     bool m_isCanvasDragged = false;
+    bool m_tripleClickPending = false;
 
     PointF m_beginPoint;
 

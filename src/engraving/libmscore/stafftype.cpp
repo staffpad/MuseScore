@@ -26,7 +26,7 @@
 #include "io/file.h"
 #include "draw/fontmetrics.h"
 #include "draw/types/pen.h"
-#include "rw/xml.h"
+#include "rw/xmlreader.h"
 #include "types/typesconv.h"
 
 #include "chord.h"
@@ -236,6 +236,13 @@ StaffTypes StaffType::type() const
 
         { u"tab7StrCommon", StaffTypes::TAB_7COMMON },
         { u"tab8StrCommon", StaffTypes::TAB_8COMMON },
+        { u"tab9StrCommon", StaffTypes::TAB_9COMMON },
+        { u"tab10StrCommon", StaffTypes::TAB_10COMMON },
+
+        { u"tab7StrSimple", StaffTypes::TAB_7SIMPLE },
+        { u"tab8StrSimple", StaffTypes::TAB_8SIMPLE },
+        { u"tab9StrSimple", StaffTypes::TAB_9SIMPLE },
+        { u"tab10StrSimple", StaffTypes::TAB_10SIMPLE },
     };
 
     return mu::value(xmlNameToType, _xmlName, StaffTypes::STANDARD);
@@ -284,184 +291,6 @@ bool StaffType::isCommonTabStaff() const
 bool StaffType::isHiddenElementOnTab(const Score* score, Sid commonTabStyle, Sid simpleTabStyle) const
 {
     return (isCommonTabStaff() && !score->styleB(commonTabStyle)) || (isSimpleTabStaff() && !score->styleB(simpleTabStyle));
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void StaffType::write(XmlWriter& xml) const
-{
-    xml.startElement("StaffType", { { "group", TConv::toXml(_group) } });
-    if (!_xmlName.isEmpty()) {
-        xml.tag("name", _xmlName);
-    }
-    if (_lines != 5) {
-        xml.tag("lines", _lines);
-    }
-    if (_lineDistance.val() != 1.0) {
-        xml.tag("lineDistance", _lineDistance.val());
-    }
-    if (_yoffset.val() != 0.0) {
-        xml.tag("yoffset", _yoffset.val());
-    }
-    if (_userMag != 1.0) {
-        xml.tag("mag", _userMag);
-    }
-    if (_small) {
-        xml.tag("small", _small);
-    }
-    if (_stepOffset) {
-        xml.tag("stepOffset", _stepOffset);
-    }
-    if (!_genClef) {
-        xml.tag("clef", _genClef);
-    }
-    if (_stemless) {
-        xml.tag("slashStyle", _stemless);     // for backwards compatibility
-        xml.tag("stemless", _stemless);
-    }
-    if (!_showBarlines) {
-        xml.tag("barlines", _showBarlines);
-    }
-    if (!_genTimesig) {
-        xml.tag("timesig", _genTimesig);
-    }
-    if (_invisible) {
-        xml.tag("invisible", _invisible);
-    }
-    if (_color != engravingConfiguration()->defaultColor()) {
-        xml.tag("color", _color.toString().c_str());
-    }
-    if (_group == StaffGroup::STANDARD) {
-        xml.tag("noteheadScheme", TConv::toXml(_noteHeadScheme), TConv::toXml(NoteHeadScheme::HEAD_NORMAL));
-    }
-    if (_group == StaffGroup::STANDARD || _group == StaffGroup::PERCUSSION) {
-        if (!_genKeysig) {
-            xml.tag("keysig", _genKeysig);
-        }
-        if (!_showLedgerLines) {
-            xml.tag("ledgerlines", _showLedgerLines);
-        }
-    } else {
-        xml.tag("durations",        _genDurations);
-        xml.tag("durationFontName", _durationFonts[_durationFontIdx].displayName);     // write font names anyway for backward compatibility
-        xml.tag("durationFontSize", _durationFontSize);
-        xml.tag("durationFontY",    _durationFontUserY);
-        xml.tag("fretFontName",     _fretFonts[_fretFontIdx].displayName);
-        xml.tag("fretFontSize",     _fretFontSize);
-        xml.tag("fretFontY",        _fretFontUserY);
-        if (_symRepeat != TablatureSymbolRepeat::NEVER) {
-            xml.tag("symbolRepeat", int(_symRepeat));
-        }
-        xml.tag("linesThrough",     _linesThrough);
-        xml.tag("minimStyle",       int(_minimStyle));
-        xml.tag("onLines",          _onLines);
-        xml.tag("showRests",        _showRests);
-        xml.tag("stemsDown",        _stemsDown);
-        xml.tag("stemsThrough",     _stemsThrough);
-        xml.tag("upsideDown",       _upsideDown);
-        xml.tag("showTabFingering", _showTabFingering, false);
-        xml.tag("useNumbers",       _useNumbers);
-        // only output "showBackTied" if different from !"stemless"
-        // to match the behaviour in 2.0.2 scores (or older)
-        if (_showBackTied != !_stemless) {
-            xml.tag("showBackTied",  _showBackTied);
-        }
-    }
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void StaffType::read(XmlReader& e)
-{
-    AsciiStringView group = e.asciiAttribute("group");
-    _group = TConv::fromXml(group, StaffGroup::STANDARD);
-
-    if (_group == StaffGroup::TAB) {
-        setGenKeysig(false);
-    }
-
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "name") {
-            setXmlName(e.readText());
-        } else if (tag == "lines") {
-            setLines(e.readInt());
-        } else if (tag == "lineDistance") {
-            setLineDistance(Spatium(e.readDouble()));
-        } else if (tag == "yoffset") {
-            _yoffset = Spatium(e.readDouble());
-        } else if (tag == "mag") {
-            _userMag = e.readDouble();
-        } else if (tag == "small") {
-            _small = e.readBool();
-        } else if (tag == "stepOffset") {
-            _stepOffset = e.readInt();
-        } else if (tag == "clef") {
-            setGenClef(e.readInt());
-        } else if ((tag == "slashStyle") || (tag == "stemless")) {
-            bool val = e.readInt() != 0;
-            setStemless(val);
-            setShowBackTied(!val);        // for compatibility with 2.0.2 scores where this prop
-        }                                 // was lacking and controlled by "slashStyle" instead
-        else if (tag == "barlines") {
-            setShowBarlines(e.readInt());
-        } else if (tag == "timesig") {
-            setGenTimesig(e.readInt());
-        } else if (tag == "noteheadScheme") {
-            setNoteHeadScheme(TConv::fromXml(e.readAsciiText(), NoteHeadScheme::HEAD_NORMAL));
-        } else if (tag == "keysig") {
-            _genKeysig = e.readInt();
-        } else if (tag == "ledgerlines") {
-            _showLedgerLines = e.readInt();
-        } else if (tag == "invisible") {
-            _invisible = e.readInt();
-        } else if (tag == "color") {
-            _color = e.readColor();
-        } else if (tag == "durations") {
-            setGenDurations(e.readBool());
-        } else if (tag == "durationFontName") {
-            setDurationFontName(e.readText());
-        } else if (tag == "durationFontSize") {
-            setDurationFontSize(e.readDouble());
-        } else if (tag == "durationFontY") {
-            setDurationFontUserY(e.readDouble());
-        } else if (tag == "fretFontName") {
-            setFretFontName(e.readText());
-        } else if (tag == "fretFontSize") {
-            setFretFontSize(e.readDouble());
-        } else if (tag == "fretFontY") {
-            setFretFontUserY(e.readDouble());
-        } else if (tag == "symbolRepeat") {
-            setSymbolRepeat((TablatureSymbolRepeat)e.readInt());
-        } else if (tag == "linesThrough") {
-            setLinesThrough(e.readBool());
-        } else if (tag == "minimStyle") {
-            setMinimStyle((TablatureMinimStyle)e.readInt());
-        } else if (tag == "onLines") {
-            setOnLines(e.readBool());
-        } else if (tag == "showRests") {
-            setShowRests(e.readBool());
-        } else if (tag == "stemsDown") {
-            setStemsDown(e.readBool());
-        } else if (tag == "stemsThrough") {
-            setStemsThrough(e.readBool());
-        } else if (tag == "upsideDown") {
-            setUpsideDown(e.readBool());
-        } else if (tag == "showTabFingering") {
-            setShowTabFingering(e.readBool());
-        } else if (tag == "useNumbers") {
-            setUseNumbers(e.readBool());
-        } else if (tag == "showBackTied") {           // must be after reading "slashStyle"/"stemless" prop, as in older
-            setShowBackTied(e.readBool());            // scores, this prop was lacking and controlled by "slashStyle"
-        } else {
-            e.unknown();
-        }
-    }
 }
 
 //---------------------------------------------------------
@@ -586,7 +415,7 @@ void StaffType::setDurationFontName(const String& name)
     if (idx >= _durationFonts.size()) {
         idx = 0;              // if name not found, use first font
     }
-    _durationFont.setFamily(_durationFonts[idx].family);
+    _durationFont.setFamily(_durationFonts[idx].family, draw::Font::Type::Tablature);
     _durationFontIdx = idx;
     _durationMetricsValid = false;
 }
@@ -607,7 +436,7 @@ void StaffType::setFretFontName(const String& name)
     if (idx >= _fretFonts.size()) {
         idx = 0;              // if name not found, use first font
     }
-    _fretFont.setFamily(_fretFonts[idx].family);
+    _fretFont.setFamily(_fretFonts[idx].family, draw::Font::Type::Tablature);
     _fretFontIdx = idx;
     _fretMetricsValid = false;
 }
@@ -824,6 +653,64 @@ String StaffType::tabBassStringPrefix(int strg, bool* hasFret) const
 }
 
 //---------------------------------------------------------
+//   drawInputStringMarks
+//
+//    in TAB's, draws the marks within the input 'blue cursor' required to identify the current target input string.
+//
+//    Implements the specific of historic TAB styles for instruments with more strings than TAB lines.
+//    For strings normally represented by TAB lines, no mark is required.
+//    For strings not represented by TAB lines (e.g. bass strings in lutes and similar),
+//    either a sequence of slashes OR some ledger line-like lines OR the ordinal of the string
+//    are used, according to the TAB style (French or Italian) and the string position.
+//
+//    Note: assumes the string parameter is within legal bounds, i.e.:
+//    0 <= string <= [instrument strings] - 1
+//
+//    p       the Painter to draw into
+//    string  the instrument physical string for which to draw the mark (0 = top string)
+//    voice   the current input voice (affects mark colour)
+//    rect    the rect of the 'blue rectangle' showing the input position
+//---------------------------------------------------------
+
+void StaffType::drawInputStringMarks(mu::draw::Painter* p, int string, voice_idx_t voice, const RectF& rect) const
+{
+    if (_group != StaffGroup::TAB) {
+        return;
+    }
+
+    static constexpr double LEDGER_LINE_THICKNESS = 0.15; // in sp
+    static constexpr double LEDGER_LINE_LEFTX = 0.25; // in % of cursor rectangle width
+    static constexpr double LEDGER_LINE_RIGHTX = 0.75; // in % of cursor rectangle width
+
+    double spatium = SPATIUM20;
+    double lineDist = _lineDistance.val() * spatium;
+    bool hasFret = false;
+    String text = tabBassStringPrefix(string, &hasFret);
+    double lw = LEDGER_LINE_THICKNESS * spatium; // use a fixed width
+    mu::draw::Pen pen(engravingConfiguration()->selectionColor(voice), lw);
+    p->setPen(pen);
+    // draw conventional 'ledger lines', if required
+    int numOfLedgerLines  = numOfTabLedgerLines(string);
+    double x1 = rect.x() + rect.width() * LEDGER_LINE_LEFTX;
+    double x2 = rect.x() + rect.width() * LEDGER_LINE_RIGHTX;
+    // cursor rect is 1 line dist. high, and it is:
+    // centred on the line for "frets on strings"    => lower top ledger line 1/2 line dist.
+    // sitting on the line for "frets above strings" => lower top ledger line 1 full line dist
+    double y = rect.top() + lineDist * (_onLines ? 0.5 : 1.0);
+    for (int i = 0; i < numOfLedgerLines; i++) {
+        p->drawLine(LineF(x1, y, x2, y));
+        y += lineDist / numOfLedgerLines;     // insert other lines between top line and tab body
+    }
+    // draw the text, if any
+    if (!text.isEmpty()) {
+        mu::draw::Font f = fretFont();
+        f.setPointSizeF(f.pointSizeF() * MScore::pixelRatio);
+        p->setFont(f);
+        p->drawText(PointF(rect.left(), rect.top() + lineDist), text);
+    }
+}
+
+//---------------------------------------------------------
 //   numOfLedgerLines
 //
 //    in TAB's, returns the number of ledgerlines needed by bass lines in some TAB styles.
@@ -1032,7 +919,7 @@ void TabDurationSymbol::layout2()
 
 void TabDurationSymbol::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     using namespace mu::draw;
     if (!_tab) {
         return;
@@ -1432,21 +1319,27 @@ void StaffType::initStaffTypes()
 
 //                 group            xml-name,     human-readable-name                  lin stpOff dist clef   bars stemless time   invis     color   duration font     size off genDur     fret font          size off  duration symbol repeat      thru       minim style              onLin  rests  stmDn  stmThr upsDn  sTFing nums  bkTied
         StaffType(StaffGroup::TAB, u"tab6StrSimple", mtrc("engraving", "Tab. 6-str. simple"), 6, 0,     1.5, true,  true, true,  false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",    9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::NONE,   true,  false, true,  false, false, false, true, false),
-        StaffType(StaffGroup::TAB, u"tab6StrCommon", mtrc("engraving", "Tab. 6-str. common"), 6, 0,     1.5, true,  true, false, false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true, true,  false, false, true, true, true),
+        StaffType(StaffGroup::TAB, u"tab6StrCommon", mtrc("engraving", "Tab. 6-str. common"), 6, 0,     1.5, true,  true, false, true, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true, true,  false, false, true, true, true),
         StaffType(StaffGroup::TAB, u"tab6StrFull",   mtrc("engraving", "Tab. 6-str. full"),   6, 0,     1.5, true,  true, false, true, false,  engravingConfiguration()->defaultColor(),  u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SLASHED,  true,  true,  true,  true,  false, true, true, true),
         StaffType(StaffGroup::TAB, u"tab4StrSimple", mtrc("engraving", "Tab. 4-str. simple"), 4, 0,     1.5, true,  true, true,  false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",    9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::NONE,   true,  false, true,  false, false, false, true, false),
-        StaffType(StaffGroup::TAB, u"tab4StrCommon", mtrc("engraving", "Tab. 4-str. common"), 4, 0,     1.5, true,  true, false, false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true, true,  false, false, true, true, true),
-        StaffType(StaffGroup::TAB, u"tab4StrFull",   mtrc("engraving", "Tab. 4-str. full"),   4, 0,     1.5, true,  true, false, false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SLASHED,  true,  true,  true,  true,  false, true, true, true),
+        StaffType(StaffGroup::TAB, u"tab4StrCommon", mtrc("engraving", "Tab. 4-str. common"), 4, 0,     1.5, true,  true, false, true, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true, true,  false, false, true, true, true),
+        StaffType(StaffGroup::TAB, u"tab4StrFull",   mtrc("engraving", "Tab. 4-str. full"),   4, 0,     1.5, true,  true, false, true, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SLASHED,  true,  true,  true,  true,  false, true, true, true),
         StaffType(StaffGroup::TAB, u"tab5StrSimple", mtrc("engraving", "Tab. 5-str. simple"), 5, 0,     1.5, true,  true, true,  false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",    9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::NONE,   true,  false, true,  false, false, false, true, false),
-        StaffType(StaffGroup::TAB, u"tab5StrCommon", mtrc("engraving", "Tab. 5-str. common"), 5, 0,     1.5, true,  true, false, false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true, true,  false, false, true, true, true),
-        StaffType(StaffGroup::TAB, u"tab5StrFull",   mtrc("engraving", "Tab. 5-str. full"),   5, 0,     1.5, true,  true, false, false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SLASHED,  true,  true,  true,  true,  false, true, true, true),
-        StaffType(StaffGroup::TAB, u"tabUkulele",    mtrc("engraving", "Tab. ukulele"),       4, 0,     1.5, true,  true, false, false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true,  true,  false, false, true, true, true),
-        StaffType(StaffGroup::TAB, u"tabBalajka",    mtrc("engraving", "Tab. balalaika"),     3, 0,     1.5, true,  true, false, false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true,  true,  false, false, true, true, true),
-        StaffType(StaffGroup::TAB, u"tabDulcimer",   mtrc("engraving", "Tab. dulcimer"),      3, 0,     1.5, true,  true, false, false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true,  true,  false, true,  true, true, true),
+        StaffType(StaffGroup::TAB, u"tab5StrCommon", mtrc("engraving", "Tab. 5-str. common"), 5, 0,     1.5, true,  true, false, true, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true, true,  false, false, true, true, true),
+        StaffType(StaffGroup::TAB, u"tab5StrFull",   mtrc("engraving", "Tab. 5-str. full"),   5, 0,     1.5, true,  true, false, true, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SLASHED,  true,  true,  true,  true,  false, true, true, true),
+        StaffType(StaffGroup::TAB, u"tabUkulele",    mtrc("engraving", "Tab. ukulele"),       4, 0,     1.5, true,  true, false, true, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true,  true,  false, false, true, true, true),
+        StaffType(StaffGroup::TAB, u"tabBalajka",    mtrc("engraving", "Tab. balalaika"),     3, 0,     1.5, true,  true, false, true, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true,  true,  false, false, true, true, true),
+        StaffType(StaffGroup::TAB, u"tabDulcimer",   mtrc("engraving", "Tab. dulcimer"),      3, 0,     1.5, true,  true, false, true, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true,  true,  false, true,  true, true, true),
         StaffType(StaffGroup::TAB, u"tab6StrItalian",mtrc("engraving", "Tab. 6-str. Italian"),6, 0,     1.5, false, true, true,  true, false,  engravingConfiguration()->defaultColor(),  u"MuseScore Tab Italian",15, 0, true,  u"MuseScore Tab Renaiss",10, 0, TablatureSymbolRepeat::NEVER, true,  TablatureMinimStyle::NONE,   true,  true,  false, false, true,  false, true, false),
         StaffType(StaffGroup::TAB, u"tab6StrFrench", mtrc("engraving", "Tab. 6-str. French"), 6, 0,     1.5, false, true, true,  true, false,  engravingConfiguration()->defaultColor(),  u"MuseScore Tab French", 15, 0, true,  u"MuseScore Tab Renaiss",10, 0, TablatureSymbolRepeat::NEVER, true,  TablatureMinimStyle::NONE,   false, false, false, false, false, false, false, false),
-        StaffType(StaffGroup::TAB, u"tab7StrCommon", mtrc("engraving", "Tab. 7-str. common"), 7, 0,     1.5, true,  true, false, false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true, true,  false, false, true, true, true),
-        StaffType(StaffGroup::TAB, u"tab8StrCommon", mtrc("engraving", "Tab. 8-str. common"), 8, 0,     1.5, true,  true, false, false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true, true,  false, false, true, true, true),
+        StaffType(StaffGroup::TAB, u"tab7StrCommon", mtrc("engraving", "Tab. 7-str. common"), 7, 0,     1.5, true,  true, false, true, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true, true,  false, false, true, true, true),
+        StaffType(StaffGroup::TAB, u"tab8StrCommon", mtrc("engraving", "Tab. 8-str. common"), 8, 0,     1.5, true,  true, false, true, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true, true,  false, false, true, true, true),
+        StaffType(StaffGroup::TAB, u"tab9StrCommon", mtrc("engraving", "Tab. 9-str. common"), 9, 0,     1.5, true,  true, false, true, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true, true,  false, false, true, true, true),
+        StaffType(StaffGroup::TAB, u"tab10StrCommon", mtrc("engraving", "Tab. 10-str. common"), 10, 0,     1.5, true,  true, false, true, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::SHORTER,true,  true, true,  false, false, true, true, true),
+        StaffType(StaffGroup::TAB, u"tab7StrSimple", mtrc("engraving", "Tab. 7-str. simple"), 7, 0,     1.5, true,  true, true, false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::NONE,true,  false, true,  false, false, false, true, false),
+        StaffType(StaffGroup::TAB, u"tab8StrSimple", mtrc("engraving", "Tab. 8-str. simple"), 8, 0,     1.5, true,  true, true, false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::NONE,true,  false, true,  false, false, false, true, false),
+        StaffType(StaffGroup::TAB, u"tab9StrSimple", mtrc("engraving", "Tab. 9-str. simple"), 9, 0,     1.5, true,  true, true, false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::NONE,true,  false, true,  false, false, false, true, false),
+        StaffType(StaffGroup::TAB, u"tab10StrSimple", mtrc("engraving", "Tab. 10-str. simple"), 10, 0,     1.5, true,  true, true, false, false,  engravingConfiguration()->defaultColor(), u"MuseScore Tab Modern", 15, 0, false, u"MuseScore Tab Sans",   9, 0, TablatureSymbolRepeat::NEVER, false, TablatureMinimStyle::NONE,true,  false, true,  false, false, false, true, false),
     };
 }
 /* *INDENT-ON* */

@@ -43,6 +43,30 @@
           <string>71</string>
           <string>76</string>
           </StringData>
+        <Articulation name="staccatissimo">
+          <velocity>100</velocity>
+          <gateTime>30</gateTime>
+          </Articulation>
+        <Articulation name="staccato">
+          <velocity>100</velocity>
+          <gateTime>50</gateTime>
+          </Articulation>
+        <Articulation name="portato">
+          <velocity>100</velocity>
+          <gateTime>67</gateTime>
+          </Articulation>
+        <Articulation name="tenuto">
+          <velocity>100</velocity>
+          <gateTime>100</gateTime>
+          </Articulation>
+        <Articulation name="marcato">
+          <velocity>120</velocity>
+          <gateTime>67</gateTime>
+          </Articulation>
+        <Articulation name="sforzato">
+          <velocity>120</velocity>
+          <gateTime>100</gateTime>
+          </Articulation>
         <Channel>
           <program value="25"/>
           <controller ctrl="7" value="102"/>
@@ -61,7 +85,7 @@
             </TimeSig>
           <Tempo>
             <tempo>2</tempo>
-            <text><sym>metNoteQuarterUp</sym> = 120</text>
+            <text>Moderate <sym>metNoteQuarterUp</sym> = 120</text>
             </Tempo>
           <Rest>
             <durationType>quarter</durationType>
@@ -79,7 +103,6 @@
               <string>3</string>
               <Spanner type="Glissando">
                 <Glissando>
-                  <play>0</play>
                   <diagonal>1</diagonal>
                   <anchor>3</anchor>
                   </Glissando>
@@ -119,18 +142,15 @@
             </BarLine>
           </voice>
         <voice>
-          <Rest>
-            <durationType>quarter</durationType>
-            </Rest>
-          <Rest>
-            <durationType>quarter</durationType>
-            </Rest>
-          <Rest>
-            <durationType>quarter</durationType>
-            </Rest>
-          <Rest>
-            <durationType>quarter</durationType>
-            </Rest>
+          <location>
+            <fractions>1/4</fractions>
+            </location>
+          <location>
+            <fractions>1/4</fractions>
+            </location>
+          <location>
+            <fractions>1/4</fractions>
+            </location>
           </voice>
         </Measure>
       </Staff>

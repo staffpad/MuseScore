@@ -82,8 +82,9 @@ public:
 class NoteHead final : public Symbol
 {
     OBJECT_ALLOCATOR(engraving, NoteHead)
-public:
+    DECLARE_CLASSOF(ElementType::NOTEHEAD)
 
+public:
     NoteHead(Note* parent = 0);
     NoteHead(const NoteHead&) = default;
     NoteHead& operator=(const NoteHead&) = delete;
@@ -125,7 +126,7 @@ static const int INVALID_LINE = -10000;
 //   @P fret             int              fret number in tablature
 //   @P ghost            bool             ghost note (guitar: death note)
 //   @P headScheme       enum (NoteHeadScheme.HEAD_AUTO, .HEAD_NORMAL, .HEAD_PITCHNAME, .HEAD_PITCHNAME_GERMAN, .HEAD_SHAPE_NOTE_4, .HEAD_SHAPE_NOTE_7_AIKIN, .HEAD_SHAPE_NOTE_7_FUNK, .HEAD_SHAPE_NOTE_7_WALKER, .HEAD_SOLFEGE, .HEAD_SOLFEGE_FIXED)
-//   @P headGroup        enum (NoteHeadGroup.HEAD_NORMAL, .HEAD_BREVIS_ALT, .HEAD_CROSS, .HEAD_DIAMOND, .HEAD_DO, .HEAD_FA, .HEAD_LA, .HEAD_MI, .HEAD_RE, .HEAD_SLASH, .HEAD_SOL, .HEAD_TI, .HEAD_XCIRCLE, .HEAD_TRIANGLE)
+//   @P headGroup        enum (NoteHeadGroup.HEAD_NORMAL, .HEAD_BREVIS_ALT, .HEAD_CROSS, .HEAD_DIAMOND, .HEAD_DO, .HEAD_FA, .HEAD_LA, .HEAD_MI, .HEAD_RE, .HEAD_SLASH, .HEAD_LARGE_DIAMOND, .HEAD_SOL, .HEAD_TI, .HEAD_XCIRCLE, .HEAD_TRIANGLE)
 //   @P headType         enum (NoteHeadType.HEAD_AUTO, .HEAD_BREVIS, .HEAD_HALF, .HEAD_QUARTER, .HEAD_WHOLE)
 //   @P hidden           bool             hidden, not played note (read only)
 //   @P line             int              notehead position (read only)
@@ -151,6 +152,8 @@ static const int INVALID_LINE = -10000;
 class Note final : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, Note)
+    DECLARE_CLASSOF(ElementType::NOTE)
+
 public:
     enum class SlideType {
         Undefined = 0,
@@ -168,7 +171,6 @@ public:
         Note* endNote = nullptr;     // note to end slide (for 2 notes slides)
         bool isValid() const { return type != SlideType::Undefined; }
         bool is(SlideType t) const { return t == type; }
-        uint32_t slideToNoteLength = 40;
     };
 
     enum DisplayFretOption {
@@ -181,6 +183,7 @@ public:
 private:
     bool _ghost = false;        ///< ghost note
     bool _deadNote = false;     ///< dead note
+
     bool _hidden = false;                 ///< marks this note as the hidden one if there are
                                           ///< overlapping notes; hidden notes are not played
                                           ///< and heads + accidentals are not shown
@@ -203,7 +206,7 @@ private:
     NoteHeadGroup _headGroup = NoteHeadGroup::HEAD_NORMAL;
     NoteHeadType _headType = NoteHeadType::HEAD_AUTO;
 
-    VeloType _veloType = VeloType::OFFSET_VAL;
+    VeloType _veloType = VeloType::USER_VAL;
 
     int _offTimeType = 0;     ///< compatibility only 1 - user(absolute), 2 - offset (%)
     int _onTimeType = 0;      ///< compatibility only 1 - user, 2 - offset
@@ -217,7 +220,7 @@ private:
     mutable int _tpc[2] = { Tpc::TPC_INVALID, Tpc::TPC_INVALID };   ///< tonal pitch class  (concert/transposing)
     mutable int _pitch = 0;      ///< Note pitch as midi value (0 - 127).
 
-    int _veloOffset = 0;    ///< velocity user offset in percent, or absolute velocity for this note
+    int _userVelocity = 0;    ///< velocity user offset in percent, or absolute velocity for this note
     int _fixedLine = 0;     ///< fixed line number if _fixed == true
     double _tuning = 0.0;    ///< pitch offset in cent, playable only by internal synthesizer
 
@@ -272,6 +275,8 @@ private:
 
     bool sameVoiceKerningLimited() const override { return true; }
 
+    void getNoteListForDots(std::vector<Note*>& topDownNotes, std::vector<Note*>& bottomUpNotes, std::vector<int>& anchoredDots);
+
     std::vector<LineAttachPoint> _lineAttachPoints;
 
 public:
@@ -281,6 +286,7 @@ public:
     std::vector<const Note*> compoundNotes() const;
 
     double computePadding(const EngravingItem* nextItem) const override;
+    KerningType doComputeKerningType(const EngravingItem* nextItem) const override;
 
     Note& operator=(const Note&) = delete;
     virtual Note* clone() const override { return new Note(*this, false); }
@@ -330,7 +336,7 @@ public:
     int subtype() const override { return int(_headGroup); }
     TranslatableString subtypeUserName() const override;
 
-    void setPitch(int val);
+    void setPitch(int val, bool notifyAboutChanged = true);
     void setPitch(int pitch, int tpc1, int tpc2);
     int pitch() const { return _pitch; }
     int ottaveCapoFret() const;
@@ -377,6 +383,7 @@ public:
     void setHarmonicFret(float val) { m_harmonicFret = val; }
     DisplayFretOption displayFret() const { return m_displayFret; }
     void setDisplayFret(DisplayFretOption val) { m_displayFret = val; }
+    bool negativeFretUsed() const;
     int string() const { return _string; }
     void setString(int val);
     bool ghost() const { return _ghost; }
@@ -412,10 +419,7 @@ public:
 
     void draw(mu::draw::Painter*) const override;
 
-    void read(XmlReader&) override;
-    bool readProperties(XmlReader&) override;
-    void readAddConnector(ConnectorInfoReader* info, bool pasteMode) override;
-    void write(XmlWriter&) const override;
+    void setupAfterRead(const Fraction& tick, bool pasteMode);
 
     bool acceptDrop(EditData&) const override;
     EngravingItem* drop(EditData&) override;
@@ -443,10 +447,9 @@ public:
 
     void reset() override;
 
-    VeloType veloType() const { return _veloType; }
-    void setVeloType(VeloType v) { _veloType = v; }
-    int veloOffset() const { return _veloOffset; }
-    void setVeloOffset(int v) { _veloOffset = v; }
+    float userVelocityFraction() const;
+    int userVelocity() const { return _userVelocity; }
+    void setUserVelocity(int v) { _userVelocity = v; }
 
     void setOnTimeOffset(int v);
     void setOffTimeOffset(int v);

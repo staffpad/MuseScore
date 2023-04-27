@@ -25,7 +25,7 @@
 
 #include <memory>
 
-#include "audio/abstractsynthesizer.h"
+#include "audio/internal/abstractsynthesizer.h"
 #include "async/channel.h"
 
 #include "libhandler.h"
@@ -48,9 +48,12 @@ public:
     void flushSound() override;
     bool isValid() const override;
 
+    void revokePlayingNotes() override;
+
 protected:
     void setupSound(const mpe::PlaybackSetupData& setupData) override;
     void setupEvents(const mpe::PlaybackData& playbackData) override;
+    void updateRenderingMode(const audio::RenderMode mode) override;
 
     audio::msecs_t playbackPosition() const override;
     void setPlaybackPosition(const audio::msecs_t newPosition) override;
@@ -69,6 +72,11 @@ protected:
     ms_OutputBuffer m_bus;
 
     audio::samples_t m_currentPosition = 0;
+
+    std::vector<float> m_leftChannel;
+    std::vector<float> m_rightChannel;
+
+    std::array<float*, 2> m_internalBuffer;
 
     MuseSamplerSequencer m_sequencer;
 };

@@ -141,7 +141,7 @@ FocusableItem {
 
                 NoteheadTypeSelector {
                     id: noteHeadTypeSection
-                    titleText: qsTrc("inspector", "Notehead type (visual only)")
+                    titleText: qsTrc("inspector", "Override visual duration")
                     propertyItem: root.model ? root.model.headType : null
 
                     navigationName: "NoteHeadTypeSection"
@@ -163,8 +163,7 @@ FocusableItem {
 
                 OffsetSection {
                     titleText: qsTrc("inspector", "Notehead offset")
-                    horizontalOffset: root.model ? root.model.horizontalOffset : null
-                    verticalOffset: root.model ? root.model.verticalOffset : null
+                    propertyItem: root.model ? root.model.offset : null
 
                     navigationName: "NoteHeadOffsetSection"
                     navigationPanel: root.navigationPanel

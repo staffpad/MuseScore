@@ -10,16 +10,13 @@
         <file>qml/MuseScore/Inspector/notation/notes/internal/NoteheadGroupSelector.qml</file>
         <file>qml/MuseScore/Inspector/notation/notes/internal/NoteheadTypeSelector.qml</file>
         <file>qml/MuseScore/Inspector/notation/notes/BeamSettings.qml</file>
-        <file>qml/MuseScore/Inspector/notation/notes/internal/BeamTypeSelector.qml</file>
+        <file>qml/MuseScore/Inspector/notation/beams/BeamTypeSelector.qml</file>
         <file>qml/MuseScore/Inspector/general/playback/PlaybackSettings.qml</file>
         <file>qml/MuseScore/Inspector/general/playback/PlaybackGeneralSettings.qml</file>
         <file>qml/MuseScore/Inspector/general/playback/internal/NoteExpandableBlank.qml</file>
         <file>qml/MuseScore/Inspector/general/playback/internal/FermataExpandableBlank.qml</file>
         <file>qml/MuseScore/Inspector/general/playback/internal/PausesExpandableBlank.qml</file>
         <file>qml/MuseScore/Inspector/general/playback/internal/GlissandoExpandableBlank.qml</file>
-        <file>qml/MuseScore/Inspector/general/playback/internal/DynamicsExpandableBlank.qml</file>
-        <file>qml/MuseScore/Inspector/general/playback/PlaybackDynamicsSettings.qml</file>
-        <file>qml/MuseScore/Inspector/general/playback/internal/HairpinsExpandableBlank.qml</file>
         <file>qml/MuseScore/Inspector/general/playback/internal/ArpeggioExpandableBlank.qml</file>
         <file>qml/MuseScore/Inspector/general/playback/internal/GradualTempoChangeBlank.qml</file>
         <file>qml/MuseScore/Inspector/general/appearance/internal/HorizontalSpacingSection.qml</file>
@@ -42,7 +39,7 @@
         <file>qml/MuseScore/Inspector/notation/lines/internal/LineWithHooksCommonStyleSettings.qml</file>
         <file>qml/MuseScore/Inspector/notation/lines/internal/LineTextSettingsTab.qml</file>
         <file>qml/MuseScore/Inspector/notation/lines/internal/LineStyleSection.qml</file>
-        <file>qml/MuseScore/Inspector/notation/lines/internal/LineTypeSection.qml</file>
+        <file>qml/MuseScore/Inspector/notation/lines/internal/HooksSection.qml</file>
         <file>qml/MuseScore/Inspector/notation/frames/internal/HorizontalGapsSection.qml</file>
         <file>qml/MuseScore/Inspector/notation/frames/internal/VerticalGapsSection.qml</file>
         <file>qml/MuseScore/Inspector/notation/frames/internal/HorizontalMarginsSection.qml</file>
@@ -99,5 +96,8 @@
         <file>qml/MuseScore/Inspector/notation/instrumentname/InstrumentNameSettings.qml</file>
         <file>qml/MuseScore/Inspector/general/appearance/AppearanceSettings.qml</file>
         <file>qml/MuseScore/Inspector/text/TextSettings.qml</file>
+        <file>qml/MuseScore/Inspector/notation/lyrics/LyricsSettings.qml</file>
+        <file>qml/MuseScore/Inspector/notation/rests/RestBeamSettings.qml</file>
+        <file>qml/MuseScore/Inspector/notation/rests/RestSettings.qml</file>
     </qresource>
 </RCC>

@@ -49,9 +49,6 @@ class Score;
 class StaffType;
 class TimeSig;
 
-class XmlReader;
-class XmlWriter;
-
 enum class Key;
 
 //---------------------------------------------------------
@@ -125,12 +122,10 @@ private:
 
     friend class Excerpt;
     void setVoiceVisible(voice_idx_t voice, bool visible);
-    void updateVisibilityVoices(Staff* masterStaff, const TracksMap& tracks);
+    void updateVisibilityVoices(const Staff* masterStaff, const TracksMap& tracks);
 
 public:
-
     Staff* clone() const override;
-    ~Staff();
 
     void init(const InstrumentTemplate*, const StaffType* staffType, int);
     void initFromStaffType(const StaffType* staffType);
@@ -145,9 +140,7 @@ public:
     String partName() const;
     staff_idx_t rstaff() const;
     staff_idx_t idx() const;
-    void read(XmlReader&) override;
-    bool readProperties(XmlReader&) override;
-    void write(XmlWriter& xml) const override;
+
     Part* part() const { return _part; }
     void setPart(Part* p) { _part = p; }
 
@@ -155,6 +148,7 @@ public:
     size_t bracketSpan(size_t idx) const;
     void setBracketType(size_t idx, BracketType val);
     void setBracketSpan(size_t idx, size_t val);
+    void setBracketVisible(size_t idx, bool v);
     void swapBracket(size_t oldIdx, size_t newIdx);
     void changeBracketColumn(size_t oldColumn, size_t newColumn);
     void addBracket(BracketItem*);
@@ -305,7 +299,7 @@ public:
     bool playbackVoice(int voice) const;
     void setPlaybackVoice(int voice, bool val);
 
-    std::array<bool, VOICES> visibilityVoices() const;
+    const std::array<bool, VOICES>& visibilityVoices() const;
     bool isVoiceVisible(voice_idx_t voice) const;
     bool canDisableVoice() const;
 

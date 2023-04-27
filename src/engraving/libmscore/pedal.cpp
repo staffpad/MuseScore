@@ -22,12 +22,12 @@
 
 #include "pedal.h"
 
-#include "rw/xml.h"
-
 #include "chordrest.h"
 #include "measure.h"
 #include "score.h"
 #include "system.h"
+
+#include "log.h"
 
 using namespace mu;
 
@@ -52,6 +52,7 @@ static const ElementStyle pedalStyle {
     { Sid::pedalDashGapLen,                    Pid::DASH_GAP_LEN },
     { Sid::pedalPlacement,                     Pid::PLACEMENT },
     { Sid::pedalPosBelow,                      Pid::OFFSET },
+    { Sid::pedalFontSpatiumDependent,          Pid::TEXT_SIZE_SPATIUM_DEPENDENT }
 };
 
 const String Pedal::PEDAL_SYMBOL = u"<sym>keyboardPedalPed</sym>";
@@ -116,53 +117,6 @@ Pedal::Pedal(EngravingItem* parent)
 
     resetProperty(Pid::BEGIN_TEXT_PLACE);
     resetProperty(Pid::LINE_VISIBLE);
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Pedal::read(XmlReader& e)
-{
-    if (score()->mscVersion() < 301) {
-        e.context()->addSpanner(e.intAttribute("id", -1), this);
-    }
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (readStyledProperty(e, tag)) {
-        } else if (!TextLineBase::readProperties(e)) {
-            e.unknown();
-        }
-    }
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Pedal::write(XmlWriter& xml) const
-{
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    xml.startElement(this);
-
-    for (auto i : {
-            Pid::END_HOOK_TYPE,
-            Pid::BEGIN_TEXT,
-            Pid::CONTINUE_TEXT,
-            Pid::END_TEXT,
-            Pid::LINE_VISIBLE,
-            Pid::BEGIN_HOOK_TYPE
-        }) {
-        writeProperty(xml, i);
-    }
-    for (const StyledProperty& spp : *styledProperties()) {
-        writeProperty(xml, spp.pid);
-    }
-
-    SLine::writeProperties(xml);
-    xml.endElement();
 }
 
 //---------------------------------------------------------

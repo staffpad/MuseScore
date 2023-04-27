@@ -28,6 +28,7 @@
 #include "types/retval.h"
 #include "types/uri.h"
 #include "types/flags.h"
+#include "progress.h"
 
 namespace mu::framework {
 class IInteractive : MODULE_EXPORT_INTERFACE
@@ -81,17 +82,19 @@ public:
     using ButtonDatas = std::vector<ButtonData>;
 
     enum class TextFormat {
-        PlainText = 0,
+        Auto = 0,
+        PlainText,
         RichText
     };
 
     struct Text {
         std::string text;
-        TextFormat format = TextFormat::PlainText;
+        TextFormat format = TextFormat::Auto;
+
         Text() = default;
         Text(const char* t)
-            : text(t), format(TextFormat::PlainText) {}
-        Text(const std::string& t, const TextFormat& f = TextFormat::PlainText)
+            : text(t), format(TextFormat::Auto) {}
+        Text(const std::string& t, const TextFormat& f = TextFormat::Auto)
             : text(t), format(f) {}
     };
 
@@ -129,26 +132,38 @@ public:
     virtual ButtonData buttonData(Button b) const = 0;
 
     // info
-    virtual Result info(const std::string& title, const std::string& text, const ButtonDatas& buttons = {},
-                        int defBtn = int(Button::NoButton), const Options& options = {}) const = 0;
+    virtual Result info(const std::string& title, const std::string& text, const Buttons& buttons = {}, int defBtn = int(Button::NoButton),
+                        const Options& options = {}) const = 0;
+
+    virtual Result info(const std::string& title, const Text& text, const ButtonDatas& buttons = {}, int defBtn = int(Button::NoButton),
+                        const Options& options = {}) const = 0;
 
     // warning
     virtual Result warning(const std::string& title, const std::string& text, const Buttons& buttons = {},
-                           const Button& def = Button::NoButton, const Options& options = {}) const = 0;
+                           const Button& def = Button::NoButton, const Options& options = { WithIcon }) const = 0;
 
     virtual Result warning(const std::string& title, const Text& text, const ButtonDatas& buttons = {}, int defBtn = int(Button::NoButton),
-                           const Options& options = {}) const = 0;
+                           const Options& options = { WithIcon }) const = 0;
+
+    virtual Result warning(const std::string& title, const Text& text, const std::string& detailedText, const ButtonDatas& buttons = {},
+                           int defBtn = int(Button::NoButton), const Options& options = { WithIcon }) const = 0;
 
     // error
     virtual Result error(const std::string& title, const std::string& text, const Buttons& buttons = {},
-                         const Button& def = Button::NoButton, const Options& options = {}) const = 0;
+                         const Button& def = Button::NoButton, const Options& options = { WithIcon }) const = 0;
 
     virtual Result error(const std::string& title, const Text& text, const ButtonDatas& buttons = {}, int defBtn = int(Button::NoButton),
-                         const Options& options = {}) const = 0;
+                         const Options& options = { WithIcon }) const = 0;
+
+    virtual Result error(const std::string& title, const Text& text, const std::string& detailedText, const ButtonDatas& buttons = {},
+                         int defBtn = int(Button::NoButton), const Options& options = { WithIcon }) const = 0;
+
+    // progress
+    virtual Ret showProgress(const std::string& title, framework::Progress* progress) const = 0;
 
     // files
-    virtual io::path_t selectOpeningFile(const QString& title, const io::path_t& dir, const QString& filter) = 0;
-    virtual io::path_t selectSavingFile(const QString& title, const io::path_t& dir, const QString& filter,
+    virtual io::path_t selectOpeningFile(const QString& title, const io::path_t& dir, const std::vector<std::string>& filter) = 0;
+    virtual io::path_t selectSavingFile(const QString& title, const io::path_t& path, const std::vector<std::string>& filter,
                                         bool confirmOverwrite = true) = 0;
 
     // dirs
@@ -172,6 +187,7 @@ public:
     virtual void close(const std::string& uri) = 0;
     virtual void close(const Uri& uri) = 0;
     virtual void close(const UriQuery& uri) = 0;
+    virtual void closeAllDialogs() = 0;
 
     virtual ValCh<Uri> currentUri() const = 0;
     virtual std::vector<Uri> stack() const = 0;

@@ -35,13 +35,15 @@ VstFxProcessor::VstFxProcessor(VstPluginPtr&& pluginPtr, const AudioFxParams& pa
 
 void VstFxProcessor::init()
 {
-    m_vstAudioClient->init(VstPluginType::Fx, m_pluginPtr);
+    m_vstAudioClient->init(AudioPluginType::Fx, m_pluginPtr);
 
     if (m_pluginPtr->isLoaded()) {
         m_pluginPtr->updatePluginConfig(m_params.configuration);
+        m_inited = true;
     } else {
         m_pluginPtr->loadingCompleted().onNotify(this, [this]() {
             m_pluginPtr->updatePluginConfig(m_params.configuration);
+            m_inited = true;
         });
     }
 
@@ -87,7 +89,7 @@ void VstFxProcessor::setActive(bool active)
 
 void VstFxProcessor::process(float* buffer, unsigned int sampleCount)
 {
-    if (!buffer) {
+    if (!buffer || !m_inited) {
         return;
     }
 

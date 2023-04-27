@@ -36,6 +36,7 @@
 #include "internal/positionswriter.h"
 #include "internal/mscnotationwriter.h"
 #include "internal/instrumentsrepository.h"
+#include "internal/notationcreator.h"
 
 #include "view/notationpaintview.h"
 #include "view/notationswitchlistmodel.h"
@@ -72,6 +73,7 @@
 
 #include "view/styledialog/styleitem.h"
 #include "view/styledialog/notespagemodel.h"
+#include "view/styledialog/restspagemodel.h"
 #include "view/styledialog/beamspagemodel.h"
 
 #include "diagnostics/idiagnosticspathsregister.h"
@@ -101,6 +103,7 @@ std::string NotationModule::moduleName() const
 void NotationModule::registerExports()
 {
     ioc()->registerExport<INotationConfiguration>(moduleName(), s_configuration);
+    ioc()->registerExport<INotationCreator>(moduleName(), new NotationCreator());
     ioc()->registerExport<IInstrumentsRepository>(moduleName(), s_instrumentsRepository);
 }
 
@@ -192,6 +195,7 @@ void NotationModule::registerUiTypes()
 
     qmlRegisterUncreatableType<StyleItem>("MuseScore.NotationScene", 1, 0, "StyleItem", "Cannot create StyleItem from QML");
     qmlRegisterType<NotesPageModel>("MuseScore.NotationScene", 1, 0, "NotesPageModel");
+    qmlRegisterType<RestsPageModel>("MuseScore.NotationScene", 1, 0, "RestsPageModel");
     qmlRegisterType<BeamsPageModel>("MuseScore.NotationScene", 1, 0, "BeamsPageModel");
 
     qRegisterMetaType<EditStyle>("EditStyle");
@@ -210,12 +214,16 @@ void NotationModule::registerUiTypes()
 
 void NotationModule::onInit(const framework::IApplication::RunMode& mode)
 {
+    if (mode == framework::IApplication::RunMode::AudioPluginRegistration) {
+        return;
+    }
+
     s_configuration->init();
     s_instrumentsRepository->init();
     s_actionController->init();
     s_notationUiActions->init();
 
-    if (mode == framework::IApplication::RunMode::Editor) {
+    if (mode == framework::IApplication::RunMode::GuiApp) {
         s_midiInputOutputController->init();
     }
 
@@ -223,15 +231,7 @@ void NotationModule::onInit(const framework::IApplication::RunMode& mode)
 
     auto pr = modularity::ioc()->resolve<diagnostics::IDiagnosticsPathsRegister>(moduleName());
     if (pr) {
-        io::paths_t instrPaths = s_configuration->instrumentListPaths();
-        for (const io::path_t& p : instrPaths) {
-            pr->reg("instruments", p);
-        }
-
-        io::paths_t uinstrPaths = s_configuration->userInstrumentListPaths();
-        for (const io::path_t& p : uinstrPaths) {
-            pr->reg("user instruments", p);
-        }
+        pr->reg("instruments", s_configuration->instrumentListPath());
 
         io::paths_t scoreOrderPaths = s_configuration->scoreOrderListPaths();
         for (const io::path_t& p : scoreOrderPaths) {

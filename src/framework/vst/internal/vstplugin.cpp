@@ -22,6 +22,8 @@
 
 #include "vstplugin.h"
 
+#include "vstpluginprovider.h"
+
 #include "log.h"
 #include "async/async.h"
 
@@ -40,6 +42,23 @@ VstPlugin::VstPlugin(const audio::AudioResourceId& resourceId)
     m_componentHandlerPtr->pluginParamsChanged().onNotify(this, [this]() {
         rescanParams();
     });
+}
+
+VstPlugin::~VstPlugin()
+{
+    audio::AudioResourceId resourceId = m_resourceId;
+    std::shared_ptr<VstPluginProvider> provider = std::move(m_pluginProvider);
+    PluginModulePtr module = std::move(m_module);
+
+    Async::call(nullptr, [resourceId, provider, module]() mutable {
+        ONLY_MAIN_THREAD(threadSecurer);
+
+        modulesRepo()->removePluginModule(resourceId);
+
+        //! NOTE: the order of destruction is important here
+        provider.reset();
+        module.reset();
+    }, threadSecurer()->mainThreadId());
 }
 
 const audio::AudioResourceId& VstPlugin::resourceId() const
@@ -86,11 +105,14 @@ void VstPlugin::load()
 
         for (const ClassInfo& classInfo : factory.classInfos()) {
             if (classInfo.category() != kVstAudioEffectClass) {
-                LOGI() << "Non-audio plugins are not supported";
                 continue;
             }
 
-            m_pluginProvider = owned(new PluginProvider(factory, classInfo));
+            if (classInfo.name() != m_resourceId) {
+                continue;
+            }
+
+            m_pluginProvider = std::make_unique<VstPluginProvider>(factory, classInfo);
             m_classInfo = classInfo;
             break;
         }
@@ -100,7 +122,7 @@ void VstPlugin::load()
             return;
         }
 
-        auto controller = m_pluginProvider->getController();
+        auto controller = m_pluginProvider->controller();
 
         if (!controller) {
             return;
@@ -117,8 +139,13 @@ void VstPlugin::rescanParams()
 {
     ONLY_AUDIO_OR_MAIN_THREAD(threadSecurer);
 
-    auto component = m_pluginProvider->getComponent();
-    auto controller = m_pluginProvider->getController();
+    if (!m_pluginProvider) {
+        LOGE() << "Plugin provider is not initialized";
+        return;
+    }
+
+    auto component = m_pluginProvider->component();
+    auto controller = m_pluginProvider->controller();
 
     if (!controller || !component) {
         return;
@@ -126,6 +153,9 @@ void VstPlugin::rescanParams()
 
     m_componentStateBuffer.seek(0, Steinberg::IBStream::kIBSeekSet, nullptr);
     m_controllerStateBuffer.seek(0, Steinberg::IBStream::kIBSeekSet, nullptr);
+
+    m_componentStateBuffer.setSize(0);
+    m_controllerStateBuffer.setSize(0);
 
     audio::AudioUnitConfig updatedConfig;
 
@@ -147,37 +177,64 @@ void VstPlugin::stateBufferFromString(VstMemoryStream& buffer, char* strData, co
     static Steinberg::int32 numBytesRead = 0;
 
     buffer.write(strData, strSize, &numBytesRead);
-    buffer.seek(0, Steinberg::IBStream::kIBSeekSet, nullptr);
+    buffer.seek(0, static_cast<size_t>(Steinberg::IBStream::kIBSeekSet), nullptr);
 }
 
-PluginViewPtr VstPlugin::view() const
+PluginViewPtr VstPlugin::createView() const
 {
     ONLY_MAIN_THREAD(threadSecurer);
 
     std::lock_guard lock(m_mutex);
 
-    if (m_pluginView) {
-        return m_pluginView;
+    if (!m_pluginProvider) {
+        return nullptr;
     }
 
-    auto controller = m_pluginProvider->getController();
-
+    PluginControllerPtr controller = m_pluginProvider->controller();
     if (!controller) {
         return nullptr;
     }
 
-    m_pluginView = owned(controller->createView(PluginEditorViewType::kEditor));
-
-    return m_pluginView;
+    return owned(controller->createView(PluginEditorViewType::kEditor));
 }
 
-PluginProviderPtr VstPlugin::provider() const
+PluginControllerPtr VstPlugin::controller() const
 {
     ONLY_AUDIO_THREAD(threadSecurer);
 
     std::lock_guard lock(m_mutex);
 
-    return m_pluginProvider;
+    if (!m_pluginProvider) {
+        return nullptr;
+    }
+
+    return m_pluginProvider->controller();
+}
+
+PluginComponentPtr VstPlugin::component() const
+{
+    ONLY_AUDIO_THREAD(threadSecurer);
+
+    std::lock_guard lock(m_mutex);
+
+    if (!m_pluginProvider) {
+        return nullptr;
+    }
+
+    return m_pluginProvider->component();
+}
+
+PluginMidiMappingPtr VstPlugin::midiMapping() const
+{
+    ONLY_AUDIO_THREAD(threadSecurer);
+
+    std::lock_guard lock(m_mutex);
+
+    if (!m_pluginProvider) {
+        return nullptr;
+    }
+
+    return m_pluginProvider->midiMapping();
 }
 
 bool VstPlugin::isAbleForInput() const
@@ -203,8 +260,13 @@ void VstPlugin::updatePluginConfig(const audio::AudioUnitConfig& config)
 
     std::lock_guard lock(m_mutex);
 
-    auto controller = m_pluginProvider->getController();
-    auto component = m_pluginProvider->getComponent();
+    if (!m_pluginProvider) {
+        LOGE() << "Plugin provider is not initialized";
+        return;
+    }
+
+    auto controller = m_pluginProvider->controller();
+    auto component = m_pluginProvider->component();
 
     if (!controller || !component) {
         LOGE() << "Unable to update settings for VST plugin";

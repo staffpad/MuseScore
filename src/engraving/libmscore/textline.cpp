@@ -21,11 +21,11 @@
  */
 #include "textline.h"
 
-#include "rw/xml.h"
-
 #include "score.h"
 #include "system.h"
 #include "undo.h"
+
+#include "log.h"
 
 using namespace mu;
 
@@ -68,6 +68,7 @@ static const ElementStyle textLineStyle {
     { Sid::textLineTextAlign,                  Pid::END_TEXT_ALIGN },
     { Sid::textLinePlacement,                  Pid::PLACEMENT },
     { Sid::textLinePosAbove,                   Pid::OFFSET },
+    { Sid::textLineFontSpatiumDependent,       Pid::TEXT_SIZE_SPATIUM_DEPENDENT },
 };
 
 //---------------------------------------------------------
@@ -155,6 +156,7 @@ TextLine::TextLine(EngravingItem* parent, bool system)
     setEndHookType(HookType::NONE);
     setBeginHookHeight(Spatium(1.5));
     setEndHookHeight(Spatium(1.5));
+    setGapBetweenTextAndLine(Spatium(0.5));
 
     initElementStyle(&textLineStyle);
 
@@ -179,39 +181,6 @@ void TextLine::initStyle()
     } else {
         initElementStyle(&textLineStyle);
     }
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void TextLine::write(XmlWriter& xml) const
-{
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    if (systemFlag()) {
-        xml.startElement(this, { { "system", "1" } });
-    } else {
-        xml.startElement(this);
-    }
-    // other styled properties are included in TextLineBase pids list
-    writeProperty(xml, Pid::PLACEMENT);
-    writeProperty(xml, Pid::OFFSET);
-    TextLineBase::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void TextLine::read(XmlReader& e)
-{
-    bool system =  e.intAttribute("system", 0) == 1;
-    setSystemFlag(system);
-    initStyle();
-    TextLineBase::read(e);
 }
 
 //---------------------------------------------------------
@@ -356,18 +325,5 @@ void TextLine::undoChangeProperty(Pid id, const engraving::PropertyValue& v, Pro
         return;
     }
     TextLineBase::undoChangeProperty(id, v, ps);
-}
-
-//---------------------------------------------------------
-//   layoutSystem
-//    layout spannersegment for system
-//---------------------------------------------------------
-
-SpannerSegment* TextLine::layoutSystem(System* system)
-{
-    SpannerSegment* segment = TextLineBase::layoutSystem(system);
-    moveToSystemTopIfNeed(segment);
-
-    return segment;
 }
 } // namespace mu::engraving

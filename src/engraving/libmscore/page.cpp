@@ -22,8 +22,6 @@
 
 #include "page.h"
 
-#include "rw/xml.h"
-
 #include "factory.h"
 #include "masterscore.h"
 #include "measurebase.h"
@@ -35,6 +33,8 @@
 #ifndef ENGRAVING_NO_ACCESSIBILITY
 #include "accessibility/accessibleitem.h"
 #endif
+
+#include "log.h"
 
 using namespace mu;
 using namespace mu::engraving;
@@ -91,7 +91,7 @@ void Page::appendSystem(System* s)
 
 void Page::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     if (!score()->isLayoutMode(LayoutMode::PAGE)) {
         return;
     }
@@ -439,30 +439,30 @@ String Page::replaceTextMacros(const String& s) const
                 d += masterScore()->fileInfo()->path().toString().toXmlEscaped();
                 break;
             case 'd':
-                d += Date::currentDate().toString(DateFormat::LocaleShortFormat);
+                d += Date::currentDate().toString(DateFormat::ISODate);
                 break;
             case 'D':
             {
                 String creationDate = score()->metaTag(u"creationDate");
                 if (creationDate.isEmpty()) {
-                    d += masterScore()->fileInfo()->birthTime().date().toString(DateFormat::LocaleShortFormat);
+                    d += masterScore()->fileInfo()->birthTime().date().toString(DateFormat::ISODate);
                 } else {
-                    d += Date::fromStringISOFormat(creationDate).toString(DateFormat::LocaleShortFormat);
+                    d += Date::fromStringISOFormat(creationDate).toString(DateFormat::ISODate);
                 }
             }
             break;
             case 'm':
                 if (score()->dirty()) {
-                    d += Date::currentDate().toString(DateFormat::LocaleShortFormat);
+                    d += Time::currentTime().toString(DateFormat::ISODate);
                 } else {
-                    d += masterScore()->fileInfo()->lastModified().time().toString(DateFormat::LocaleShortFormat);
+                    d += masterScore()->fileInfo()->lastModified().time().toString(DateFormat::ISODate);
                 }
                 break;
             case 'M':
                 if (score()->dirty()) {
-                    d += Date::currentDate().toString(DateFormat::LocaleShortFormat);
+                    d += Date::currentDate().toString(DateFormat::ISODate);
                 } else {
-                    d += masterScore()->fileInfo()->lastModified().date().toString(DateFormat::LocaleShortFormat);
+                    d += masterScore()->fileInfo()->lastModified().date().toString(DateFormat::ISODate);
                 }
                 break;
             case 'C': // only on first page
@@ -475,7 +475,7 @@ String Page::replaceTextMacros(const String& s) const
                 break;
             case 'v':
                 if (score()->dirty()) {
-                    d += String::fromAscii(VERSION);
+                    d += String::fromAscii(MUSESCORE_VERSION);
                 } else {
                     d += score()->mscoreVersion();
                 }
@@ -533,36 +533,6 @@ String Page::replaceTextMacros(const String& s) const
 bool Page::isOdd() const
 {
     return (_no + 1 + score()->pageNumberOffset()) & 1;
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Page::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    for (System* system : _systems) {
-        system->write(xml);
-    }
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Page::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        if (e.name() == "System") {
-            System* system = Factory::createSystem(score()->dummy()->page());
-            score()->systems().push_back(system);
-            system->read(e);
-        } else {
-            e.unknown();
-        }
-    }
 }
 
 //---------------------------------------------------------

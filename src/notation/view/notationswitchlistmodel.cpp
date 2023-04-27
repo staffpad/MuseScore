@@ -92,7 +92,6 @@ void NotationSwitchListModel::loadNotations()
 
     m_notations << masterNotation->notation();
     listenNotationOpeningStatus(masterNotation->notation());
-    listenNotationTitleChanged(masterNotation->notation());
 
     for (IExcerptNotationPtr excerpt: masterNotation->excerpts().val) {
         if (excerpt->notation()->isOpen()) {
@@ -100,7 +99,7 @@ void NotationSwitchListModel::loadNotations()
         }
 
         listenNotationOpeningStatus(excerpt->notation());
-        listenNotationTitleChanged(excerpt->notation());
+        listenExcerptNotationTitleChanged(excerpt);
     }
 
     endResetModel();
@@ -138,11 +137,11 @@ void NotationSwitchListModel::listenNotationOpeningStatus(INotationPtr notation)
     });
 }
 
-void NotationSwitchListModel::listenNotationTitleChanged(INotationPtr notation)
+void NotationSwitchListModel::listenExcerptNotationTitleChanged(IExcerptNotationPtr excerptNotation)
 {
-    INotationWeakPtr weakNotationPtr = notation;
+    INotationWeakPtr weakNotationPtr = excerptNotation->notation();
 
-    notation->notationChanged().onNotify(this, [this, weakNotationPtr]() {
+    excerptNotation->nameChanged().onNotify(this, [this, weakNotationPtr]() {
         INotationPtr notation = weakNotationPtr.lock();
         if (!notation) {
             return;
@@ -156,31 +155,31 @@ void NotationSwitchListModel::listenNotationTitleChanged(INotationPtr notation)
 
 void NotationSwitchListModel::listenProjectSavingStatusChanged()
 {
-    auto currentProject = context()->currentProject();
+    INotationProjectPtr currentProject = context()->currentProject();
     if (!currentProject) {
         return;
     }
 
     currentProject->needSave().notification.onNotify(this, [this]() {
-        auto project = context()->currentProject();
+        INotationProjectPtr project = context()->currentProject();
         if (!project) {
             return;
         }
 
         int index = m_notations.indexOf(project->masterNotation()->notation());
         QModelIndex modelIndex = this->index(index);
-        emit dataChanged(modelIndex, modelIndex, { RoleNeedSave });
+        emit dataChanged(modelIndex, modelIndex, { RoleNeedSave, RoleIsCloud });
     });
 
     currentProject->pathChanged().onNotify(this, [this]() {
-        auto project = context()->currentProject();
+        INotationProjectPtr project = context()->currentProject();
         if (!project) {
             return;
         }
 
         int index = m_notations.indexOf(project->masterNotation()->notation());
         QModelIndex modelIndex = this->index(index);
-        emit dataChanged(modelIndex, modelIndex, { RoleTitle });
+        emit dataChanged(modelIndex, modelIndex, { RoleTitle, RoleIsCloud });
     });
 }
 
@@ -208,6 +207,10 @@ QVariant NotationSwitchListModel::data(const QModelIndex& index, int role) const
         bool needSave = context()->currentProject()->needSave().val && isMasterNotation(notation);
         return QVariant::fromValue(needSave);
     }
+    case RoleIsCloud: {
+        bool isCloud = context()->currentProject()->isCloudProject() && isMasterNotation(notation);
+        return QVariant::fromValue(isCloud);
+    }
     }
 
     return QVariant();
@@ -222,7 +225,8 @@ QHash<int, QByteArray> NotationSwitchListModel::roleNames() const
 {
     static const QHash<int, QByteArray> roles {
         { RoleTitle, "title" },
-        { RoleNeedSave, "needSave" }
+        { RoleNeedSave, "needSave" },
+        { RoleIsCloud, "isCloud" }
     };
 
     return roles;

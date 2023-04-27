@@ -21,15 +21,19 @@
  */
 
 #include "chordrest.h"
+#include "durationtype.h"
 #include "factory.h"
 #include "keysig.h"
+#include "masterscore.h"
 #include "measure.h"
 #include "rest.h"
-#include "score.h"
 #include "segment.h"
+#include "sig.h"
 #include "staff.h"
 #include "tuplet.h"
 #include "utils.h"
+
+#include "engravingerrors.h"
 
 #include "log.h"
 
@@ -104,26 +108,67 @@ void Score::checkScore()
 ///    Check that voices > 1 contains less than measure duration
 //---------------------------------------------------------
 
-bool Score::sanityCheck()
+Ret MasterScore::sanityCheck()
 {
-    bool result = true;
+    std::string accumulatedErrors;
+
+    for (Score* score : scoreList()) {
+        Ret ret = score->sanityCheckLocal();
+        if (ret) {
+            // everything is fine in this part, let's continue
+            continue;
+        }
+
+        if (!accumulatedErrors.empty()) {
+            accumulatedErrors += "\n";
+        }
+
+        accumulatedErrors += ret.text();
+    }
+
+    if (accumulatedErrors.empty()) {
+        return make_ok();
+    }
+
+    return Ret(static_cast<int>(Err::FileCorrupted), accumulatedErrors);
+}
+
+Ret Score::sanityCheckLocal()
+{
+    TRACEFUNC;
+
+    StringList errors;
     int mNumber = 1;
-    String error;
+
+    auto excerptInfo = [this]() {
+        if (isMaster()) {
+            return mtrc("engraving", "Full score");
+        }
+
+        //: %1 is the name of a part score.
+        return mtrc("engraving", "Part score: %1").arg(name());
+    };
+
     for (Measure* m = firstMeasure(); m; m = m->nextMeasure()) {
         Fraction mLen = m->ticks();
         size_t endStaff  = staves().size();
+
         for (size_t staffIdx = 0; staffIdx < endStaff; ++staffIdx) {
-            Rest* fmrest0 = 0;            // full measure rest in voice 0
+            Rest* fmrest0 = nullptr; // full measure rest in voice 0
             Fraction voices[VOICES];
+
 #ifndef NDEBUG
             m->setCorrupted(staffIdx, false);
 #endif
+
             for (Segment* s = m->first(SegmentType::ChordRest); s; s = s->next(SegmentType::ChordRest)) {
-                for (size_t v = 0; v < VOICES; ++v) {
-                    ChordRest* cr = toChordRest(s->element(static_cast<int>(staffIdx) * VOICES + static_cast<int>(v)));
-                    if (cr == 0) {
+                for (voice_idx_t v = 0; v < VOICES; ++v) {
+                    EngravingItem* element = s->element(staffIdx * VOICES + v);
+                    if (!element) {
                         continue;
                     }
+
+                    ChordRest* cr = toChordRest(element);
                     voices[v] += cr->actualTicks();
                     if (v == 0 && cr->isRest()) {
                         Rest* r = toRest(cr);
@@ -133,39 +178,56 @@ bool Score::sanityCheck()
                     }
                 }
             }
-            if (voices[0] != mLen) {
-                LOGE() << String(u"Measure %1, staff %2 incomplete. Expected: %3; Found: %4")
-                    .arg(mNumber).arg(staffIdx + 1).arg(mLen.toString(), voices[0].toString());
 
+            bool checkRepeats = m->isMeasureRepeatGroup(staffIdx);
+            bool repeatsIsValid = true;
+
+            if (checkRepeats) {
+                repeatsIsValid = m->measureRepeatElement(staffIdx) != nullptr;
+            }
+
+            if (!repeatsIsValid) {
+                errors << mtrc("engraving", "<b>Corrupted measure</b>: %1, measure %2, staff %3.")
+                    .arg(excerptInfo()).arg(mNumber).arg(staffIdx + 1);
 #ifndef NDEBUG
                 m->setCorrupted(staffIdx, true);
 #endif
-                result = false;
+            }
+
+            if (voices[0] != mLen) {
+                //: %1 describes in which score the corruption is (either `Full score` or `"[part name]" part score`)
+                errors << mtrc("engraving", "<b>Incomplete measure</b>: %1, measure %2, staff %3. Found: %4. Expected: %5.")
+                    .arg(excerptInfo()).arg(mNumber).arg(staffIdx + 1).arg(voices[0].toString(), mLen.toString());
+#ifndef NDEBUG
+                m->setCorrupted(staffIdx, true);
+#endif
                 // try to fix a bad full measure rest
                 if (fmrest0) {
                     // fmrest0->setDuration(mLen * fmrest0->staff()->timeStretch(fmrest0->tick()));
                     fmrest0->setTicks(mLen);
-                    if (fmrest0->actualTicks() != mLen) {
-                        fprintf(stderr, "whoo???\n");
-                    }
                 }
             }
+
             for (voice_idx_t v = 1; v < VOICES; ++v) {
                 if (voices[v] > mLen) {
-                    LOGE() << String(u"Measure %1, staff %2, voice %3 too long. Expected: %4; Found: %5")
-                        .arg(mNumber).arg(staffIdx + 1).arg(v + 1).arg(mLen.toString(), voices[v].toString());
-
+                    //: %1 describes in which score the corruption is (either `Full score` or `"[part name]" part score`)
+                    errors << mtrc("engraving", "<b>Voice too long</b>: %1, measure %2, staff %3, voice %4. Found: %5. Expected: %6.")
+                        .arg(excerptInfo()).arg(mNumber).arg(staffIdx + 1).arg(v + 1).arg(voices[v].toString(), mLen.toString());
 #ifndef NDEBUG
                     m->setCorrupted(staffIdx, true);
 #endif
-                    result = false;
                 }
             }
         }
+
         mNumber++;
     }
 
-    return result;
+    if (errors.empty()) {
+        return make_ok();
+    }
+
+    return Ret(static_cast<int>(Err::FileCorrupted), errors.join(u"\n").toStdString());
 }
 
 //---------------------------------------------------------
@@ -202,21 +264,38 @@ bool Score::checkKeys()
 
 void Measure::fillGap(const Fraction& pos, const Fraction& len, track_idx_t track, const Fraction& stretch, bool useGapRests)
 {
-    LOGD("measure %6d pos %d, len %d/%d, stretch %d/%d track %zu",
+    LOGN("measure %6d pos %d, len %d/%d, stretch %d/%d track %zu",
          tick().ticks(),
          pos.ticks(),
          len.numerator(), len.denominator(),
          stretch.numerator(), stretch.denominator(),
          track);
-    TDuration d;
-    d.setVal(len.ticks());
-    if (d.isValid()) {
+
+    if (useGapRests) {
+        // fill this gap with a single gap rest, where the duration does not need to correspond to a valid DurationType
+        TDuration d;
+        d.setVal(len.ticks());
         Rest* rest = Factory::createRest(score()->dummy()->segment());
         rest->setTicks(len);
         rest->setDurationType(d);
         rest->setTrack(track);
         rest->setGap(useGapRests);
         score()->undoAddCR(rest, this, (pos / stretch) + tick());
+        return;
+    }
+
+    // break the gap into shorter durations if necessary
+    std::vector<TDuration> durationList = toRhythmicDurationList(len, true, pos, score()->sigmap()->timesig(tick()).nominal(), this, 0);
+
+    Fraction curTick = pos;
+    for (TDuration d : durationList) {
+        Rest* rest = Factory::createRest(score()->dummy()->segment());
+        rest->setTicks(d.fraction());
+        rest->setDurationType(d);
+        rest->setTrack(track);
+        rest->setGap(useGapRests);
+        score()->undoAddCR(rest, this, curTick + tick());
+        curTick += d.fraction();
     }
 }
 
@@ -252,11 +331,11 @@ void Measure::checkMeasure(staff_idx_t staffIdx, bool useGapRests)
             currentPos    = seg->rtick() * stretch;
 
             if (currentPos < expectedPos) {
-                LOGD("in measure overrun %6d at %d-%d track %zu", tick().ticks(),
+                LOGN("in measure overrun %6d at %d-%d track %zu", tick().ticks(),
                      (currentPos / stretch).ticks(), (expectedPos / stretch).ticks(), track);
                 break;
             } else if (currentPos > expectedPos) {
-                LOGD("in measure underrun %6d at %d-%d track %zu", tick().ticks(),
+                LOGN("in measure underrun %6d at %d-%d track %zu", tick().ticks(),
                      (currentPos / stretch).ticks(), (expectedPos / stretch).ticks(), track);
                 fillGap(expectedPos, currentPos - expectedPos, track, stretch, useGapRests);
             }

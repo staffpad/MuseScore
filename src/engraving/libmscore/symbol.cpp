@@ -23,8 +23,8 @@
 #include "symbol.h"
 
 #include "draw/fontmetrics.h"
-#include "infrastructure/symbolfonts.h"
-#include "rw/xml.h"
+#include "iengravingfont.h"
+
 #include "types/symnames.h"
 
 #include "image.h"
@@ -111,7 +111,7 @@ void Symbol::layout()
 
 void Symbol::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     if (!isNoteDot() || !staff()->isTabStaff(tick())) {
         painter->setPen(curColor());
         if (_scoreFont) {
@@ -120,67 +120,6 @@ void Symbol::draw(mu::draw::Painter* painter) const
             drawSymbol(_sym, painter);
         }
     }
-}
-
-//---------------------------------------------------------
-//   Symbol::write
-//---------------------------------------------------------
-
-void Symbol::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    xml.tag("name", SymNames::nameForSymId(_sym));
-    if (_scoreFont) {
-        xml.tag("font", _scoreFont->name());
-    }
-    BSymbol::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   Symbol::read
-//---------------------------------------------------------
-
-void Symbol::read(XmlReader& e)
-{
-    PointF pos;
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "name") {
-            String val(e.readText());
-            SymId symId = SymNames::symIdByName(val);
-            if (val != "noSym" && symId == SymId::noSym) {
-                // if symbol name not found, fall back to user names
-                // TODO: does it make sense? user names are probably localized
-                symId = SymNames::symIdByUserName(val);
-                if (symId == SymId::noSym) {
-                    LOGD("unknown symbol <%s>, falling back to no symbol", muPrintable(val));
-                    // set a default symbol, or layout() will crash
-                    symId = SymId::noSym;
-                }
-            }
-            setSym(symId);
-        } else if (tag == "font") {
-            _scoreFont = SymbolFonts::fontByName(e.readText());
-        } else if (tag == "Symbol") {
-            Symbol* s = new Symbol(this);
-            s->read(e);
-            add(s);
-        } else if (tag == "Image") {
-            if (MScore::noImages) {
-                e.skipCurrentElement();
-            } else {
-                Image* image = new Image(this);
-                image->read(e);
-                add(image);
-            }
-        } else if (tag == "small" || tag == "subtype") {    // obsolete
-            e.skipCurrentElement();
-        } else if (!BSymbol::readProperties(e)) {
-            e.unknown();
-        }
-    }
-    setPos(pos);
 }
 
 //---------------------------------------------------------
@@ -240,13 +179,7 @@ FSymbol::FSymbol(const FSymbol& s)
 
 String FSymbol::toString() const
 {
-    if (_code & 0xffff0000) {
-        String s;
-        s = Char(Char::highSurrogate(_code));
-        s += Char(Char::lowSurrogate(_code));
-        return s;
-    }
-    return Char(_code);
+    return String::fromUcs4(_code);
 }
 
 //---------------------------------------------------------
@@ -274,45 +207,6 @@ void FSymbol::draw(mu::draw::Painter* painter) const
     painter->setPen(curColor());
     painter->drawText(PointF(0, 0), toString());
 }
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void FSymbol::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    xml.tag("font",     _font.family());
-    xml.tag("fontsize", _font.pointSizeF());
-    xml.tag("code",     _code);
-    BSymbol::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void FSymbol::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "font") {
-            _font.setFamily(e.readText());
-        } else if (tag == "fontsize") {
-            _font.setPointSizeF(e.readDouble());
-        } else if (tag == "code") {
-            _code = e.readInt();
-        } else if (!BSymbol::readProperties(e)) {
-            e.unknown();
-        }
-    }
-    setPos(PointF());
-}
-
-//---------------------------------------------------------
-//   layout
-//---------------------------------------------------------
 
 void FSymbol::layout()
 {

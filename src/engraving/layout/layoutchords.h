@@ -31,6 +31,7 @@ class Chord;
 class MStyle;
 class Measure;
 class Note;
+class Rest;
 class Score;
 class Segment;
 class Staff;
@@ -41,12 +42,18 @@ public:
 
     static void layoutChords1(Score* score, Segment* segment, staff_idx_t staffIdx);
     static double layoutChords2(std::vector<Note*>& notes, bool up);
-    static void layoutChords3(const MStyle& style, std::vector<Note*>&, const Staff*, Segment*);
+    static void layoutChords3(const MStyle& style, const std::vector<Chord*>&, std::vector<Note*>&, const Staff*);
     static void updateGraceNotes(Measure* measure);
     static void repositionGraceNotesAfter(Segment* segment);
     static void appendGraceNotes(Chord* chord);
-    static void updateLineAttachPoints(Measure* measure);
-    static void doUpdateLineAttachPoints(Chord* chord, bool isFirstInMeasure);
+    static void clearLineAttachPoints(Measure* measure);
+    static void updateLineAttachPoints(Chord* chord, bool isFirstInMeasure);
+    static void resolveVerticalRestConflicts(Score* score, Segment* segment, staff_idx_t staffIdx);
+    static void resolveRestVSChord(std::vector<Rest*>& rests, std::vector<Chord*>& chords, Score* score, Segment* segment,
+                                   staff_idx_t staffIdx);
+    static void resolveRestVSRest(std::vector<Rest*>& rests, Score* score, Segment* segment, staff_idx_t staffIdx,
+                                  bool considerBeams = false);
+    static void layoutChordBaseFingering(Chord* chord, System* system);
 };
 }
 

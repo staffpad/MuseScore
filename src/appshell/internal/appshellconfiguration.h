@@ -62,19 +62,11 @@ public:
 
     io::path_t userDataPath() const override;
 
-    bool isAppUpdatable() const override;
-
-    bool needCheckForUpdate() const override;
-    void setNeedCheckForUpdate(bool needCheck) override;
-
     std::string handbookUrl() const override;
     std::string askForHelpUrl() const override;
-    std::string bugReportUrl() const override;
-    std::string leaveFeedbackUrl() const override;
     std::string museScoreUrl() const override;
     std::string museScoreForumUrl() const override;
     std::string museScoreContributionUrl() const override;
-    std::string museScorePrivacyPolicyUrl() const override;
     std::string musicXMLLicenseUrl() const override;
     std::string musicXMLLicenseDeedUrl() const override;
 
@@ -99,7 +91,6 @@ public:
 
 private:
     std::string utmParameters(const std::string& utmMedium) const;
-    std::string sha() const;
 
     std::string currentLanguageCode() const;
 

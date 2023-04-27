@@ -22,11 +22,11 @@
 
 #include "letring.h"
 
-#include "rw/xml.h"
-
 #include "score.h"
 #include "stafftype.h"
 #include "system.h"
+
+#include "log.h"
 
 using namespace mu;
 using namespace mu::engraving;
@@ -50,6 +50,7 @@ static const ElementStyle letRingStyle {
     { Sid::letRingLineStyle,                     Pid::LINE_STYLE },
     { Sid::letRingDashLineLen,                   Pid::DASH_LINE_LEN },
     { Sid::letRingDashGapLen,                    Pid::DASH_GAP_LEN },
+    { Sid::letRingFontSpatiumDependent,          Pid::TEXT_SIZE_SPATIUM_DEPENDENT },
     { Sid::letRingEndHookType,                   Pid::END_HOOK_TYPE },
     { Sid::letRingLineWidth,                     Pid::LINE_WIDTH },
     { Sid::letRingPlacement,                     Pid::PLACEMENT },
@@ -95,24 +96,6 @@ LetRing::LetRing(EngravingItem* parent)
     resetProperty(Pid::CONTINUE_TEXT);
     resetProperty(Pid::END_TEXT_PLACE);
     resetProperty(Pid::END_TEXT);
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void LetRing::read(XmlReader& e)
-{
-    if (score()->mscVersion() < 301) {
-        e.context()->addSpanner(e.intAttribute("id", -1), this);
-    }
-    while (e.readNextStartElement()) {
-        if (readProperty(e.name(), e, Pid::LINE_WIDTH)) {
-            setPropertyFlags(Pid::LINE_WIDTH, PropertyFlags::UNSTYLED);
-        } else if (!TextLineBase::readProperties(e)) {
-            e.unknown();
-        }
-    }
 }
 
 //---------------------------------------------------------
@@ -186,8 +169,8 @@ PropertyValue LetRing::propertyDefault(Pid propertyId) const
         return score()->styleV(Sid::letRingFontStyle);
 
     case Pid::BEGIN_TEXT:
-        return score()->styleV(Sid::letRingText);
     case Pid::CONTINUE_TEXT:
+        return score()->styleV(Sid::letRingText);
     case Pid::END_TEXT:
         return "";
 

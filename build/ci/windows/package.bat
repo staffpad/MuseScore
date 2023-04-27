@@ -41,10 +41,6 @@ IF %TARGET_PROCESSOR_BITS% == 32 (
     SET INSTALL_DIR=msvc.install_x86
 )  
 
-IF %BUILD_WIN_PORTABLE% == ON (
-    SET INSTALL_DIR=MuseScorePortable
-)
-
 :: Setup package type
 IF %BUILD_WIN_PORTABLE% == ON    ( SET PACKAGE_TYPE="portable") ELSE (
 IF %BUILD_MODE% == devel_build   ( SET PACKAGE_TYPE="7z") ELSE (
@@ -68,16 +64,13 @@ IF %PACKAGE_TYPE% == "msi" (
     )
 )
 
-:: Temporary disabled, while we getting a new certificate
-:: SET DO_SIGN=OFF
-
 SET /p BUILD_VERSION=<%ARTIFACTS_DIR%\env\build_version.env
-SET /p BUILD_DATETIME=<%ARTIFACTS_DIR%\env\build_datetime.env
+SET /p BUILD_NUMBER=<%ARTIFACTS_DIR%\env\build_number.env
 SET /p BUILD_BRANCH=<%ARTIFACTS_DIR%\env\build_branch.env
 SET /p BUILD_REVISION=<%ARTIFACTS_DIR%\env\build_revision.env
 
 ECHO "BUILD_MODE: %BUILD_MODE%"
-ECHO "BUILD_DATETIME: %BUILD_DATETIME%"
+ECHO "BUILD_NUMBER: %BUILD_NUMBER%"
 ECHO "BUILD_BRANCH: %BUILD_BRANCH%"
 ECHO "BUILD_REVISION: %BUILD_REVISION%"
 ECHO "BUILD_VERSION: %BUILD_VERSION%"
@@ -89,7 +82,7 @@ ECHO "PACKAGE_TYPE: %PACKAGE_TYPE%"
 
 :: For MSI
 SET SIGN="build\ci\windows\sign.bat"
-SET UUIDGEN="C:\Program Files (x86)\Windows Kits\10\bin\x64\uuidgen.exe"
+SET UUIDGEN="C:\Program Files (x86)\Windows Kits\10\bin\10.0.20348.0\x64\uuidgen.exe"
 SET WIX_DIR=%WIX%
 
 IF %PACKAGE_TYPE% == "portable" ( GOTO PACK_PORTABLE) ELSE (
@@ -106,7 +99,7 @@ IF %PACKAGE_TYPE% == "dir" (  GOTO PACK_DIR ) ELSE (
 :PACK_7z
 ECHO "Start 7z packing..."
 IF %BUILD_MODE% == nightly_build ( 
-    SET ARTIFACT_NAME=MuseScoreNightly-%BUILD_DATETIME%-%BUILD_BRANCH%-%BUILD_REVISION%-%TARGET_PROCESSOR_ARCH%
+    SET ARTIFACT_NAME=MuseScoreNightly-%BUILD_NUMBER%-%BUILD_BRANCH%-%BUILD_REVISION%-%TARGET_PROCESSOR_ARCH%
 ) ELSE (
     SET ARTIFACT_NAME=MuseScore-%BUILD_VERSION%-%TARGET_PROCESSOR_ARCH%
 )
@@ -154,7 +147,7 @@ IF %BUILD_MODE% == stable_build (
     SET PACKAGE_FILE_ASSOCIATION=ON
 )
 cd "%BUILD_DIR%" 
-cmake -DPACKAGE_FILE_ASSOCIATION=%PACKAGE_FILE_ASSOCIATION% ..
+cmake -DMUE_ENABLE_FILE_ASSOCIATION=%PACKAGE_FILE_ASSOCIATION% ..
 
 SET PATH=%WIX_DIR%;%PATH% 
 cmake --build . --target package || GOTO END_ERROR
@@ -179,7 +172,7 @@ for /r %%i in (%BUILD_DIR%\*.msi) do (
 )
 
 IF %BUILD_MODE% == nightly_build ( 
-    SET ARTIFACT_NAME=MuseScoreNightly-%BUILD_DATETIME%-%BUILD_BRANCH%-%BUILD_REVISION%-%TARGET_PROCESSOR_ARCH%.msi
+    SET ARTIFACT_NAME=MuseScoreNightly-%BUILD_NUMBER%-%BUILD_BRANCH%-%BUILD_REVISION%-%TARGET_PROCESSOR_ARCH%.msi
 ) ELSE (
     SET ARTIFACT_NAME=MuseScore-%BUILD_VERSION%-%TARGET_PROCESSOR_ARCH%.msi
 )
@@ -211,10 +204,12 @@ IF %DO_SIGN% == ON (
 )
 
 :: Create launcher
+ECHO "Start comLauncherGenerator..."
 CALL C:\portableappslauncher\Launcher\PortableApps.comLauncherGenerator.exe %CD%\%INSTALL_DIR%
 ECHO "Finished comLauncherGenerator"
 
 :: Create Installer
+ECHO "Start comInstaller..."
 CALL C:\portableappsinstaller\Installer\PortableApps.comInstaller.exe %CD%\%INSTALL_DIR%
 ECHO "Finished comInstaller"
 

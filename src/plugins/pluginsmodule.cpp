@@ -32,7 +32,6 @@
 #include "internal/pluginsactioncontroller.h"
 
 #include "view/pluginsmodel.h"
-#include "view/pluginview.h"
 #include "api/qmlpluginapi.h"
 
 #include "ui/iuiactionsregister.h"
@@ -81,14 +80,17 @@ void PluginsModule::registerUiTypes()
 {
     qmlRegisterType<PluginsModel>("MuseScore.Plugins", 1, 0, "PluginsModel");
 
-    mu::engraving::PluginAPI::PluginAPI::registerQmlTypes();
+    mu::plugins::api::PluginAPI::registerQmlTypes();
 
-    ioc()->resolve<IUiEngine>(moduleName())->addSourceImportPath(plugins_QML_IMPORT);
+    auto ui = ioc()->resolve<IUiEngine>(moduleName());
+    if (ui) {
+        ui->addSourceImportPath(plugins_QML_IMPORT);
+    }
 }
 
 void PluginsModule::onInit(const framework::IApplication::RunMode& mode)
 {
-    if (framework::IApplication::RunMode::Converter == mode) {
+    if (mode != framework::IApplication::RunMode::GuiApp) {
         return;
     }
 

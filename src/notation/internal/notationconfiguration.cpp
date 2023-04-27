@@ -60,6 +60,7 @@ static const Settings::Key USER_STYLES_PATH(module_name, "application/paths/mySt
 static const Settings::Key IS_MIDI_INPUT_ENABLED(module_name, "io/midi/enableInput");
 static const Settings::Key IS_AUTOMATICALLY_PAN_ENABLED(module_name, "application/playback/panPlayback");
 static const Settings::Key IS_PLAY_REPEATS_ENABLED(module_name, "application/playback/playRepeats");
+static const Settings::Key IS_PLAY_CHORD_SYMBOLS_ENABLED(module_name, "application/playback/playChordSymbols");
 static const Settings::Key IS_METRONOME_ENABLED(module_name, "application/playback/metronomeEnabled");
 static const Settings::Key IS_COUNT_IN_ENABLED(module_name, "application/playback/countInEnabled");
 
@@ -72,8 +73,6 @@ static const Settings::Key COLOR_NOTES_OUTSIDE_OF_USABLE_PITCH_RANGE(module_name
 static const Settings::Key REALTIME_DELAY(module_name, "io/midi/realtimeDelay");
 static const Settings::Key NOTE_DEFAULT_PLAY_DURATION(module_name, "score/note/defaultPlayDuration");
 
-static const Settings::Key FIRST_INSTRUMENT_LIST_KEY(module_name, "application/paths/instrumentList1");
-static const Settings::Key SECOND_INSTRUMENT_LIST_KEY(module_name, "application/paths/instrumentList2");
 static const Settings::Key FIRST_SCORE_ORDER_LIST_KEY(module_name, "application/paths/scoreOrderList1");
 static const Settings::Key SECOND_SCORE_ORDER_LIST_KEY(module_name, "application/paths/scoreOrderList2");
 
@@ -84,9 +83,10 @@ static const Settings::Key VERTICAL_GRID_SIZE_KEY(module_name,  "ui/application/
 
 static const Settings::Key NEED_TO_SHOW_ADD_TEXT_ERROR_MESSAGE_KEY(module_name,  "ui/dialogs/needToShowAddTextErrorMessage");
 static const Settings::Key NEED_TO_SHOW_ADD_FIGURED_BASS_ERROR_MESSAGE_KEY(module_name,  "ui/dialogs/needToShowAddFiguredBassErrorMessage");
-static const Settings::Key NEED_TO_SHOW_ADD_BOXES_ERROR_MESSAGE_KEY(module_name,  "ui/dialogs/needToShowAddBoxesErrorMessage");
 
 static const Settings::Key PIANO_KEYBOARD_NUMBER_OF_KEYS(module_name,  "pianoKeyboard/numberOfKeys");
+
+static const Settings::Key STYLE_FILE_IMPORT_PATH_KEY(module_name, "import/style/styleFile");
 
 static constexpr int DEFAULT_GRID_SIZE_SPATIUM = 2;
 
@@ -157,8 +157,13 @@ void NotationConfiguration::init()
     settings()->setDefaultValue(IS_MIDI_INPUT_ENABLED, Val(true));
     settings()->setDefaultValue(IS_AUTOMATICALLY_PAN_ENABLED, Val(true));
     settings()->setDefaultValue(IS_PLAY_REPEATS_ENABLED, Val(true));
+    settings()->setDefaultValue(IS_PLAY_CHORD_SYMBOLS_ENABLED, Val(true));
     settings()->setDefaultValue(IS_METRONOME_ENABLED, Val(false));
     settings()->setDefaultValue(IS_COUNT_IN_ENABLED, Val(false));
+
+    settings()->valueChanged(IS_PLAY_CHORD_SYMBOLS_ENABLED).onReceive(nullptr, [this](const Val&) {
+        m_isPlayChordSymbolsChanged.notify();
+    });
 
     settings()->setDefaultValue(IS_CANVAS_ORIENTATION_VERTICAL_KEY, Val(false));
     settings()->valueChanged(IS_CANVAS_ORIENTATION_VERTICAL_KEY).onReceive(nullptr, [this](const Val&) {
@@ -173,17 +178,6 @@ void NotationConfiguration::init()
     settings()->setDefaultValue(COLOR_NOTES_OUTSIDE_OF_USABLE_PITCH_RANGE, Val(true));
     settings()->setDefaultValue(REALTIME_DELAY, Val(750));
     settings()->setDefaultValue(NOTE_DEFAULT_PLAY_DURATION, Val(500));
-
-    settings()->setDefaultValue(FIRST_INSTRUMENT_LIST_KEY,
-                                Val(globalConfiguration()->appDataPath().toStdString() + "instruments/instruments.xml"));
-    settings()->valueChanged(FIRST_INSTRUMENT_LIST_KEY).onReceive(nullptr, [this](const Val&) {
-        m_instrumentListPathsChanged.notify();
-    });
-
-    settings()->setDefaultValue(SECOND_INSTRUMENT_LIST_KEY, Val(""));
-    settings()->valueChanged(SECOND_INSTRUMENT_LIST_KEY).onReceive(nullptr, [this](const Val&) {
-        m_instrumentListPathsChanged.notify();
-    });
 
     settings()->setDefaultValue(FIRST_SCORE_ORDER_LIST_KEY,
                                 Val(globalConfiguration()->appDataPath().toStdString() + "instruments/orders.xml"));
@@ -201,7 +195,6 @@ void NotationConfiguration::init()
 
     settings()->setDefaultValue(NEED_TO_SHOW_ADD_TEXT_ERROR_MESSAGE_KEY, Val(true));
     settings()->setDefaultValue(NEED_TO_SHOW_ADD_FIGURED_BASS_ERROR_MESSAGE_KEY, Val(true));
-    settings()->setDefaultValue(NEED_TO_SHOW_ADD_BOXES_ERROR_MESSAGE_KEY, Val(true));
 
     settings()->setDefaultValue(PIANO_KEYBOARD_NUMBER_OF_KEYS, Val(88));
     m_pianoKeyboardNumberOfKeys.val = settings()->value(PIANO_KEYBOARD_NUMBER_OF_KEYS).toInt();
@@ -251,19 +244,6 @@ void NotationConfiguration::setBackgroundColor(const QColor& color)
     }
 }
 
-void NotationConfiguration::resetCurrentBackgroundColorToDefault()
-{
-    if (uiConfiguration()->currentTheme().codeKey == LIGHT_THEME_CODE) {
-        settings()->setSharedValue(LIGHT_SCORE_BACKGROUND_COLOR, settings()->defaultValue(LIGHT_SCORE_BACKGROUND_COLOR));
-    } else if (uiConfiguration()->currentTheme().codeKey == DARK_THEME_CODE) {
-        settings()->setSharedValue(DARK_SCORE_BACKGROUND_COLOR, settings()->defaultValue(DARK_SCORE_BACKGROUND_COLOR));
-    } else if (uiConfiguration()->currentTheme().codeKey == HIGH_CONTRAST_BLACK_THEME_CODE) {
-        settings()->setSharedValue(HC_BLACK_SCORE_BACKGROUND_COLOR, settings()->defaultValue(HC_BLACK_SCORE_BACKGROUND_COLOR));
-    } else {
-        settings()->setSharedValue(HC_WHITE_SCORE_BACKGROUND_COLOR, settings()->defaultValue(HC_WHITE_SCORE_BACKGROUND_COLOR));
-    }
-}
-
 io::path_t NotationConfiguration::backgroundWallpaperPath() const
 {
     return settings()->value(BACKGROUND_WALLPAPER_PATH).toString();
@@ -300,6 +280,18 @@ bool NotationConfiguration::backgroundUseColor() const
 void NotationConfiguration::setBackgroundUseColor(bool value)
 {
     settings()->setSharedValue(BACKGROUND_USE_COLOR, Val(value));
+}
+
+void NotationConfiguration::resetBackground()
+{
+    settings()->setSharedValue(LIGHT_SCORE_BACKGROUND_COLOR, settings()->defaultValue(LIGHT_SCORE_BACKGROUND_COLOR));
+    settings()->setSharedValue(DARK_SCORE_BACKGROUND_COLOR, settings()->defaultValue(DARK_SCORE_BACKGROUND_COLOR));
+    settings()->setSharedValue(HC_BLACK_SCORE_BACKGROUND_COLOR, settings()->defaultValue(HC_BLACK_SCORE_BACKGROUND_COLOR));
+    settings()->setSharedValue(HC_WHITE_SCORE_BACKGROUND_COLOR, settings()->defaultValue(HC_WHITE_SCORE_BACKGROUND_COLOR));
+
+    settings()->setSharedValue(BACKGROUND_USE_COLOR, settings()->defaultValue(BACKGROUND_USE_COLOR));
+
+    settings()->setSharedValue(BACKGROUND_WALLPAPER_PATH, settings()->defaultValue(BACKGROUND_WALLPAPER_PATH));
 }
 
 async::Notification NotationConfiguration::backgroundChanged() const
@@ -357,6 +349,15 @@ bool NotationConfiguration::foregroundUseColor() const
 void NotationConfiguration::setForegroundUseColor(bool value)
 {
     settings()->setSharedValue(FOREGROUND_USE_COLOR, Val(value));
+}
+
+void NotationConfiguration::resetForeground()
+{
+    settings()->setSharedValue(FOREGROUND_COLOR, settings()->defaultValue(FOREGROUND_COLOR));
+    settings()->setSharedValue(FOREGROUND_USE_COLOR, settings()->defaultValue(FOREGROUND_USE_COLOR));
+    settings()->setSharedValue(FOREGROUND_WALLPAPER_PATH, settings()->defaultValue(FOREGROUND_WALLPAPER_PATH));
+
+    engravingConfiguration()->setScoreInversionEnabled(false);
 }
 
 async::Notification NotationConfiguration::foregroundChanged() const
@@ -544,13 +545,27 @@ bool NotationConfiguration::isPlayRepeatsEnabled() const
 void NotationConfiguration::setIsPlayRepeatsEnabled(bool enabled)
 {
     settings()->setSharedValue(IS_PLAY_REPEATS_ENABLED, Val(enabled));
-    mu::engraving::MScore::playRepeats = enabled;
     m_isPlayRepeatsChanged.notify();
 }
 
 Notification NotationConfiguration::isPlayRepeatsChanged() const
 {
     return m_isPlayRepeatsChanged;
+}
+
+bool NotationConfiguration::isPlayChordSymbolsEnabled() const
+{
+    return settings()->value(IS_PLAY_CHORD_SYMBOLS_ENABLED).toBool();
+}
+
+void NotationConfiguration::setIsPlayChordSymbolsEnabled(bool enabled)
+{
+    settings()->setSharedValue(IS_PLAY_CHORD_SYMBOLS_ENABLED, Val(enabled));
+}
+
+async::Notification NotationConfiguration::isPlayChordSymbolsChanged() const
+{
+    return m_isPlayChordSymbolsChanged;
 }
 
 bool NotationConfiguration::isMetronomeEnabled() const
@@ -648,84 +663,19 @@ void NotationConfiguration::setNotePlayDurationMilliseconds(int durationMs)
     settings()->setSharedValue(NOTE_DEFAULT_PLAY_DURATION, Val(durationMs));
 }
 
-void NotationConfiguration::setTemplateModeEnabled(bool enabled)
+void NotationConfiguration::setTemplateModeEnabled(std::optional<bool> enabled)
 {
-    mu::engraving::MScore::saveTemplateMode = enabled;
+    mu::engraving::MScore::saveTemplateMode = enabled ? enabled.value() : false;
 }
 
-void NotationConfiguration::setTestModeEnabled(bool enabled)
+void NotationConfiguration::setTestModeEnabled(std::optional<bool> enabled)
 {
-    mu::engraving::MScore::testMode = enabled;
+    mu::engraving::MScore::testMode = enabled ? enabled.value() : false;
 }
 
-io::paths_t NotationConfiguration::instrumentListPaths() const
+io::path_t NotationConfiguration::instrumentListPath() const
 {
-    io::paths_t paths;
-
-    io::path_t firstInstrumentListPath = this->firstInstrumentListPath();
-    paths.push_back(firstInstrumentListPath);
-
-    io::path_t secondInstrumentListPath = this->secondInstrumentListPath();
-    if (!secondInstrumentListPath.empty()) {
-        paths.push_back(secondInstrumentListPath);
-    }
-
-    io::path_t firstScoreOrderListPath = this->firstScoreOrderListPath();
-    paths.push_back(firstScoreOrderListPath);
-
-    io::path_t secondScoreOrderListPath = this->secondScoreOrderListPath();
-    if (!secondScoreOrderListPath.empty()) {
-        paths.push_back(secondScoreOrderListPath);
-    }
-
-    return paths;
-}
-
-async::Notification NotationConfiguration::instrumentListPathsChanged() const
-{
-    return m_instrumentListPathsChanged;
-}
-
-io::paths_t NotationConfiguration::userInstrumentListPaths() const
-{
-    io::paths_t paths = {
-        firstInstrumentListPath(),
-        secondInstrumentListPath()
-    };
-
-    return paths;
-}
-
-void NotationConfiguration::setUserInstrumentListPaths(const io::paths_t& paths)
-{
-    if (paths.empty()) {
-        return;
-    }
-
-    setFirstInstrumentListPath(paths[0]);
-    if (paths.size() > 1) {
-        setSecondInstrumentListPath(paths[1]);
-    }
-}
-
-io::path_t NotationConfiguration::firstInstrumentListPath() const
-{
-    return settings()->value(FIRST_INSTRUMENT_LIST_KEY).toString();
-}
-
-void NotationConfiguration::setFirstInstrumentListPath(const io::path_t& path)
-{
-    settings()->setSharedValue(FIRST_INSTRUMENT_LIST_KEY, Val(path.toStdString()));
-}
-
-io::path_t NotationConfiguration::secondInstrumentListPath() const
-{
-    return settings()->value(SECOND_INSTRUMENT_LIST_KEY).toString();
-}
-
-void NotationConfiguration::setSecondInstrumentListPath(const io::path_t& path)
-{
-    settings()->setSharedValue(SECOND_INSTRUMENT_LIST_KEY, Val(path.toStdString()));
+    return globalConfiguration()->appDataPath() + "instruments/instruments.xml";
 }
 
 io::paths_t NotationConfiguration::scoreOrderListPaths() const
@@ -836,14 +786,19 @@ void NotationConfiguration::setNeedToShowAddFiguredBassErrorMessage(bool show)
     settings()->setSharedValue(NEED_TO_SHOW_ADD_FIGURED_BASS_ERROR_MESSAGE_KEY, Val(show));
 }
 
-bool NotationConfiguration::needToShowAddBoxesErrorMessage() const
+bool NotationConfiguration::needToShowMScoreError(const std::string& errorKey) const
 {
-    return settings()->value(NEED_TO_SHOW_ADD_BOXES_ERROR_MESSAGE_KEY).toBool();
+    Settings::Key key(module_name, "ui/dialogs/needToShowMScoreError/" + errorKey);
+
+    settings()->setDefaultValue(key, Val(true));
+
+    return settings()->value(key).toBool();
 }
 
-void NotationConfiguration::setNeedToShowAddBoxesErrorMessage(bool show)
+void NotationConfiguration::setNeedToShowMScoreError(const std::string& errorKey, bool show)
 {
-    settings()->setSharedValue(NEED_TO_SHOW_ADD_BOXES_ERROR_MESSAGE_KEY, Val(show));
+    Settings::Key key(module_name, "ui/dialogs/needToShowMScoreError/" + errorKey);
+    settings()->setSharedValue(key, Val(show));
 }
 
 ValCh<int> NotationConfiguration::pianoKeyboardNumberOfKeys() const
@@ -874,4 +829,14 @@ io::path_t NotationConfiguration::secondScoreOrderListPath() const
 void NotationConfiguration::setSecondScoreOrderListPath(const io::path_t& path)
 {
     settings()->setSharedValue(SECOND_SCORE_ORDER_LIST_KEY, Val(path.toStdString()));
+}
+
+mu::io::path_t NotationConfiguration::styleFileImportPath() const
+{
+    return settings()->value(STYLE_FILE_IMPORT_PATH_KEY).toString();
+}
+
+void NotationConfiguration::setStyleFileImportPath(const io::path_t& path)
+{
+    settings()->setSharedValue(STYLE_FILE_IMPORT_PATH_KEY, Val(path.toStdString()));
 }

@@ -23,7 +23,6 @@
 #include "lyrics.h"
 
 #include "draw/types/pen.h"
-#include "rw/xml.h"
 
 #include "chordrest.h"
 #include "measure.h"
@@ -159,7 +158,7 @@ void LyricsLine::layout()
                 if (!e || e->type() != ElementType::CHORD) {
                     // nothing to do but set ticks to 0
                     // this will result in melisma being deleted later
-                    lyrics()->undoChangeProperty(Pid::LYRIC_TICKS, 0);
+                    lyrics()->undoChangeProperty(Pid::LYRIC_TICKS, Fraction::fromTicks(0));
                     setTicks(Fraction(0, 1));
                     return;
                 }
@@ -199,7 +198,8 @@ SpannerSegment* LyricsLine::layoutSystem(System* system)
     SpannerSegmentType sst;
     if (tick() >= stick) {
         layout();
-        if (ticks().isZero()) {                   // only do layout if some time span
+        if (ticks().isZero() && isEndMelisma()) { // only do layout if some time span
+            // dash lines still need to be laid out, though
             return nullptr;
         }
         SLine::layout();
@@ -467,6 +467,9 @@ void LyricsLineSegment::layout()
     RectF r = RectF(0.0, 0.0, pos2().x(), pos2().y()).normalized();
     double lw = lyricsLine()->lineWidth() * .5;
     setbbox(r.adjusted(-lw, -lw, lw, lw));
+    if (system() && lyr->addToSkyline()) {
+        system()->staff(lyr->staffIdx())->skyline().add(shape().translate(pos()));
+    }
 }
 
 //---------------------------------------------------------
@@ -475,7 +478,7 @@ void LyricsLineSegment::layout()
 
 void LyricsLineSegment::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     using namespace mu::draw;
     if (_numOfDashes < 1) {               // nothing to draw
         return;

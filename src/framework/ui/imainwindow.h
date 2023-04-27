@@ -28,12 +28,17 @@ class QWindow;
 class QScreen;
 
 namespace mu::ui {
+class MainWindowBridge;
+
 class IMainWindow : MODULE_EXPORT_INTERFACE
 {
     INTERFACE_ID(IMainWindow)
 
 public:
     virtual ~IMainWindow() = default;
+
+    virtual void init(MainWindowBridge* bridge) = 0;
+    virtual void deinit() = 0;
 
     virtual QWindow* qWindow() const = 0;
 

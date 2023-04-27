@@ -62,6 +62,7 @@ public:
     Slur* slur() const { return toSlur(spanner()); }
     void adjustEndpoints();
     void computeBezier(mu::PointF so = mu::PointF()) override;
+    Shape getSegmentShape(Segment* seg, ChordRest* startCR, ChordRest* endCR);
     void avoidCollisions(PointF& pp1, PointF& p2, PointF& p3, PointF& p4, mu::draw::Transform& toSystemCoordinates, double& slurAngle);
 };
 
@@ -72,9 +73,21 @@ public:
 class Slur final : public SlurTie
 {
     OBJECT_ALLOCATOR(engraving, Slur)
+    DECLARE_CLASSOF(ElementType::SLUR)
 
     void slurPosChord(SlurPos*);
     int _sourceStemArrangement = -1;
+    struct StemFloated
+    {
+        bool left = false;
+        bool right = false;
+        void reset()
+        {
+            left = false;
+            right = false;
+        }
+    };
+    StemFloated _stemFloated; // end point position is attached to stem but floated towards the note
 
     friend class Factory;
     Slur(EngravingItem* parent);
@@ -85,12 +98,14 @@ public:
 
     Slur* clone() const override { return new Slur(*this); }
 
-    void write(XmlWriter& xml) const override;
-    bool readProperties(XmlReader&) override;
     void layout() override;
     SpannerSegment* layoutSystem(System*) override;
     void setTrack(track_idx_t val) override;
     void slurPos(SlurPos*) override;
+    void fixArticulations(PointF& pt, Chord* c, double up, bool stemSide);
+    void computeUp();
+
+    void setSourceStemArrangement(int v) { _sourceStemArrangement = v; }
 
     SlurSegment* frontSegment() { return toSlurSegment(Spanner::frontSegment()); }
     const SlurSegment* frontSegment() const { return toSlurSegment(Spanner::frontSegment()); }
@@ -101,8 +116,14 @@ public:
 
     bool isCrossStaff();
     bool isOverBeams();
+    bool stemSideForBeam(bool start);
+    bool stemSideStartForBeam() { return stemSideForBeam(true); }
+    bool stemSideEndForBeam() { return stemSideForBeam(false); }
+    const StemFloated& stemFloated() const { return _stemFloated; }
 
     SlurTieSegment* newSlurTieSegment(System* parent) override { return new SlurSegment(parent); }
+
+    static int calcStemArrangement(EngravingItem* start, EngravingItem* end);
 };
 } // namespace mu::engraving
 #endif

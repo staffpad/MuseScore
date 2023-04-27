@@ -304,7 +304,7 @@ public:
         NOTE_PLUS = 0xF39D,
         NOTE_TO_RIGHT = 0xF39E,
         RHYTHM_ONLY = 0xF39F,
-        RE_PITH = 0xF3A0,
+        RE_PITCH = 0xF3A0,
         FOOT_PEDAL = 0xF3A1,
 
         TOOLBAR_GRIP = 0xF3A2,
@@ -370,11 +370,16 @@ public:
 
         INSERT_ONE_MEASURE = 0xF432,
 
+        CLOUD = 0xF435,
+
         CROSS_STAFF_BEAMING = 0xF43D,
 
         TEMPO_CHANGE = 0xF43F,
 
         PLUGIN = 0xF440,
+        LYRICS = 0xF441,
+
+        QUAVER_REST = 0xF44C,
 
         NONE = 0xFFFF
     };

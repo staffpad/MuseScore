@@ -22,10 +22,13 @@
 
 #include "segment.h"
 
+#include <climits>
+
 #include "translation.h"
-#include "rw/xml.h"
+
 #include "types/typesconv.h"
 
+#include "accidental.h"
 #include "barline.h"
 #include "beam.h"
 #include "chord.h"
@@ -38,6 +41,7 @@
 #include "keysig.h"
 #include "masterscore.h"
 #include "measure.h"
+#include "mmrest.h"
 #include "mscore.h"
 #include "note.h"
 #include "part.h"
@@ -50,6 +54,7 @@
 #include "timesig.h"
 #include "tuplet.h"
 #include "undo.h"
+#include "utils.h"
 
 #ifndef ENGRAVING_NO_ACCESSIBILITY
 #include "accessibility/accessibleitem.h"
@@ -174,7 +179,6 @@ Segment::Segment(const Segment& s)
         }
         _elist.push_back(ne);
     }
-    _dotPosX = s._dotPosX;
     _shapes  = s._shapes;
 }
 
@@ -247,7 +251,6 @@ void Segment::init()
     size_t tracks = staves * VOICES;
     _elist.assign(tracks, 0);
     _preAppendedItems.assign(tracks, 0);
-    _dotPosX.assign(staves, 0.0);
     _shapes.assign(staves, Shape());
 }
 
@@ -504,12 +507,10 @@ void Segment::insertStaff(staff_idx_t staff)
         _elist.insert(_elist.begin() + track, 0);
         _preAppendedItems.insert(_preAppendedItems.begin() + track, 0);
     }
-    _dotPosX.insert(_dotPosX.begin() + staff, 0.0);
     _shapes.insert(_shapes.begin() + staff, Shape());
 
     for (EngravingItem* e : _annotations) {
-        staff_idx_t staffIdx = e->staffIdx();
-        if (staffIdx >= staff && !e->isTopSystemObject()) {
+        if (moveDownWhenAddingStaves(e, staff)) {
             e->setTrack(e->track() + VOICES);
         }
     }
@@ -525,12 +526,11 @@ void Segment::removeStaff(staff_idx_t staff)
     track_idx_t track = staff * VOICES;
     _elist.erase(_elist.begin() + track, _elist.begin() + track + VOICES);
     _preAppendedItems.erase(_preAppendedItems.begin() + track, _preAppendedItems.begin() + track + VOICES);
-    _dotPosX.erase(_dotPosX.begin() + staff);
     _shapes.erase(_shapes.begin() + staff);
 
     for (EngravingItem* e : _annotations) {
         staff_idx_t staffIdx = e->staffIdx();
-        if (staffIdx > staff && !e->isTopSystemObject()) {
+        if (staffIdx > staff) {
             e->setTrack(e->track() - VOICES);
         }
     }
@@ -794,8 +794,6 @@ void Segment::remove(EngravingItem* el)
         break;
 
     case ElementType::KEYSIG:
-        assert(_elist[track] == el);
-
         _elist[track] = 0;
         if (!el->generated()) {
             el->staff()->removeKey(tick());
@@ -951,45 +949,6 @@ void Segment::swapElements(track_idx_t i1, track_idx_t i2)
 }
 
 //---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Segment::write(XmlWriter& xml) const
-{
-    if (written()) {
-        return;
-    }
-    setWritten(true);
-    if (_extraLeadingSpace.isZero()) {
-        return;
-    }
-    xml.startElement(this);
-    xml.tag("leadingSpace", _extraLeadingSpace.val());
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Segment::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-
-        if (tag == "subtype") {
-            e.skipCurrentElement();
-        } else if (tag == "leadingSpace") {
-            _extraLeadingSpace = Spatium(e.readDouble());
-        } else if (tag == "trailingSpace") {          // obsolete
-            e.readDouble();
-        } else {
-            e.unknown();
-        }
-    }
-}
-
-//---------------------------------------------------------
 //   getProperty
 //---------------------------------------------------------
 
@@ -1015,7 +974,7 @@ PropertyValue Segment::propertyDefault(Pid propertyId) const
     case Pid::LEADING_SPACE:
         return Spatium(0.0);
     default:
-        return EngravingItem::getProperty(propertyId);
+        return EngravingItem::propertyDefault(propertyId);
     }
 }
 
@@ -1194,9 +1153,21 @@ bool Segment::allElementsInvisible() const
         return false;
     }
 
-    for (EngravingItem* e : _elist) {
-        if (e && e->visible() && !RealIsEqual(e->width(), 0.0)) {
-            return false;
+    System* sys = system();
+    for (staff_idx_t staffIdx = 0; staffIdx < score()->nstaves(); ++staffIdx) {
+        Staff* staff = score()->staves().at(staffIdx);
+        if (!staff->visible()) {
+            continue;
+        }
+        if (sys && staffIdx < sys->staves().size() && !sys->staves().at(staffIdx)->show()) {
+            continue;
+        }
+        track_idx_t endTrack = staffIdx * VOICES + VOICES;
+        for (track_idx_t track = staffIdx * VOICES; track < endTrack; ++track) {
+            EngravingItem* e = _elist[track];
+            if (e && e->visible() && !RealIsEqual(e->width(), 0.0)) {
+                return false;
+            }
         }
     }
 
@@ -1294,9 +1265,18 @@ void Segment::scanElements(void* data, void (* func)(void*, EngravingItem*), boo
 {
     for (size_t track = 0; track < score()->nstaves() * VOICES; ++track) {
         size_t staffIdx = track / VOICES;
-        if (!all && !(measure()->visible(staffIdx) && score()->staff(staffIdx)->show())) {
-            track += VOICES - 1;
-            continue;
+        bool thisMeasureVisible = measure()->visible(staffIdx) && score()->staff(staffIdx)->show();
+        if (!all && !thisMeasureVisible) {
+            Measure* nextMeasure = measure()->nextMeasure();
+            bool nextMeasureVisible = nextMeasure
+                                      && nextMeasure->system() == measure()->system()
+                                      && nextMeasure->visible(staffIdx)
+                                      && score()->staff(staffIdx)->show();
+            if (!((isEndBarLineType() && (nextMeasureVisible || measure()->isCutawayClef(staffIdx)))
+                  || (isClefType() && measure()->isCutawayClef(staffIdx)))) {
+                track += VOICES - 1;
+                continue;
+            }
         }
         EngravingItem* e = element(track);
         if (e == 0) {
@@ -2231,6 +2211,7 @@ void Segment::createShapes()
     for (size_t staffIdx = 0; staffIdx < score()->nstaves(); ++staffIdx) {
         createShape(staffIdx);
     }
+    addPreAppendedToShape();
 }
 
 //---------------------------------------------------------
@@ -2240,6 +2221,7 @@ void Segment::createShapes()
 void Segment::createShape(staff_idx_t staffIdx)
 {
     Shape& s = _shapes[staffIdx];
+    s.setSqueezeFactor(1);
     s.clear();
 
     if (const System* system = this->system()) {
@@ -2258,8 +2240,6 @@ void Segment::createShape(staff_idx_t staffIdx)
             s.add(r.translated(bl->pos()), bl);
         }
         s.addHorizontalSpacing(bl, 0, 0);
-        addPreAppendedToShape(static_cast<int>(staffIdx), s);
-        //s.addHorizontalSpacing(Shape::SPACING_LYRICS, 0, 0);
         return;
     }
 
@@ -2276,8 +2256,15 @@ void Segment::createShape(staff_idx_t staffIdx)
         track_idx_t effectiveTrack = e->vStaffIdx() * VOICES + e->voice();
         if (effectiveTrack >= strack && effectiveTrack < etrack) {
             setVisible(true);
+            if (e->isRest() && toRest(e)->ticks() >= measure()->ticks() && measure()->hasVoices(e->staffIdx())) {
+                // A full measure rest in a measure with multiple voices must be ignored
+                continue;
+            }
+            if (e->isMMRest()) {
+                continue;
+            }
             if (e->addToSkyline()) {
-                s.add(e->shape().translated(e->pos()));
+                s.add(e->shape().translate(e->isClef() ? e->ipos() : e->pos()));
             }
         }
     }
@@ -2293,10 +2280,9 @@ void Segment::createShape(staff_idx_t staffIdx)
 
         if (e->isHarmony()) {
             // use same spacing calculation as for chordrest
-            toHarmony(e)->layout1();
-            const double margin = styleP(Sid::minHarmonyDistance) * 0.5;
-            double x1 = e->bbox().x() - margin + e->pos().x();
-            double x2 = e->bbox().x() + e->bbox().width() + margin + e->pos().x();
+            toHarmony(e)->layout();
+            double x1 = e->bbox().x() + e->pos().x();
+            double x2 = e->bbox().x() + e->bbox().width() + e->pos().x();
             s.addHorizontalSpacing(e, x1, x2);
         } else if (!e->isRehearsalMark()
                    && !e->isFretDiagram()
@@ -2315,21 +2301,25 @@ void Segment::createShape(staff_idx_t staffIdx)
                    && !e->isPlayTechAnnotation()) {
             // annotations added here are candidates for collision detection
             // lyrics, ...
-            s.add(e->shape().translated(e->pos()));
+            s.add(e->shape().translate(e->pos()));
         }
     }
-
-    addPreAppendedToShape(static_cast<int>(staffIdx), s);
 }
 
-void Segment::addPreAppendedToShape(int staffIdx, Shape& s)
+void Segment::addPreAppendedToShape()
 {
-    for (unsigned track = staffIdx * VOICES; track < staffIdx * VOICES + VOICES; ++track) {
+    track_idx_t tracks = score()->ntracks();
+    for (unsigned track = 0; track < tracks; ++track) {
         if (!_preAppendedItems[track]) {
             continue;
         }
         EngravingItem* item = _preAppendedItems[track];
-        s.add(item->shape().translated(item->pos()));
+        if (item->isGraceNotesGroup()) {
+            toGraceNotesGroup(item)->addToShape();
+        } else {
+            Shape& shape = _shapes[item->vStaffIdx()];
+            shape.add(item->shape().translated(item->pos()));
+        }
     }
 }
 
@@ -2363,7 +2353,7 @@ double Segment::minLeft(const Shape& sl) const
 {
     double distance = 0.0;
     for (const Shape& sh : shapes()) {
-        double d = sl.minHorizontalDistance(sh, score());
+        double d = sl.minHorizontalDistance(sh);
         if (d > distance) {
             distance = d;
         }
@@ -2507,7 +2497,7 @@ double Segment::minHorizontalCollidingDistance(Segment* ns) const
 {
     double w = -100000.0; // This can remain negative in some cases (for instance, mid-system clefs)
     for (unsigned staffIdx = 0; staffIdx < _shapes.size(); ++staffIdx) {
-        double d = staffShape(staffIdx).minHorizontalDistance(ns->staffShape(staffIdx), score());
+        double d = staffShape(staffIdx).minHorizontalDistance(ns->staffShape(staffIdx));
         w       = std::max(w, d);
     }
     return w;
@@ -2580,15 +2570,6 @@ double Segment::elementsBottomOffsetFromSkyline(staff_idx_t staffIndex) const
 }
 
 //---------------------------------------------------------
-// isMMRestSegment()
-//  true if the segment is a MM rest
-//---------------------------------------------------------
-bool Segment::isMMRestSegment() const
-{
-    return measure()->isMMRest() && isChordRestType();
-}
-
-//---------------------------------------------------------
 //   minHorizontalDistance
 //    calculate the minimum layout distance to Segment ns
 //---------------------------------------------------------
@@ -2598,11 +2579,7 @@ double Segment::minHorizontalDistance(Segment* ns, bool systemHeaderGap) const
     double ww = -1000000.0;          // can remain negative
     double d = 0.0;
     for (unsigned staffIdx = 0; staffIdx < _shapes.size(); ++staffIdx) {
-        if (!isMMRestSegment() && !ns->isMMRestSegment()) {
-            // MM rest segments must be treated separately because
-            // the associated shapes have variable width
-            d = ns ? staffShape(staffIdx).minHorizontalDistance(ns->staffShape(staffIdx), score()) : 0.0;
-        }
+        d = ns ? staffShape(staffIdx).minHorizontalDistance(ns->staffShape(staffIdx)) : 0.0;
         // first chordrest of a staff should clear the widest header for any staff
         // so make sure segment is as wide as it needs to be
         if (systemHeaderGap) {
@@ -2611,10 +2588,6 @@ double Segment::minHorizontalDistance(Segment* ns, bool systemHeaderGap) const
         ww      = std::max(ww, d);
     }
     double w = std::max(ww, 0.0);        // non-negative
-
-    if (isClefType() && ns && ns->isChordRestType()) {
-        w = std::max(w, double(score()->styleMM(Sid::clefKeyRightMargin)));
-    }
 
     // Header exceptions that need additional space (more than the padding)
     double absoluteMinHeaderDist = 1.5 * spatium();
@@ -2631,6 +2604,27 @@ double Segment::minHorizontalDistance(Segment* ns, bool systemHeaderGap) const
         double diff = w - minRight() - ns->minLeft();
         if (diff < absoluteMinHeaderDist) {
             w += absoluteMinHeaderDist - diff;
+        }
+    }
+
+    // Multimeasure rest exceptions that need special handling
+    if (measure() && measure()->isMMRest()) {
+        if (ns->isChordRestType()) {
+            double minDist = minRight();
+            if (isClefType()) {
+                minDist += score()->paddingTable().at(ElementType::CLEF).at(ElementType::REST);
+            } else if (isKeySigType()) {
+                minDist += score()->paddingTable().at(ElementType::KEYSIG).at(ElementType::REST);
+            } else if (isTimeSigType()) {
+                minDist += score()->paddingTable().at(ElementType::TIMESIG).at(ElementType::REST);
+            }
+            w = std::max(w, minDist);
+        } else if (isChordRestType()) {
+            double minWidth = score()->styleMM(Sid::minMMRestWidth).val();
+            if (!score()->styleB(Sid::oldStyleMultiMeasureRests)) {
+                minWidth += score()->styleMM(Sid::multiMeasureRestMargin).val();
+            }
+            w = std::max(w, minWidth);
         }
     }
 
@@ -2656,10 +2650,6 @@ double Segment::minHorizontalDistance(Segment* ns, bool systemHeaderGap) const
         }
     }
 
-    if (ns) {
-        w += ns->extraLeadingSpace().val() * spatium();
-    }
-
     return w;
 }
 
@@ -2675,10 +2665,10 @@ Fraction Segment::shortestChordRest() const
     Fraction shortest = measure()->ticks(); // Initializing at the highest possible value ( = time signature of the measure)
     Fraction cur = measure()->ticks();
     for (auto elem : elist()) {
-        if (!elem || !elem->staff()->show() || !elem->isChordRest() || !elem->visible()) {
-            if (!(elem && elem->isRest() && toRest(elem)->isFullMeasureRest())) {
-                continue;
-            }
+        if (!elem || !elem->staff()->show() || !elem->isChordRest() || (elem->isRest() && toRest(elem)->isGap())
+            || (!elem->visible()
+                && measure()->hasVoices(elem->staffIdx(), measure()->tick(), measure()->ticks(), /*considerInvisible*/ true))) {
+            continue;
         }
         cur = toChordRest(elem)->actualTicks();
         if (cur < shortest) {
@@ -2694,11 +2684,11 @@ bool Segment::hasAccidentals() const
         return false;
     }
     for (EngravingItem* e : elist()) {
-        if (!e || !e->isChord()) {
+        if (!e || !e->isChord() || (e->staff() && !e->staff()->show())) {
             continue;
         }
         for (Note* note : toChord(e)->notes()) {
-            if (note->accidental()) {
+            if (note->accidental() && note->accidental()->addToSkyline()) {
                 return true;
             }
         }
@@ -2706,28 +2696,166 @@ bool Segment::hasAccidentals() const
     return false;
 }
 
-CrossStaffContent Segment::crossStaffContent() const
+/************************************************************************
+ * computeCrossBeamType
+ * Looks at the chords of this segment and next segment to detect beams
+ * with alternating stem directions (upDown: this chord is up, next chord
+ * is down; downUp: this chord is down, next chord is up). Needed for
+ * correct horizontal spacing of cross-beam situations.
+ * **********************************************************************/
+
+void Segment::computeCrossBeamType(Segment* nextSeg)
 {
-    CrossStaffContent crossStaffContent;
-    for (EngravingItem* el : elist()) {
-        if (el && el->isChordRest()) {
-            if (toChordRest(el)->staffMove() == 0 && !toChordRest(el)->isFullMeasureRest()) {
-                crossStaffContent.movedDown = false;
-                crossStaffContent.movedUp = false;
-                break;
+    _crossBeamType.reset();
+    if (!isChordRestType() || !nextSeg || !nextSeg->isChordRestType()) {
+        return;
+    }
+    bool upDown = false;
+    bool downUp = false;
+    bool canBeAdjusted = true;
+    // Spacing can be adjusted for cross-beam cases only if there aren't
+    // chords in other voices in this or next segment.
+    for (EngravingItem* e : elist()) {
+        if (!e || !e->isChordRest() || !e->staff()->visible()) {
+            continue;
+        }
+        ChordRest* thisCR = toChordRest(e);
+        if (!thisCR->visible() || thisCR->isFullMeasureRest()) {
+            continue;
+        }
+        if (!thisCR->beam()) {
+            canBeAdjusted = false;
+            continue;
+        }
+        Beam* beam = thisCR->beam();
+        for (EngravingItem* ee : nextSeg->elist()) {
+            if (!ee || !ee->isChordRest() || !ee->staff()->visible()) {
+                continue;
             }
-            if (toChordRest(el)->staffMove() > 0 && toChordRest(el)->beam()) {
-                crossStaffContent.movedDown = true;
+            ChordRest* nextCR = toChordRest(ee);
+            if (!nextCR->visible() || nextCR->isFullMeasureRest()) {
+                continue;
             }
-            if (toChordRest(el)->staffMove() < 0 && toChordRest(el)->beam()) {
-                crossStaffContent.movedUp = true;
+            if (!nextCR->beam()) {
+                canBeAdjusted = false;
+                continue;
+            }
+            if (nextCR->beam() != beam) {
+                continue;
+            }
+            if (thisCR->up() == nextCR->up()) {
+                return;
+            }
+            if (thisCR->up() && !nextCR->up()) {
+                upDown = true;
+            }
+            if (!thisCR->up() && nextCR->up()) {
+                downUp = true;
+            }
+            if (upDown && downUp) {
+                return;
             }
         }
     }
-    if (crossStaffContent.movedUp && crossStaffContent.movedDown) { // If this segment contains both up and down cross-staff, we don't correct for it
-        crossStaffContent.movedUp = false;
-        crossStaffContent.movedDown = false;
+    _crossBeamType.upDown = upDown;
+    _crossBeamType.downUp = downUp;
+    _crossBeamType.canBeAdjusted = canBeAdjusted;
+}
+
+/***********************************************
+ * stretchSegmentsToWidth
+ * Stretch a group of (chordRestType) segments
+ * by the specified amount. Uses the spring-rod
+ * method.
+ * *********************************************/
+
+void Segment::stretchSegmentsToWidth(std::vector<Spring>& springs, double width)
+{
+    if (springs.empty() || RealIsEqualOrLess(width, 0.0)) {
+        return;
     }
-    return crossStaffContent;
+
+    std::sort(springs.begin(), springs.end(), [](const Spring& a, const Spring& b) { return a.preTension < b.preTension; });
+    double inverseSpringConst = 0.0;
+    double force = 0.0;
+
+    //! NOTE springs.cbegin() != springs.cend() because of the emptiness check at the top
+    auto spring = springs.cbegin();
+    do {
+        inverseSpringConst += 1 / spring->springConst;
+        width += spring->width;
+        force = width / inverseSpringConst;
+        ++spring;
+    } while (spring != springs.cend() && !(force < spring->preTension));
+
+    for (const Spring& spring : springs) {
+        if (force > spring.preTension) {
+            double newWidth = force / spring.springConst;
+            spring.segment->setWidth(newWidth + spring.segment->widthOffset());
+        }
+    }
+}
+
+double Segment::computeDurationStretch(Segment* prevSeg, Fraction minTicks, Fraction maxTicks)
+{
+    auto doComputeDurationStretch = [&] (Fraction curTicks) -> double
+    {
+        double slope = score()->styleD(Sid::measureSpacing);
+
+        static constexpr double longNoteThreshold = Fraction(1, 16).toDouble();
+
+        if (measure()->isMMRest() && isChordRestType()) { // This is an MM rest segment
+            static constexpr int minMMRestCount  = 2; // MMRests with less bars than this don't receive additional spacing
+            int count =std::max(measure()->mmRestCount() - minMMRestCount, 0);
+            Fraction timeSig = measure()->timesig();
+            curTicks = timeSig + Fraction(count, timeSig.denominator());
+        }
+
+        // Prevent long notes from being too wide
+        static constexpr double maxRatio = 32.0;
+        double dMinTicks = minTicks.toDouble();
+        double dMaxTicks = maxTicks.toDouble();
+        double maxSysRatio = dMaxTicks / dMinTicks;
+        if (RealIsEqualOrMore(dMaxTicks / dMinTicks, 2.0) && dMinTicks < longNoteThreshold) {
+            /* HACK: we trick the system to ignore the shortest note and use the "next"
+             * shortest. For example, if the shortest is a 32nd, we make it a 16th. */
+            dMinTicks *= 2.0;
+        }
+        double ratio = curTicks.toDouble() / dMinTicks;
+        if (maxSysRatio > maxRatio) {
+            double A = (dMinTicks * (maxRatio - 1)) / (dMaxTicks - dMinTicks);
+            double B = (dMaxTicks - (maxRatio * dMinTicks)) / (dMaxTicks - dMinTicks);
+            ratio = A * ratio + B;
+        }
+
+        double str = pow(slope, log2(ratio));
+
+        // Prevents long notes from being too narrow.
+        if (dMinTicks > longNoteThreshold) {
+            double empFactor = 0.6;
+            str = str * (1 - empFactor + empFactor * sqrt(dMinTicks / longNoteThreshold));
+        }
+
+        return str;
+    };
+
+    bool hasAdjacent = isChordRestType() && shortestChordRest() == ticks();
+    bool prevHasAdjacent = prevSeg && (prevSeg->isChordRestType() && prevSeg->shortestChordRest() == prevSeg->ticks());
+    // The actual duration of a segment, i.e. ticks(), can be shorter than its shortest note if
+    // another voice comes in. In such case, hasAdjacent = false. This info is key to correct spacing.
+    double durStretch;
+    if (hasAdjacent || measure()->isMMRest()) { // Normal segments
+        durStretch = doComputeDurationStretch(ticks());
+    } else { // The following calculations are key to correct spacing of polyrythms
+        Fraction curShortest = shortestChordRest();
+        Fraction prevShortest = prevSeg ? prevSeg->shortestChordRest() : Fraction(0, 1);
+        if (prevSeg && !prevHasAdjacent && prevShortest < curShortest) {
+            durStretch = doComputeDurationStretch(prevShortest) * (ticks() / prevShortest).toDouble();
+        } else {
+            durStretch = doComputeDurationStretch(curShortest) * (ticks() / curShortest).toDouble();
+        }
+    }
+
+    return durStretch;
 }
 } // namespace mu::engraving

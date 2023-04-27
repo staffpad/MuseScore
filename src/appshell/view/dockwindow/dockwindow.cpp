@@ -191,10 +191,6 @@ void DockWindow::init()
             savePageState(page->objectName());
         }
     });
-
-    Async::call(this, [this]() {
-        startupScenario()->run();
-    });
 }
 
 void DockWindow::loadPage(const QString& uri, const QVariantMap& params)
@@ -221,22 +217,28 @@ void DockWindow::loadPage(const QString& uri, const QVariantMap& params)
         return;
     }
 
-    emit currentPageUriChanged(uri);
+    auto notifyAboutPageLoaded = [this, &uri]() {
+        emit currentPageUriChanged(uri);
+        emit pageLoaded();
+        notifyAboutDocksOpenStatus();
+    };
 
     if (isFirstOpening) {
-        if (!m_hasGeometryBeenRestored
-            || (m_mainWindow->windowHandle()->windowStates() & QWindow::FullScreen)) {
-            //! NOTE: show window as maximized if no geometry has been restored
-            //! or if the user had closed app in FullScreen mode
-            m_mainWindow->windowHandle()->showMaximized();
-        } else {
-            m_mainWindow->windowHandle()->setVisible(true);
-        }
+        async::Async::call(this, [this, notifyAboutPageLoaded]() {
+            if (!m_hasGeometryBeenRestored
+                || (m_mainWindow->windowHandle()->windowStates() & QWindow::FullScreen)) {
+                //! NOTE: show window as maximized if no geometry has been restored
+                //! or if the user had closed app in FullScreen mode
+                m_mainWindow->windowHandle()->showMaximized();
+            } else {
+                m_mainWindow->windowHandle()->setVisible(true);
+            }
+
+            notifyAboutPageLoaded();
+        });
+    } else {
+        notifyAboutPageLoaded();
     }
-
-    emit pageLoaded();
-
-    notifyAboutDocksOpenStatus();
 }
 
 bool DockWindow::isDockOpen(const QString& dockName) const
@@ -617,6 +619,7 @@ void DockWindow::initDocks(DockPageView* page)
     }
 
     if (page) {
+        page->setParentItem(this);
         page->init();
     }
 

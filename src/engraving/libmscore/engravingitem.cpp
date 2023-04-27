@@ -35,10 +35,12 @@
 #include "types/translatablestring.h"
 
 #include "draw/types/pen.h"
-#include "infrastructure/symbolfont.h"
+#include "iengravingfont.h"
 #include "style/style.h"
-#include "rw/xml.h"
-#include "rw/writecontext.h"
+
+#include "rw/400/tread.h"
+#include "rw/400/twrite.h"
+
 #include "types/typesconv.h"
 
 #ifndef ENGRAVING_NO_ACCESSIBILITY
@@ -55,6 +57,7 @@
 #include "mscore.h"
 #include "note.h"
 #include "page.h"
+#include "rest.h"
 #include "score.h"
 #include "segment.h"
 #include "shape.h"
@@ -111,6 +114,7 @@ EngravingItem::EngravingItem(const EngravingItem& e)
 
     //! TODO Please don't remove (igor.korsukov@gmail.com)
     //m_accessible = e.m_accessible->clone(this);
+    m_accessibleEnabled = e.m_accessibleEnabled;
 }
 
 EngravingItem::~EngravingItem()
@@ -149,9 +153,9 @@ void EngravingItem::setAccessibleEnabled(bool enabled)
     m_accessibleEnabled = enabled;
 }
 
-EngravingItem* EngravingItem::parentItem() const
+EngravingItem* EngravingItem::parentItem(bool explicitParent) const
 {
-    EngravingObject* p = explicitParent();
+    EngravingObject* p = explicitParent ? this->explicitParent() : parent();
     if (p && p->isEngravingItem()) {
         return static_cast<EngravingItem*>(p);
     }
@@ -174,6 +178,18 @@ EngravingItemList EngravingItem::childrenItems() const
 AccessibleItemPtr EngravingItem::createAccessible()
 {
     return std::make_shared<AccessibleItem>(this);
+}
+
+void EngravingItem::notifyAboutNameChanged()
+{
+    if (!selected()) {
+        return;
+    }
+
+    if (m_accessible) {
+        doInitAccessible();
+        m_accessible->accessibleRoot()->notifyAboutFocusedElementNameChanged();
+    }
 }
 
 #endif
@@ -421,6 +437,8 @@ staff_idx_t EngravingItem::staffIdxOrNextVisible() const
         m = s ? s->measure() : nullptr;
     } else if (parent() && parent()->isMeasure()) {
         m = parent() ? toMeasure(parent()) : nullptr;
+    } else if (isSpanner() || isSpannerSegment()) {
+        m = score()->tick2measure(tick());
     }
     if (!m || !m->system() || !m->system()->staff(si)) {
         return si;
@@ -436,7 +454,7 @@ staff_idx_t EngravingItem::staffIdxOrNextVisible() const
     }
     bool foundStaff = false;
     if (!m->system()->staff(si)->show()) {
-        std::vector<Staff*> soStaves = score()->getSystemObjectStaves();
+        const std::vector<Staff*> soStaves = score()->systemObjectStaves();
         for (staff_idx_t i = 0; i < soStaves.size(); ++i) {
             staff_idx_t idxOrig = soStaves[i]->idx();
             if (idxOrig == si) {
@@ -467,6 +485,9 @@ bool EngravingItem::isTopSystemObject() const
 {
     if (!systemFlag()) {
         return false; // non system object
+    }
+    if (isSpannerSegment() && systemFlag() && track() != 0) {
+        return false;
     }
     if (!_links) {
         return true; // a system object, but not one with any linked clones
@@ -590,7 +611,7 @@ mu::draw::Color EngravingItem::curColor(bool isVisible, Color normalColor) const
 {
     // the default element color is always interpreted as black in printing
     if (score() && score()->printing()) {
-        return (normalColor == engravingConfiguration()->defaultColor()) ? Color::black : normalColor;
+        return (normalColor == engravingConfiguration()->defaultColor()) ? Color::BLACK : normalColor;
     }
 
     if (flag(ElementFlag::DROP_TARGET)) {
@@ -706,7 +727,7 @@ PointF EngravingItem::canvasPos() const
         } else if (explicitParent()->isChord()) {       // grace chord
             measure = toSegment(explicitParent()->explicitParent())->measure();
         } else if (explicitParent()->isFretDiagram()) {
-            return p + parentItem()->canvasPos() + PointF(toFretDiagram(explicitParent())->centerX(), 0.0);
+            return p + parentItem()->canvasPos();
         } else {
             ASSERT_X(String(u"this %1 parent %2\n").arg(String::fromAscii(typeName()), String::fromAscii(explicitParent()->typeName())));
         }
@@ -781,262 +802,14 @@ bool EngravingItem::intersects(const RectF& rr) const
     return shape().intersects(rr.translated(-pagePos()));
 }
 
-//---------------------------------------------------------
-//   writeProperties
-//---------------------------------------------------------
-
-void EngravingItem::writeProperties(XmlWriter& xml) const
+bool EngravingItem::hitShapeContains(const PointF& p) const
 {
-    bool autoplaceEnabled = score()->styleB(Sid::autoplaceEnabled);
-    if (!autoplaceEnabled) {
-        score()->setStyleValue(Sid::autoplaceEnabled, true);
-        writeProperty(xml, Pid::AUTOPLACE);
-        score()->setStyleValue(Sid::autoplaceEnabled, autoplaceEnabled);
-    } else {
-        writeProperty(xml, Pid::AUTOPLACE);
-    }
-
-    // copy paste should not keep links
-    if (_links && (_links->size() > 1) && !xml.context()->clipboardmode()) {
-        WriteContext* ctx = xml.context();
-        IF_ASSERT_FAILED(ctx) {
-            return;
-        }
-
-        if (MScore::debugMode) {
-            xml.tag("lid", _links->lid());
-        }
-
-        EngravingItem* me = static_cast<EngravingItem*>(_links->mainElement());
-        assert(type() == me->type());
-        Staff* s = staff();
-        if (!s) {
-            s = score()->staff(xml.context()->curTrack() / VOICES);
-            if (!s) {
-                LOGW("EngravingItem::writeProperties: linked element's staff not found (%s)", typeName());
-            }
-        }
-        Location loc = Location::positionForElement(this);
-        if (me == this) {
-            xml.tag("linkedMain");
-            int index = ctx->assignLocalIndex(loc);
-            ctx->setLidLocalIndex(_links->lid(), index);
-        } else {
-            if (s->links()) {
-                Staff* linkedStaff = toStaff(s->links()->mainElement());
-                loc.setStaff(static_cast<int>(linkedStaff->idx()));
-            }
-            xml.startElement("linked");
-            if (!me->score()->isMaster()) {
-                if (me->score() == score()) {
-                    xml.tag("score", "same");
-                } else {
-                    LOGW(
-                        "EngravingItem::writeProperties: linked elements belong to different scores but none of them is master score: (%s lid=%d)",
-                        typeName(), _links->lid());
-                }
-            }
-
-            Location mainLoc = Location::positionForElement(me);
-            const int guessedLocalIndex = ctx->assignLocalIndex(mainLoc);
-            if (loc != mainLoc) {
-                mainLoc.toRelative(loc);
-                mainLoc.write(xml);
-            }
-            const int indexDiff = ctx->lidLocalIndex(_links->lid()) - guessedLocalIndex;
-            xml.tag("indexDiff", indexDiff, 0);
-            xml.endElement();       // </linked>
-        }
-    }
-    if ((xml.context()->writeTrack() || track() != xml.context()->curTrack())
-        && (track() != mu::nidx) && !isBeam()) {
-        // Writing track number for beams is redundant as it is calculated
-        // during layout.
-        int t = static_cast<int>(track()) + xml.context()->trackDiff();
-        xml.tag("track", t);
-    }
-    if (xml.context()->writePosition()) {
-        xml.tagProperty(Pid::POSITION, rtick());
-    }
-    if (_tag != 0x1) {
-        for (int i = 1; i < MAX_TAGS; i++) {
-            if (_tag == ((unsigned)1 << i)) {
-                xml.tag("tag", score()->layerTags()[i]);
-                break;
-            }
-        }
-    }
-    for (Pid pid : { Pid::OFFSET, Pid::COLOR, Pid::VISIBLE, Pid::Z, Pid::PLACEMENT }) {
-        if (propertyFlags(pid) == PropertyFlags::NOSTYLE) {
-            writeProperty(xml, pid);
-        }
-    }
+    return hitShape().contains(p - pagePos());
 }
 
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool EngravingItem::readProperties(XmlReader& e)
+bool EngravingItem::hitShapeIntersects(const RectF& rr) const
 {
-    const AsciiStringView tag(e.name());
-
-    if (readProperty(tag, e, Pid::SIZE_SPATIUM_DEPENDENT)) {
-    } else if (readProperty(tag, e, Pid::OFFSET)) {
-    } else if (readProperty(tag, e, Pid::MIN_DISTANCE)) {
-    } else if (readProperty(tag, e, Pid::AUTOPLACE)) {
-    } else if (tag == "track") {
-        setTrack(e.readInt() + e.context()->trackOffset());
-    } else if (tag == "color") {
-        setColor(e.readColor());
-    } else if (tag == "visible") {
-        setVisible(e.readInt());
-    } else if (tag == "selected") { // obsolete
-        e.readInt();
-    } else if ((tag == "linked") || (tag == "linkedMain")) {
-        ReadContext* ctx = e.context();
-        IF_ASSERT_FAILED(ctx) {
-            return false;
-        }
-
-        Staff* s = staff();
-        if (!s) {
-            s = score()->staff(e.context()->track() / VOICES);
-            if (!s) {
-                LOGW("EngravingItem::readProperties: linked element's staff not found (%s)", typeName());
-                e.skipCurrentElement();
-                return true;
-            }
-        }
-        if (tag == "linkedMain") {
-            _links = new LinkedObjects(score());
-            _links->push_back(this);
-
-            ctx->addLink(s, _links, e.context()->location(true));
-
-            e.readNext();
-        } else {
-            Staff* ls = s->links() ? toStaff(s->links()->mainElement()) : nullptr;
-            bool linkedIsMaster = ls ? ls->score()->isMaster() : false;
-            Location loc = e.context()->location(true);
-            if (ls) {
-                loc.setStaff(static_cast<int>(ls->idx()));
-            }
-            Location mainLoc = Location::relative();
-            bool locationRead = false;
-            int localIndexDiff = 0;
-            while (e.readNextStartElement()) {
-                const AsciiStringView ntag(e.name());
-
-                if (ntag == "score") {
-                    String val(e.readText());
-                    if (val == "same") {
-                        linkedIsMaster = score()->isMaster();
-                    }
-                } else if (ntag == "location") {
-                    mainLoc.read(e);
-                    mainLoc.toAbsolute(loc);
-                    locationRead = true;
-                } else if (ntag == "indexDiff") {
-                    localIndexDiff = e.readInt();
-                } else {
-                    e.unknown();
-                }
-            }
-            if (!locationRead) {
-                mainLoc = loc;
-            }
-            LinkedObjects* link = ctx->getLink(linkedIsMaster, mainLoc, localIndexDiff);
-            if (link) {
-                EngravingObject* linked = link->mainElement();
-                if (linked->type() == type()) {
-                    linkTo(linked);
-                } else {
-                    LOGW("EngravingItem::readProperties: linked elements have different types: %s, %s. Input file corrupted?",
-                         typeName(), linked->typeName());
-                }
-            }
-            if (!_links) {
-                LOGW("EngravingItem::readProperties: could not link %s at staff %d", typeName(), mainLoc.staff() + 1);
-            }
-        }
-    } else if (tag == "lid") {
-        if (score()->mscVersion() >= 301) {
-            e.skipCurrentElement();
-            return true;
-        }
-        int id = e.readInt();
-        _links = mu::value(e.context()->linkIds(), id, nullptr);
-        if (!_links) {
-            if (!score()->isMaster()) {       // DEBUG
-                LOGD("---link %d not found (%zu)", id, e.context()->linkIds().size());
-            }
-            _links = new LinkedObjects(score(), id);
-            e.context()->linkIds().insert({ id, _links });
-        }
-#ifndef NDEBUG
-        else {
-            for (EngravingObject* eee : *_links) {
-                EngravingItem* ee = static_cast<EngravingItem*>(eee);
-                if (ee->type() != type()) {
-                    ASSERT_X(String(u"link %1(%2) type mismatch %3 linked to %4")
-                             .arg(String::fromAscii(ee->typeName()))
-                             .arg(id)
-                             .arg(String::fromAscii(ee->typeName()), String::fromAscii(typeName())));
-                }
-            }
-        }
-#endif
-        assert(!_links->contains(this));
-        _links->push_back(this);
-    } else if (tag == "tick") {
-        int val = e.readInt();
-        if (val >= 0) {
-            e.context()->setTick(Fraction::fromTicks(score()->fileDivision(val)));             // obsolete
-        }
-    } else if (tag == "pos") {           // obsolete
-        readProperty(e, Pid::OFFSET);
-    } else if (tag == "voice") {
-        setVoice(e.readInt());
-    } else if (tag == "tag") {
-        String val(e.readText());
-        for (int i = 1; i < MAX_TAGS; i++) {
-            if (score()->layerTags()[i] == val) {
-                _tag = 1 << i;
-                break;
-            }
-        }
-    } else if (readProperty(tag, e, Pid::PLACEMENT)) {
-    } else if (tag == "z") {
-        setZ(e.readInt());
-    } else {
-        return false;
-    }
-    return true;
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void EngravingItem::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void EngravingItem::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        if (!readProperties(e)) {
-            e.unknown();
-        }
-    }
+    return hitShape().intersects(rr.translated(-pagePos()));
 }
 
 //---------------------------------------------------------
@@ -1066,17 +839,6 @@ void ElementList::replace(EngravingItem* o, EngravingItem* n)
         return;
     }
     *i = n;
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void ElementList::write(XmlWriter& xml) const
-{
-    for (const EngravingItem* e : *this) {
-        e->write(xml);
-    }
 }
 
 //---------------------------------------------------------
@@ -1212,7 +974,7 @@ ByteArray EngravingItem::mimeData(const PointF& dragOffset) const
     if (!dragOffset.isNull()) {
         xml.tagPoint("dragOffset", dragOffset);
     }
-    write(xml);
+    rw400::TWrite::writeItem(this, xml, *xml.context());
     xml.endElement();
     buffer.close();
     return buffer.data();
@@ -1223,8 +985,7 @@ ByteArray EngravingItem::mimeData(const PointF& dragOffset) const
 //    return new position of QDomElement in e
 //---------------------------------------------------------
 
-ElementType EngravingItem::readType(XmlReader& e, PointF* dragOffset,
-                                    Fraction* duration)
+ElementType EngravingItem::readType(XmlReader& e, PointF* dragOffset, Fraction* duration)
 {
     while (e.readNextStartElement()) {
         if (e.name() == "EngravingItem") {
@@ -1257,6 +1018,7 @@ EngravingItem* EngravingItem::readMimeData(Score* score, const ByteArray& data, 
 {
     XmlReader e(data);
     const ElementType type = EngravingItem::readType(e, dragOffset, duration);
+    e.context()->setScore(score);
     e.context()->setPasteMode(true);
 
     if (type == ElementType::INVALID) {
@@ -1266,7 +1028,7 @@ EngravingItem* EngravingItem::readMimeData(Score* score, const ByteArray& data, 
 
     EngravingItem* el = Factory::createItem(type, score->dummy(), false);
     if (el) {
-        el->read(e);
+        rw400::TRead::readItem(el, e, *e.context());
     }
 
     return el;
@@ -1664,22 +1426,17 @@ void EngravingItem::undoAddElement(EngravingItem* element)
 
 void EngravingItem::drawSymbol(SymId id, mu::draw::Painter* p, const mu::PointF& o, double scale) const
 {
-    score()->symbolFont()->draw(id, p, magS() * scale, o);
-}
-
-void EngravingItem::drawSymbol(SymId id, mu::draw::Painter* p, const mu::PointF& o, int n) const
-{
-    score()->symbolFont()->draw(id, p, magS(), o, n);
+    score()->engravingFont()->draw(id, p, magS() * scale, o);
 }
 
 void EngravingItem::drawSymbols(const SymIdList& symbols, mu::draw::Painter* p, const PointF& o, double scale) const
 {
-    score()->symbolFont()->draw(symbols, p, magS() * scale, o);
+    score()->engravingFont()->draw(symbols, p, magS() * scale, o);
 }
 
 void EngravingItem::drawSymbols(const SymIdList& symbols, mu::draw::Painter* p, const PointF& o, const SizeF& scale) const
 {
-    score()->symbolFont()->draw(symbols, p, SizeF(magS() * scale), PointF(o));
+    score()->engravingFont()->draw(symbols, p, SizeF(magS() * scale), o);
 }
 
 //---------------------------------------------------------
@@ -1688,7 +1445,7 @@ void EngravingItem::drawSymbols(const SymIdList& symbols, mu::draw::Painter* p, 
 
 double EngravingItem::symHeight(SymId id) const
 {
-    return score()->symbolFont()->height(id, magS());
+    return score()->engravingFont()->height(id, magS());
 }
 
 //---------------------------------------------------------
@@ -1697,12 +1454,12 @@ double EngravingItem::symHeight(SymId id) const
 
 double EngravingItem::symWidth(SymId id) const
 {
-    return score()->symbolFont()->width(id, magS());
+    return score()->engravingFont()->width(id, magS());
 }
 
 double EngravingItem::symWidth(const SymIdList& symbols) const
 {
-    return score()->symbolFont()->width(symbols, magS());
+    return score()->engravingFont()->width(symbols, magS());
 }
 
 //---------------------------------------------------------
@@ -1711,7 +1468,7 @@ double EngravingItem::symWidth(const SymIdList& symbols) const
 
 double EngravingItem::symAdvance(SymId id) const
 {
-    return score()->symbolFont()->advance(id, magS());
+    return score()->engravingFont()->advance(id, magS());
 }
 
 //---------------------------------------------------------
@@ -1720,12 +1477,12 @@ double EngravingItem::symAdvance(SymId id) const
 
 RectF EngravingItem::symBbox(SymId id) const
 {
-    return score()->symbolFont()->bbox(id, magS());
+    return score()->engravingFont()->bbox(id, magS());
 }
 
 RectF EngravingItem::symBbox(const SymIdList& symbols) const
 {
-    return score()->symbolFont()->bbox(symbols, magS());
+    return score()->engravingFont()->bbox(symbols, magS());
 }
 
 //---------------------------------------------------------
@@ -1734,7 +1491,7 @@ RectF EngravingItem::symBbox(const SymIdList& symbols) const
 
 PointF EngravingItem::symSmuflAnchor(SymId symId, SmuflAnchorId anchorId) const
 {
-    return score()->symbolFont()->smuflAnchor(symId, anchorId, magS());
+    return score()->engravingFont()->smuflAnchor(symId, anchorId, magS());
 }
 
 //---------------------------------------------------------
@@ -1743,7 +1500,7 @@ PointF EngravingItem::symSmuflAnchor(SymId symId, SmuflAnchorId anchorId) const
 
 bool EngravingItem::symIsValid(SymId id) const
 {
-    return score()->symbolFont()->isValid(id);
+    return score()->engravingFont()->isValid(id);
 }
 
 //---------------------------------------------------------
@@ -2579,7 +2336,7 @@ void EngravingItem::autoplaceMeasureElement(bool above, bool add)
 
         SysStaff* ss = m->system()->staff(si);
         // shape rather than bbox is good for tuplets especially
-        Shape sh = shape().translated(m->pos() + pos());
+        Shape sh = shape().translate(m->pos() + pos());
 
         SkylineLine sk(!above);
         double d;
@@ -2590,6 +2347,7 @@ void EngravingItem::autoplaceMeasureElement(bool above, bool add)
             sk.add(sh);
             d = ss->skyline().south().minDistance(sk);
         }
+        minDistance *= staff()->staffMag(this);
         if (d > -minDistance) {
             double yd = d + minDistance;
             if (above) {
@@ -2621,46 +2379,29 @@ bool EngravingItem::selected() const
 void EngravingItem::setSelected(bool f)
 {
     setFlag(ElementFlag::SELECTED, f);
-
-#ifndef ENGRAVING_NO_ACCESSIBILITY
-    if (f) {
-        initAccessibleIfNeed();
-
-        if (m_accessible) {
-            AccessibleRoot* currAccRoot = m_accessible->accessibleRoot();
-            AccessibleRoot* accRoot = score()->rootItem()->accessible()->accessibleRoot();
-            AccessibleRoot* dummyAccRoot = score()->dummy()->rootItem()->accessible()->accessibleRoot();
-
-            if (accRoot && currAccRoot == accRoot && accRoot->registered()) {
-                accRoot->setFocusedElement(m_accessible);
-                dummyAccRoot->setFocusedElement(nullptr);
-            }
-
-            if (dummyAccRoot && currAccRoot == dummyAccRoot && dummyAccRoot->registered()) {
-                dummyAccRoot->setFocusedElement(m_accessible);
-                accRoot->setFocusedElement(nullptr);
-            }
-        }
-    }
-#endif
 }
 
+#ifndef ENGRAVING_NO_ACCESSIBILITY
 void EngravingItem::initAccessibleIfNeed()
 {
-#ifndef ENGRAVING_NO_ACCESSIBILITY
     if (!engravingConfiguration()->isAccessibleEnabled()) {
         return;
     }
 
-    if (m_accessible || !m_accessibleEnabled) {
+    if (!m_accessibleEnabled) {
         return;
     }
 
+    doInitAccessible();
+}
+
+void EngravingItem::doInitAccessible()
+{
     EngravingItemList parents;
-    auto parent = parentItem();
+    auto parent = parentItem(false /*not explicit*/);
     while (parent) {
         parents.push_front(parent);
-        parent = parent->parentItem();
+        parent = parent->parentItem(false /*not explicit*/);
     }
 
     for (EngravingItem* parent : parents) {
@@ -2668,8 +2409,9 @@ void EngravingItem::initAccessibleIfNeed()
     }
 
     setupAccessible();
-#endif
 }
+
+#endif // ENGRAVING_NO_ACCESSIBILITY
 
 KerningType EngravingItem::computeKerningType(const EngravingItem* nextItem) const
 {
@@ -2707,6 +2449,16 @@ double EngravingItem::computePadding(const EngravingItem* nextItem) const
     double scaling = (mag() + nextItem->mag()) / 2;
     double padding = score()->paddingTable().at(type()).at(nextItem->type());
     padding *= scaling;
+    if (!isLedgerLine() && nextItem->isRest()) {
+        const Rest* rest = toRest(nextItem);
+        SymId symbol = rest->sym();
+        if (symbol == SymId::restWholeLegerLine
+            || symbol == SymId::restDoubleWholeLegerLine
+            || symbol == SymId::restHalfLegerLine) {
+            // In this case the ledgerLine is included in the glyph itself, so we must ignore it
+            padding += rest->bbox().left();
+        }
+    }
     return padding;
 }
 }

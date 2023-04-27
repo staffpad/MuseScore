@@ -43,6 +43,30 @@
           <string>71</string>
           <string>76</string>
           </StringData>
+        <Articulation name="staccatissimo">
+          <velocity>100</velocity>
+          <gateTime>30</gateTime>
+          </Articulation>
+        <Articulation name="staccato">
+          <velocity>100</velocity>
+          <gateTime>50</gateTime>
+          </Articulation>
+        <Articulation name="portato">
+          <velocity>100</velocity>
+          <gateTime>67</gateTime>
+          </Articulation>
+        <Articulation name="tenuto">
+          <velocity>100</velocity>
+          <gateTime>100</gateTime>
+          </Articulation>
+        <Articulation name="marcato">
+          <velocity>120</velocity>
+          <gateTime>67</gateTime>
+          </Articulation>
+        <Articulation name="sforzato">
+          <velocity>120</velocity>
+          <gateTime>100</gateTime>
+          </Articulation>
         <Channel>
           <program value="29"/>
           <controller ctrl="7" value="96"/>
@@ -86,7 +110,7 @@
             <Note>
               <Bend>
                 <point time="0" pitch="0" vibrato="0"/>
-                <point time="100" pitch="100" vibrato="0"/>
+                <point time="60" pitch="100" vibrato="0"/>
                 </Bend>
               <Spanner type="Tie">
                 <Tie>
@@ -108,7 +132,7 @@
             <Note>
               <Bend>
                 <point time="0" pitch="100" vibrato="0"/>
-                <point time="100" pitch="0" vibrato="0"/>
+                <point time="60" pitch="0" vibrato="0"/>
                 </Bend>
               <Spanner type="Tie">
                 <Tie>
@@ -137,7 +161,7 @@
             <Note>
               <Bend>
                 <point time="0" pitch="100" vibrato="0"/>
-                <point time="100" pitch="100" vibrato="0"/>
+                <point time="60" pitch="100" vibrato="0"/>
                 </Bend>
               <Spanner type="Tie">
                 <prev>
@@ -161,8 +185,8 @@
             <Note>
               <Bend>
                 <point time="0" pitch="0" vibrato="0"/>
-                <point time="50" pitch="100" vibrato="0"/>
-                <point time="100" pitch="0" vibrato="0"/>
+                <point time="30" pitch="100" vibrato="0"/>
+                <point time="60" pitch="0" vibrato="0"/>
                 </Bend>
               <pitch>57</pitch>
               <tpc>17</tpc>
@@ -175,7 +199,7 @@
             <Note>
               <Bend>
                 <point time="0" pitch="0" vibrato="0"/>
-                <point time="100" pitch="100" vibrato="0"/>
+                <point time="60" pitch="100" vibrato="0"/>
                 </Bend>
               <pitch>60</pitch>
               <tpc>14</tpc>
@@ -192,7 +216,7 @@
             <Note>
               <Bend>
                 <point time="0" pitch="100" vibrato="0"/>
-                <point time="100" pitch="100" vibrato="0"/>
+                <point time="60" pitch="100" vibrato="0"/>
                 </Bend>
               <pitch>57</pitch>
               <tpc>17</tpc>
@@ -205,7 +229,7 @@
             <Note>
               <Bend>
                 <point time="0" pitch="100" vibrato="0"/>
-                <point time="100" pitch="0" vibrato="0"/>
+                <point time="60" pitch="0" vibrato="0"/>
                 </Bend>
               <pitch>53</pitch>
               <tpc>13</tpc>

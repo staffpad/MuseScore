@@ -23,12 +23,14 @@
 #include "measurerepeat.h"
 
 #include "draw/types/pen.h"
-#include "rw/xml.h"
+
 #include "translation.h"
 
 #include "measure.h"
 #include "score.h"
 #include "staff.h"
+
+#include "log.h"
 
 using namespace mu;
 using namespace mu::engraving;
@@ -61,13 +63,24 @@ Measure* MeasureRepeat::firstMeasureOfGroup() const
     return measure()->firstOfMeasureRepeatGroup(staffIdx());
 }
 
+const Measure* MeasureRepeat::referringMeasure() const
+{
+    Measure* firstMeasureRepeat = firstMeasureOfGroup();
+
+    if (!firstMeasureRepeat) {
+        return nullptr;
+    }
+
+    return firstMeasureRepeat->prevMeasure();
+}
+
 //---------------------------------------------------------
 //   draw
 //---------------------------------------------------------
 
 void MeasureRepeat::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     using namespace mu::draw;
 
     painter->setPen(curColor());
@@ -205,35 +218,6 @@ Shape MeasureRepeat::shape() const
     shape.add(numberRect());
     shape.add(symBbox(symId()));
     return shape;
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void MeasureRepeat::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    writeProperty(xml, Pid::SUBTYPE);
-    Rest::writeProperties(xml);
-    el().write(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void MeasureRepeat::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "subtype") {
-            setNumMeasures(e.readInt());
-        } else if (!Rest::readProperties(e)) {
-            e.unknown();
-        }
-    }
 }
 
 //---------------------------------------------------------

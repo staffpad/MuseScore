@@ -21,15 +21,16 @@
  */
 #include "applicationactioncontroller.h"
 
-#include <QCoreApplication>
 #include <QApplication>
 #include <QCloseEvent>
 #include <QFileOpenEvent>
 #include <QWindow>
 #include <QMimeData>
 
+#include "async/async.h"
 #include "audio/synthtypes.h"
 
+#include "defer.h"
 #include "translation.h"
 #include "log.h"
 
@@ -37,11 +38,17 @@ using namespace mu::appshell;
 using namespace mu::framework;
 using namespace mu::actions;
 
+void ApplicationActionController::preInit()
+{
+    qApp->installEventFilter(this);
+}
+
 void ApplicationActionController::init()
 {
     dispatcher()->reg(this, "quit", [this](const ActionData& args) {
         bool isAllInstances = args.count() > 0 ? args.arg<bool>(0) : true;
-        quit(isAllInstances);
+        io::path_t installatorPath = args.count() > 1 ? args.arg<io::path_t>(1) : "";
+        quit(isAllInstances, installatorPath);
     });
 
     dispatcher()->reg(this, "restart", [this]() {
@@ -50,20 +57,14 @@ void ApplicationActionController::init()
 
     dispatcher()->reg(this, "fullscreen", this, &ApplicationActionController::toggleFullScreen);
 
-    dispatcher()->reg(this, "about", this, &ApplicationActionController::openAboutDialog);
+    dispatcher()->reg(this, "about-musescore", this, &ApplicationActionController::openAboutDialog);
     dispatcher()->reg(this, "about-qt", this, &ApplicationActionController::openAboutQtDialog);
     dispatcher()->reg(this, "about-musicxml", this, &ApplicationActionController::openAboutMusicXMLDialog);
     dispatcher()->reg(this, "online-handbook", this, &ApplicationActionController::openOnlineHandbookPage);
     dispatcher()->reg(this, "ask-help", this, &ApplicationActionController::openAskForHelpPage);
-    dispatcher()->reg(this, "report-bug", this, &ApplicationActionController::openBugReportPage);
-    dispatcher()->reg(this, "leave-feedback", this, &ApplicationActionController::openLeaveFeedbackPage);
     dispatcher()->reg(this, "preference-dialog", this, &ApplicationActionController::openPreferencesDialog);
 
     dispatcher()->reg(this, "revert-factory", this, &ApplicationActionController::revertToFactorySettings);
-
-    dispatcher()->reg(this, "check-update", this, &ApplicationActionController::checkForUpdate);
-
-    qApp->installEventFilter(this);
 }
 
 void ApplicationActionController::onDragEnterEvent(QDragEnterEvent* event)
@@ -94,15 +95,27 @@ void ApplicationActionController::onDropEvent(QDropEvent* event)
         io::path_t filePath = io::path_t(urls.first().toLocalFile());
         LOGD() << filePath;
 
-        Ret ret = make_ok();
+        bool shouldBeHandled = false;
 
         if (projectFilesController()->isFileSupported(filePath)) {
-            ret = projectFilesController()->openProject(filePath);
+            async::Async::call(this, [this, filePath]() {
+                Ret ret = projectFilesController()->openProject(filePath);
+                if (!ret) {
+                    LOGE() << ret.toString();
+                }
+            });
+            shouldBeHandled = true;
         } else if (audio::synth::isSoundFont(filePath)) {
-            ret = soundFontRepository()->addSoundFont(filePath);
+            async::Async::call(this, [this, filePath]() {
+                Ret ret = soundFontRepository()->addSoundFont(filePath);
+                if (!ret) {
+                    LOGE() << ret.toString();
+                }
+            });
+            shouldBeHandled = true;
         }
 
-        if (ret) {
+        if (shouldBeHandled) {
             event->accept();
         } else {
             event->ignore();
@@ -112,9 +125,10 @@ void ApplicationActionController::onDropEvent(QDropEvent* event)
 
 bool ApplicationActionController::eventFilter(QObject* watched, QEvent* event)
 {
-    if (event->type() == QEvent::Close && watched == mainWindow()->qWindow()) {
-        quit(false);
-        event->ignore();
+    if ((event->type() == QEvent::Close && watched == mainWindow()->qWindow())
+        || event->type() == QEvent::Quit) {
+        bool accepted = quit(false);
+        event->setAccepted(accepted);
 
         return true;
     }
@@ -144,15 +158,39 @@ mu::ValCh<bool> ApplicationActionController::isFullScreen() const
     return result;
 }
 
-void ApplicationActionController::quit(bool isAllInstances)
+bool ApplicationActionController::quit(bool isAllInstances, const io::path_t& installerPath)
 {
-    if (projectFilesController()->closeOpenedProject()) {
-        if (isAllInstances) {
-            multiInstancesProvider()->quitForAll();
-        }
-
-        QCoreApplication::quit();
+    if (m_quiting) {
+        return false;
     }
+
+    m_quiting = true;
+    DEFER {
+        m_quiting = false;
+    };
+
+    if (!projectFilesController()->closeOpenedProject()) {
+        return false;
+    }
+
+    if (isAllInstances) {
+        multiInstancesProvider()->quitForAll();
+    }
+
+    if (multiInstancesProvider()->instances().size() == 1 && !installerPath.empty()) {
+#if defined(Q_OS_LINUX)
+        interactive()->revealInFileBrowser(installerPath);
+#else
+        interactive()->openUrl(QUrl::fromLocalFile(installerPath.toQString()));
+#endif
+    }
+
+    if (multiInstancesProvider()->instances().size() > 1) {
+        multiInstancesProvider()->notifyAboutInstanceWasQuited();
+    }
+
+    QCoreApplication::quit();
+    return true;
 }
 
 void ApplicationActionController::restart()
@@ -202,18 +240,6 @@ void ApplicationActionController::openAskForHelpPage()
     interactive()->openUrl(askForHelpUrl);
 }
 
-void ApplicationActionController::openBugReportPage()
-{
-    std::string bugReportUrl = configuration()->bugReportUrl();
-    interactive()->openUrl(bugReportUrl);
-}
-
-void ApplicationActionController::openLeaveFeedbackPage()
-{
-    std::string leaveFeedbackUrl = configuration()->leaveFeedbackUrl();
-    interactive()->openUrl(leaveFeedbackUrl);
-}
-
 void ApplicationActionController::openPreferencesDialog()
 {
     if (multiInstancesProvider()->isPreferencesAlreadyOpened()) {
@@ -235,8 +261,7 @@ void ApplicationActionController::revertToFactorySettings()
     IInteractive::Result result = interactive()->warning(title, question,
                                                          { interactive()->buttonData(IInteractive::Button::Cancel),
                                                            IInteractive::ButtonData(revertBtn, trc("appshell", "Revert"), true) },
-                                                         revertBtn, IInteractive::WithIcon
-                                                         );
+                                                         revertBtn);
 
     if (result.standardButton() == IInteractive::Button::Cancel) {
         return;
@@ -260,18 +285,4 @@ void ApplicationActionController::revertToFactorySettings()
     }
 
     restart();
-}
-
-void ApplicationActionController::checkForUpdate()
-{
-    NOT_IMPLEMENTED;
-
-    interactive()->info(trc("appshell", "No update available"), "");
-}
-
-bool ApplicationActionController::canReceiveAction(const mu::actions::ActionCode& code) const
-{
-    Q_UNUSED(code);
-    auto focus = QGuiApplication::focusWindow();
-    return !focus || focus->modality() == Qt::WindowModality::NonModal;
 }

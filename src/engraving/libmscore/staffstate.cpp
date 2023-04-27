@@ -23,7 +23,6 @@
 #include "staffstate.h"
 
 #include "draw/types/pen.h"
-#include "rw/xml.h"
 
 #include "part.h"
 #include "score.h"
@@ -57,45 +56,12 @@ StaffState::~StaffState()
 }
 
 //---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void StaffState::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    xml.tag("subtype", int(_staffStateType));
-    if (staffStateType() == StaffStateType::INSTRUMENT) {
-        _instrument->write(xml, nullptr);
-    }
-    EngravingItem::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void StaffState::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "subtype") {
-            _staffStateType = StaffStateType(e.readInt());
-        } else if (tag == "Instrument") {
-            _instrument->read(e, nullptr);
-        } else if (!EngravingItem::readProperties(e)) {
-            e.unknown();
-        }
-    }
-}
-
-//---------------------------------------------------------
 //   draw
 //---------------------------------------------------------
 
 void StaffState::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     if (score()->printing() || !score()->showUnprintable()) {
         return;
     }

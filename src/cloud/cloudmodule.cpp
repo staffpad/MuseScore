@@ -23,8 +23,8 @@
 
 #include <QQmlEngine>
 #include "modularity/ioc.h"
+#include "ui/iinteractiveuriregister.h"
 #include "ui/iuiengine.h"
-#include "ui/iuiactionsregister.h"
 
 #include "internal/cloudservice.h"
 #include "internal/cloudconfiguration.h"
@@ -50,7 +50,15 @@ void CloudModule::registerExports()
 {
     ioc()->registerExport<ICloudConfiguration>(moduleName(), s_cloudConfiguration);
     ioc()->registerExport<IAuthorizationService>(moduleName(), s_cloudService);
-    ioc()->registerExport<IUploadingService>(moduleName(), s_cloudService);
+    ioc()->registerExport<ICloudProjectsService>(moduleName(), s_cloudService);
+}
+
+void CloudModule::resolveImports()
+{
+    auto ir = ioc()->resolve<ui::IInteractiveUriRegister>(moduleName());
+    if (ir) {
+        ir->registerQmlUri(Uri("musescore://cloud/requireauthorization"), "MuseScore/Cloud/RequireAuthorizationDialog.qml");
+    }
 }
 
 void CloudModule::registerResources()
@@ -67,7 +75,7 @@ void CloudModule::registerUiTypes()
 
 void CloudModule::onInit(const framework::IApplication::RunMode& mode)
 {
-    if (mode != framework::IApplication::RunMode::Editor) {
+    if (mode != framework::IApplication::RunMode::GuiApp) {
         return;
     }
 

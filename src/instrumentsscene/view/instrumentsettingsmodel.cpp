@@ -42,13 +42,13 @@ void InstrumentSettingsModel::load(const QVariant& instrument)
     QVariantMap map = instrument.toMap();
     m_instrumentKey.partId = ID(map["partId"]);
     m_instrumentKey.instrumentId = map["instrumentId"].toString();
+    m_instrumentKey.tick = Part::MAIN_INSTRUMENT_TICK;
 
     const Part* part = notationParts()->part(m_instrumentKey.partId);
     if (!part) {
         return;
     }
 
-    m_partName = part->partName();
     m_instrumentName = part->instrument()->nameAsPlainText();
     m_instrumentAbbreviature = part->instrument()->abbreviatureAsPlainText();
 
@@ -108,11 +108,6 @@ QString InstrumentSettingsModel::instrumentName() const
     return m_instrumentName;
 }
 
-QString InstrumentSettingsModel::partName() const
-{
-    return m_partName;
-}
-
 QString InstrumentSettingsModel::abbreviature() const
 {
     return m_instrumentAbbreviature;
@@ -131,16 +126,6 @@ void InstrumentSettingsModel::setInstrumentName(const QString& name)
 
     m_instrumentName = name;
     notationParts()->setInstrumentName(m_instrumentKey, name);
-}
-
-void InstrumentSettingsModel::setPartName(const QString& name)
-{
-    if (m_partName == name || !notationParts()) {
-        return;
-    }
-
-    m_partName = name;
-    notationParts()->setPartName(m_instrumentKey.partId, name);
 }
 
 void InstrumentSettingsModel::setAbbreviature(const QString& abbreviature)

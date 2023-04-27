@@ -32,7 +32,7 @@
 
 #include "segmentlist.h"
 
-namespace mu::engraving::rw {
+namespace mu::engraving::rw400 {
 class MeasureRW;
 }
 
@@ -50,8 +50,6 @@ class Spacer;
 class Staff;
 class System;
 class TieMap;
-
-class XmlWriter;
 
 //---------------------------------------------------------
 //   MeasureNumberMode
@@ -136,6 +134,8 @@ private:
 class Measure final : public MeasureBase
 {
     OBJECT_ALLOCATOR(engraving, Measure)
+    DECLARE_CLASSOF(ElementType::MEASURE)
+
 public:
 
     ~Measure();
@@ -150,12 +150,6 @@ public:
     EngravingObject* scanParent() const override;
     EngravingObjectList scanChildren() const override;
 
-    void read(XmlReader& d) override;
-    void readAddConnector(ConnectorInfoReader* info, bool pasteMode) override;
-    void write(XmlWriter& xml) const override { EngravingItem::write(xml); }
-    void write(XmlWriter&, staff_idx_t, bool writeSystemElements, bool forceTimeSig) const override;
-    void writeBox(XmlWriter&) const;
-    void readBox(XmlReader&);
     bool isEditable() const override { return false; }
     void checkMeasure(staff_idx_t idx, bool useGapRests = true);
 
@@ -165,7 +159,7 @@ public:
     void spatiumChanged(double oldValue, double newValue) override;
 
     System* system() const { return toSystem(explicitParent()); }
-    bool hasVoices(staff_idx_t staffIdx, Fraction stick, Fraction len) const;
+    bool hasVoices(staff_idx_t staffIdx, Fraction stick, Fraction len, bool considerInvisible = false) const;
     bool hasVoices(staff_idx_t staffIdx) const;
     void setHasVoices(staff_idx_t staffIdx, bool v);
 
@@ -269,6 +263,8 @@ public:
     void barLinesSetSpan(Segment*);
     void setEndBarLineType(BarLineType val, track_idx_t track, bool visible = true, mu::draw::Color color = mu::draw::Color());
 
+    void createSystemBeginBarLine();
+
     void scanElements(void* data, void (* func)(void*, EngravingItem*), bool all=true) override;
     void createVoice(int track);
     void adjustToLen(Fraction, bool appendRestsIfNecessary = true);
@@ -313,6 +309,7 @@ public:
     Measure* mmRestLast() const;
 
     int measureRepeatCount(staff_idx_t staffIdx) const;
+    bool containsMeasureRepeat(const staff_idx_t staffIdxFrom, const staff_idx_t staffIdxTo) const;
     void setMeasureRepeatCount(int n, staff_idx_t staffIdx);
     bool isMeasureRepeatGroup(staff_idx_t staffIdx) const;
     bool isMeasureRepeatGroupWithNextM(staff_idx_t staffIdx) const;
@@ -344,8 +341,8 @@ public:
     void triggerLayout() const override;
     double basicStretch() const;
     double basicWidth() const;
-    float durationStretch(Fraction curTicks, const Fraction minTicks, const Fraction maxTicks) const;
-    void computeWidth(Fraction minTicks, Fraction maxTicks, double stretchCoeff);
+    void computeWidth(Fraction minTicks, Fraction maxTicks, double stretchCoeff, bool overrideMinMeasureWidth = false);
+    void stretchToTargetWidth(double targetWidth);
     void checkHeader();
     void checkTrailer();
     void layoutStaffLines();
@@ -369,10 +366,12 @@ public:
     void stretchMeasureInPracticeMode(double stretch);
     double squeezableSpace() const { return _isWidthLocked ? 0.0 : _squeezableSpace; }
 
+    void respaceSegments();
+
 private:
     double _squeezableSpace = 0;
     friend class Factory;
-    friend class rw::MeasureRW;
+    friend class rw400::MeasureRW;
 
     Measure(System* parent = 0);
     Measure(const Measure&);
@@ -381,9 +380,10 @@ private:
     void push_front(Segment* e);
 
     void fillGap(const Fraction& pos, const Fraction& len, track_idx_t track, const Fraction& stretch, bool useGapRests = true);
-    void computeWidth(Segment* s, double x, bool isSystemHeader, Fraction minTicks, Fraction maxTicks, double stretchCoeff);
-    void setWidthToTargetValue(Segment* s, double x, bool isSystemHeader, Fraction minTicks, double stretchCoeff, double targetWidth);
+    void computeWidth(Segment* s, double x, bool isSystemHeader, Fraction minTicks, Fraction maxTicks, double stretchCoeff,
+                      bool overrideMinMeasureWidth = false);
     double computeMinMeasureWidth() const;
+    void spaceRightAlignedSegments();
 
     MStaff* mstaff(staff_idx_t staffIndex) const;
 

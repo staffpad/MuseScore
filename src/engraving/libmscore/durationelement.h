@@ -47,10 +47,8 @@ public:
     virtual Measure* measure() const { return (Measure*)(explicitParent()); }
 
     void readAddTuplet(Tuplet* t);
-    void writeTupletStart(XmlWriter& xml) const;
-    void writeTupletEnd(XmlWriter& xml) const;
 
-    void setTuplet(Tuplet* t) { _tuplet = t; }
+    void setTuplet(Tuplet* t);
     Tuplet* tuplet() const { return _tuplet; }
     Tuplet* topTuplet() const;
     virtual Beam* beam() const { return nullptr; }
@@ -60,6 +58,7 @@ public:
     // Length expressed as a fraction of a whole note
     virtual Fraction ticks() const { return _duration; }
     Fraction globalTicks() const;
+    float timeStretchFactor() const;
     void setTicks(const Fraction& f) { _duration = f; }
 
     PropertyValue getProperty(Pid propertyId) const override;

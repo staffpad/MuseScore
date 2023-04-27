@@ -74,21 +74,44 @@ void BeamSettingsModel::requestElements()
 
 void BeamSettingsModel::loadProperties()
 {
-    loadPropertyItem(m_isBeamHidden, [](const QVariant& isVisible) -> QVariant {
-        return !isVisible.toBool();
-    });
+    static const PropertyIdSet propertyIdSet {
+        Pid::GROW_LEFT,
+        Pid::GROW_RIGHT,
+        Pid::VISIBLE,
+        Pid::BEAM_POS,
+        Pid::BEAM_NO_SLOPE,
+        Pid::USER_MODIFIED,
+    };
+
+    loadProperties(propertyIdSet);
+}
+
+void BeamSettingsModel::onNotationChanged(const PropertyIdSet& changedPropertyIdSet, const StyleIdSet&)
+{
+    loadProperties(changedPropertyIdSet);
+}
+
+void BeamSettingsModel::loadProperties(const mu::engraving::PropertyIdSet& propertyIdSet)
+{
+    if (mu::contains(propertyIdSet, Pid::VISIBLE)) {
+        loadPropertyItem(m_isBeamHidden, [](const QVariant& isVisible) -> QVariant {
+            return !isVisible.toBool();
+        });
+    }
+
+    if (mu::contains(propertyIdSet, Pid::GROW_LEFT)) {
+        loadPropertyItem(m_featheringHeightLeft, formatDoubleFunc);
+    }
+
+    if (mu::contains(propertyIdSet, Pid::GROW_RIGHT)) {
+        loadPropertyItem(m_featheringHeightRight, formatDoubleFunc);
+    }
 
     loadBeamHeightProperties();
 
-    loadPropertyItem(m_featheringHeightLeft, formatDoubleFunc);
-    loadPropertyItem(m_featheringHeightRight, formatDoubleFunc);
-
-    updateFeatheringMode(m_featheringHeightLeft->value().toDouble(), m_featheringHeightRight->value().toDouble());
-}
-
-void BeamSettingsModel::updatePropertiesOnNotationChanged()
-{
-    loadProperties();
+    if (m_featheringHeightLeft->value().isValid() && m_featheringHeightRight->value().isValid()) {
+        updateFeatheringMode(m_featheringHeightLeft->value().toDouble(), m_featheringHeightRight->value().toDouble());
+    }
 }
 
 void BeamSettingsModel::loadBeamHeightProperties()
@@ -170,11 +193,16 @@ void BeamSettingsModel::setBeamHeight(const qreal left, const qreal right)
 
 void BeamSettingsModel::updateFeatheringMode(const qreal left, const qreal right)
 {
+    BeamTypes::FeatheringMode newFeathering = BeamTypes::FeatheringMode::FEATHERING_NONE;
     if (left != right) {
-        setFeatheringMode(left > right ? BeamTypes::FeatheringMode::FEATHERED_DECELERATE
-                          : BeamTypes::FeatheringMode::FEATHERED_ACCELERATE);
+        newFeathering = left > right ? BeamTypes::FeatheringMode::FEATHERED_DECELERATE
+                        : BeamTypes::FeatheringMode::FEATHERED_ACCELERATE;
     } else {
-        setFeatheringMode(BeamTypes::FeatheringMode::FEATHERING_NONE);
+        newFeathering = BeamTypes::FeatheringMode::FEATHERING_NONE;
+    }
+    if (newFeathering != m_featheringMode) {
+        m_featheringMode = newFeathering;
+        emit featheringModeChanged(m_featheringMode);
     }
 }
 

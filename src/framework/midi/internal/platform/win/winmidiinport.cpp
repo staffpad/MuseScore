@@ -57,13 +57,6 @@ static std::string errorString(MMRESULT ret)
 }
 }
 
-WinMidiInPort::~WinMidiInPort()
-{
-    if (isConnected()) {
-        disconnect();
-    }
-}
-
 void WinMidiInPort::init()
 {
     m_win = std::make_shared<Win>();
@@ -86,8 +79,13 @@ void WinMidiInPort::init()
 
         m_availableDevicesChanged.notify();
     });
+}
 
-    AbstractMidiInPort::init();
+void WinMidiInPort::deinit()
+{
+    if (isConnected()) {
+        disconnect();
+    }
 }
 
 MidiDeviceList WinMidiInPort::availableDevices() const
@@ -145,7 +143,7 @@ void WinMidiInPort::doProcess(uint32_t message, tick_t timing)
 {
     auto e = Event::fromMIDI10Package(message).toMIDI20();
     if (e) {
-        doEventsRecived({ { timing, e } });
+        m_eventReceived.send(timing, e);
     }
 }
 
@@ -221,6 +219,11 @@ MidiDeviceID WinMidiInPort::deviceID() const
 mu::async::Notification WinMidiInPort::deviceChanged() const
 {
     return m_deviceChanged;
+}
+
+mu::async::Channel<tick_t, Event> WinMidiInPort::eventReceived() const
+{
+    return m_eventReceived;
 }
 
 mu::Ret WinMidiInPort::run()

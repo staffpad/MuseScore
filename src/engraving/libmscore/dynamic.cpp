@@ -21,7 +21,6 @@
  */
 #include "dynamic.h"
 
-#include "rw/xml.h"
 #include "types/translatablestring.h"
 #include "types/typesconv.h"
 
@@ -29,6 +28,7 @@
 #include "dynamichairpingroup.h"
 #include "measure.h"
 #include "mscore.h"
+#include "rest.h"
 #include "score.h"
 #include "segment.h"
 #include "system.h"
@@ -226,53 +226,6 @@ bool Dynamic::isVelocityChangeAvailable() const
 }
 
 //---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Dynamic::write(XmlWriter& xml) const
-{
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    xml.startElement(this);
-    writeProperty(xml, Pid::DYNAMIC_TYPE);
-    writeProperty(xml, Pid::VELOCITY);
-    writeProperty(xml, Pid::DYNAMIC_RANGE);
-
-    if (isVelocityChangeAvailable()) {
-        writeProperty(xml, Pid::VELO_CHANGE);
-        writeProperty(xml, Pid::VELO_CHANGE_SPEED);
-    }
-
-    TextBase::writeProperties(xml, dynamicType() == DynamicType::OTHER);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Dynamic::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag = e.name();
-        if (tag == "subtype") {
-            setDynamicType(e.readText());
-        } else if (tag == "velocity") {
-            _velocity = e.readInt();
-        } else if (tag == "dynType") {
-            _dynRange = TConv::fromXml(e.readAsciiText(), DynamicRange::STAFF);
-        } else if (tag == "veloChange") {
-            _changeInVelocity = e.readInt();
-        } else if (tag == "veloChangeSpeed") {
-            _velChangeSpeed = TConv::fromXml(e.readAsciiText(), DynamicSpeed::NORMAL);
-        } else if (!TextBase::readProperties(e)) {
-            e.unknown();
-        }
-    }
-}
-
-//---------------------------------------------------------
 //   layout
 //---------------------------------------------------------
 
@@ -293,7 +246,7 @@ void Dynamic::layout()
         track_idx_t t = track() & ~0x3;
         for (voice_idx_t voice = 0; voice < VOICES; ++voice) {
             EngravingItem* e = s->element(t + voice);
-            if (!e) {
+            if (!e || (e->isRest() && toRest(e)->ticks() >= measure()->ticks() && measure()->hasVoices(e->staffIdx()))) {
                 continue;
             }
             if (e->isChord() && (align() == AlignH::HCENTER)) {

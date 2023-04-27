@@ -51,6 +51,7 @@ public:
     unsigned int driverBufferSize() const override;
     void setDriverBufferSize(unsigned int size) override;
     async::Notification driverBufferSizeChanged() const override;
+    samples_t renderStep() const override;
 
     unsigned int sampleRate() const override;
     void setSampleRate(unsigned int sampleRate) override;
@@ -68,6 +69,8 @@ public:
     Ret saveSynthesizerState(const synth::SynthesizerState& state) override;
     async::Notification synthesizerStateChanged() const override;
     async::Notification synthesizerStateGroupChanged(const std::string& groupName) const override;
+
+    io::path_t knownAudioPluginsDir() const override;
 
 private:
     async::Channel<io::paths_t> m_soundFontDirsChanged;

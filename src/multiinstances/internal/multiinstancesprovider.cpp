@@ -49,6 +49,8 @@ static const QString METHOD_SETTINGS_ROLLBACK_TRANSACTION("SETTINGS_ROLLBACK_TRA
 static const QString METHOD_SETTINGS_SET_VALUE("SETTINGS_SET_VALUE");
 static const QString METHOD_QUIT("METHOD_QUIT");
 static const QString METHOD_QUIT_WITH_RESTART_LAST_INSTANCE("METHOD_QUIT_WITH_RESTART_LAST_INSTANCE");
+static const QString METHOD_QUIT_WITH_RUNING_INSTALLATION("METHOD_QUIT_WITH_RUNING_INSTALLATION");
+static const QString METHOD_QUITED("METHOD_QUITED");
 static const QString METHOD_RESOURCE_CHANGED("RESOURCE_CHANGED");
 
 MultiInstancesProvider::~MultiInstancesProvider()
@@ -131,6 +133,11 @@ void MultiInstancesProvider::onMsg(const Msg& msg)
         dispatcher()->dispatch("quit", actions::ActionData::make_arg1<bool>(false));
     } else if (msg.method == METHOD_QUIT_WITH_RESTART_LAST_INSTANCE) {
         dispatcher()->dispatch("restart");
+    } else if (msg.method == METHOD_QUIT_WITH_RUNING_INSTALLATION) {
+        CHECK_ARGS_COUNT(1);
+        dispatcher()->dispatch("quit", actions::ActionData::make_arg2<bool, std::string>(false, msg.args.at(0).toStdString()));
+    } else if (msg.method == METHOD_QUITED) {
+        m_ipcChannel->response(METHOD_QUITED, { }, msg.srcID);
     } else if (msg.method == METHOD_RESOURCE_CHANGED) {
         resourceChanged().send(msg.args.at(0).toStdString());
     }
@@ -163,7 +170,11 @@ void MultiInstancesProvider::activateWindowWithProject(const io::path_t& project
         return;
     }
 
+#ifndef Q_OS_MAC
+    // On macOS, this is not desirable, since raising the main window of the other instance works properly without this
     mainWindow()->requestShowOnBack();
+#endif
+
     m_ipcChannel->broadcast(METHOD_ACTIVATE_WINDOW_WITH_PROJECT, { projectPath.toQString() });
 }
 
@@ -193,7 +204,12 @@ void MultiInstancesProvider::activateWindowWithoutProject()
     if (!isInited()) {
         return;
     }
+
+#ifndef Q_OS_MAC
+    // On macOS, this is not desirable, since raising the main window of the other instance works properly without this
     mainWindow()->requestShowOnBack();
+#endif
+
     m_ipcChannel->broadcast(METHOD_ACTIVATE_WINDOW_WITHOUT_PROJECT, {});
 }
 
@@ -272,7 +288,11 @@ void MultiInstancesProvider::activateWindowWithOpenedPreferences() const
         return;
     }
 
+#ifndef Q_OS_MAC
+    // On macOS, this is not desirable, since raising the main window of the other instance works properly without this
     mainWindow()->requestShowOnBack();
+#endif
+
     m_ipcChannel->broadcast(METHOD_ACTIVATE_WINDOW_WITH_OPENED_PREFERENCES);
 }
 
@@ -381,6 +401,15 @@ mu::async::Notification MultiInstancesProvider::instancesChanged() const
     return m_instancesChanged;
 }
 
+void MultiInstancesProvider::notifyAboutInstanceWasQuited()
+{
+    if (!isInited()) {
+        return;
+    }
+
+    m_ipcChannel->broadcast(METHOD_QUITED);
+}
+
 void MultiInstancesProvider::quitForAll()
 {
     if (!isInited()) {
@@ -397,4 +426,15 @@ void MultiInstancesProvider::quitAllAndRestartLast()
     }
 
     m_ipcChannel->broadcast(METHOD_QUIT_WITH_RESTART_LAST_INSTANCE);
+}
+
+void MultiInstancesProvider::quitAllAndRunInstallation(const io::path_t& installerPath)
+{
+    if (!isInited()) {
+        return;
+    }
+
+    QStringList args;
+    args << installerPath.toQString();
+    m_ipcChannel->broadcast(METHOD_QUIT_WITH_RUNING_INSTALLATION, args);
 }

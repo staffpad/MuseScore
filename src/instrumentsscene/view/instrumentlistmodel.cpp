@@ -62,6 +62,8 @@ QVariant InstrumentListModel::data(const QModelIndex& index, int role) const
     switch (role) {
     case RoleName:
         return instrument.name;
+    case RoleDescription:
+        return instrument.templates[instrument.currentTemplateIndex]->description.toQString();
     case RoleTraits: {
         QStringList traits;
         for (const InstrumentTemplate* templ : instrument.templates) {
@@ -89,6 +91,7 @@ bool InstrumentListModel::setData(const QModelIndex& index, const QVariant& valu
 
     switch (role) {
     case RoleName:
+    case RoleDescription:
     case RoleTraits:
     case RoleIsSelected:
         break;
@@ -112,6 +115,7 @@ QHash<int, QByteArray> InstrumentListModel::roleNames() const
 {
     static const QHash<int, QByteArray> roles {
         { RoleName, "name" },
+        { RoleDescription, "description" },
         { RoleIsSelected, "isSelected" },
         { RoleTraits, "traits" },
         { RoleCurrentTraitIndex, "currentTraitIndex" }
@@ -284,9 +288,19 @@ void InstrumentListModel::loadInstruments()
     QList<CombinedInstrument> instruments;
 
     for (const InstrumentName& instrumentName : templatesByInstrumentName.keys()) {
+        const InstrumentTemplateList& templates = templatesByInstrumentName[instrumentName];
         CombinedInstrument instrument;
-        instrument.name = instrumentName;
-        instrument.templates = templatesByInstrumentName[instrumentName];
+
+        if (templates.length() == 1) {
+            // Only one trait option so let's display it in the instrument name.
+            const InstrumentTemplate* templ = templates.at(0);
+            instrument.name = formatInstrumentTitle(instrumentName, templ->trait);
+        } else {
+            // Multiple traits to choose from so don't add any to instrument name yet.
+            instrument.name = instrumentName;
+        }
+
+        instrument.templates = templates;
         instrument.currentTemplateIndex = 0;
 
         instruments << instrument;
@@ -319,7 +333,15 @@ void InstrumentListModel::sortInstruments(Instruments& instruments) const
         int searchTextPosition2 = instrumentName2.indexOf(searchText);
 
         if (searchTextPosition1 == searchTextPosition2) {
-            return instrumentName1 < instrumentName2;
+            int ti1 = instrument1.currentTemplateIndex;
+            int ti2 = instrument2.currentTemplateIndex;
+            if (ti1 >= 0 && ti1 < instrument1.templates.size() && ti2 >= 0 && ti2 < instrument2.templates.size()) {
+                int instrumentIndex1 = instrument1.templates[ti1]->sequenceOrder;
+                int instrumentIndex2 = instrument2.templates[ti2]->sequenceOrder;
+                return instrumentIndex1 < instrumentIndex2;
+            } else {
+                return instrumentName1 < instrumentName2;
+            }
         }
 
         return searchTextPosition1 < searchTextPosition2;

@@ -31,6 +31,7 @@
 using namespace mu::project;
 using namespace mu::audio;
 using namespace mu::engraving;
+using namespace mu::playback;
 
 static const std::map<AudioSourceType, QString> SOURCE_TYPE_MAP = {
     { AudioSourceType::Undefined, "undefined" },
@@ -43,7 +44,8 @@ static const std::map<AudioResourceType, QString> RESOURCE_TYPE_MAP = {
     { AudioResourceType::Undefined, "undefined" },
     { AudioResourceType::MuseSamplerSoundPack, "muse_sampler_sound_pack" },
     { AudioResourceType::FluidSoundfont, "fluid_soundfont" },
-    { AudioResourceType::VstPlugin, "vst_plugin" }
+    { AudioResourceType::VstPlugin, "vst_plugin" },
+    { AudioResourceType::MusePlugin, "muse_plugin" },
 };
 
 AudioOutputParams ProjectAudioSettings::masterAudioOutputParams() const
@@ -58,6 +60,27 @@ void ProjectAudioSettings::setMasterAudioOutputParams(const AudioOutputParams& p
     }
 
     m_masterOutputParams = params;
+    setNeedSave(true);
+}
+
+bool ProjectAudioSettings::containsAuxOutputParams(audio::aux_channel_idx_t index) const
+{
+    return mu::contains(m_auxOutputParams, index);
+}
+
+mu::audio::AudioOutputParams ProjectAudioSettings::auxOutputParams(audio::aux_channel_idx_t index) const
+{
+    return mu::value(m_auxOutputParams, index);
+}
+
+void ProjectAudioSettings::setAuxOutputParams(audio::aux_channel_idx_t index, const audio::AudioOutputParams& params)
+{
+    auto it = m_auxOutputParams.find(index);
+    if (it != m_auxOutputParams.end() && it->second == params) {
+        return;
+    }
+
+    m_auxOutputParams.insert_or_assign(index, params);
     setNeedSave(true);
 }
 
@@ -171,17 +194,44 @@ mu::ValNt<bool> ProjectAudioSettings::needSave() const
     return needSave;
 }
 
+void ProjectAudioSettings::markAsSaved()
+{
+    setNeedSave(false);
+}
+
+const SoundProfileName& ProjectAudioSettings::activeSoundProfile() const
+{
+    return m_activeSoundProfileName;
+}
+
+void ProjectAudioSettings::setActiveSoundProfile(const playback::SoundProfileName& profileName)
+{
+    m_activeSoundProfileName = profileName;
+    setNeedSave(true);
+}
+
 mu::Ret ProjectAudioSettings::read(const engraving::MscReader& reader)
 {
     ByteArray json = reader.readAudioSettingsJsonFile();
+    if (json.empty()) {
+        return make_ret(Ret::Code::UnknownError);
+    }
+
     QJsonObject rootObj = QJsonDocument::fromJson(json.toQByteArrayNoCopy()).object();
 
     QJsonObject masterObj = rootObj.value("master").toObject();
     m_masterOutputParams = outputParamsFromJson(masterObj);
 
+    QJsonArray auxArray = rootObj.value("aux").toArray();
+    for (int i = 0; i < auxArray.size(); ++i) {
+        QJsonObject auxObject = auxArray[i].toObject();
+        audio::AudioOutputParams outParams = outputParamsFromJson(auxObject.value("out").toObject());
+        m_auxOutputParams.emplace(static_cast<aux_channel_idx_t>(i), std::move(outParams));
+    }
+
     QJsonArray tracksArray = rootObj.value("tracks").toArray();
 
-    for (const QJsonValue& value : tracksArray) {
+    for (const QJsonValue value : tracksArray) {
         QJsonObject trackObject = value.toObject();
 
         ID partId = trackObject.value("partId").toString();
@@ -198,6 +248,11 @@ mu::Ret ProjectAudioSettings::read(const engraving::MscReader& reader)
         m_soloMuteStatesMap.emplace(id, std::move(soloMuteState));
     }
 
+    m_activeSoundProfileName = rootObj.value("activeSoundProfile").toString();
+    if (m_activeSoundProfileName.empty()) {
+        m_activeSoundProfileName = playbackConfig()->defaultProfileForNewProjects();
+    }
+
     return make_ret(Ret::Code::Ok);
 }
 
@@ -206,24 +261,30 @@ mu::Ret ProjectAudioSettings::write(engraving::MscWriter& writer)
     QJsonObject rootObj;
     rootObj["master"] = outputParamsToJson(m_masterOutputParams);
 
+    QJsonArray auxArray;
+    for (const auto& pair : m_auxOutputParams) {
+        auxArray.append(buildAuxObject(pair.second));
+    }
+
+    rootObj["aux"] = auxArray;
+
     QJsonArray tracksArray;
     for (const auto& pair : m_trackInputParamsMap) {
         tracksArray.append(buildTrackObject(pair.first));
     }
 
     rootObj["tracks"] = tracksArray;
+    rootObj["activeSoundProfile"] = m_activeSoundProfileName.toQString();
 
     QByteArray json = QJsonDocument(rootObj).toJson();
     writer.writeAudioSettingsJsonFile(ByteArray::fromQByteArrayNoCopy(json));
-
-    setNeedSave(false);
 
     return make_ret(Ret::Code::Ok);
 }
 
 void ProjectAudioSettings::makeDefault()
 {
-    //TODO initialize default audio input params
+    m_activeSoundProfileName = playbackConfig()->defaultProfileForNewProjects();
 }
 
 AudioInputParams ProjectAudioSettings::inputParamsFromJson(const QJsonObject& object) const
@@ -241,6 +302,7 @@ AudioOutputParams ProjectAudioSettings::outputParamsFromJson(const QJsonObject& 
     result.fxChain = fxChainFromJson(object.value("fxChain").toObject());
     result.balance = object.value("balance").toVariant().toFloat();
     result.volume = object.value("volumeDb").toVariant().toFloat();
+    result.auxSends = auxSendsFromJson(object.value("auxSends").toObject());
 
     return result;
 }
@@ -277,6 +339,27 @@ AudioFxParams ProjectAudioSettings::fxParamsFromJson(const QJsonObject& object) 
     return result;
 }
 
+AuxSendsParams ProjectAudioSettings::auxSendsFromJson(const QJsonObject& object) const
+{
+    AuxSendsParams result;
+
+    for (const QString& key : object.keys()) {
+        AuxSendParams params = auxSendParamsFromJson(object.value(key).toObject());
+        result.emplace_back(std::move(params));
+    }
+
+    return result;
+}
+
+AuxSendParams ProjectAudioSettings::auxSendParamsFromJson(const QJsonObject& object) const
+{
+    AuxSendParams result;
+    result.signalAmount = object.value("signalAmount").toVariant().toFloat();
+    result.active = object.value("active").toBool();
+
+    return result;
+}
+
 AudioResourceMeta ProjectAudioSettings::resourceMetaFromJson(const QJsonObject& object) const
 {
     AudioResourceMeta result;
@@ -284,6 +367,7 @@ AudioResourceMeta ProjectAudioSettings::resourceMetaFromJson(const QJsonObject& 
     result.hasNativeEditorSupport = object.value("hasNativeEditorSupport").toBool();
     result.vendor = object.value("vendor").toString().toStdString();
     result.type = resourceTypeFromString(object.value("type").toString());
+    result.attributes = attributesFromJson(object.value("attributes").toObject());
 
     return result;
 }
@@ -295,6 +379,17 @@ AudioUnitConfig ProjectAudioSettings::unitConfigFromJson(const QJsonObject& obje
     for (const QString& key : object.keys()) {
         QByteArray base = QByteArray::fromBase64(object.value(key).toString().toUtf8());
         result.emplace(key.toStdString(), base.toStdString());
+    }
+
+    return result;
+}
+
+AudioResourceAttributes ProjectAudioSettings::attributesFromJson(const QJsonObject& object) const
+{
+    AudioResourceAttributes result;
+
+    for (const QString& key : object.keys()) {
+        result.emplace(String::fromQString(key), String::fromQString(object.value(key).toString()));
     }
 
     return result;
@@ -315,6 +410,10 @@ QJsonObject ProjectAudioSettings::outputParamsToJson(const audio::AudioOutputPar
     result.insert("fxChain", fxChainToJson(params.fxChain));
     result.insert("balance", params.balance);
     result.insert("volumeDb", params.volume);
+
+    if (!params.auxSends.empty()) {
+        result.insert("auxSends", auxSendsToJson(params.auxSends));
+    }
 
     return result;
 }
@@ -339,6 +438,26 @@ QJsonObject ProjectAudioSettings::fxChainToJson(const audio::AudioFxChain& fxCha
     return result;
 }
 
+QJsonArray ProjectAudioSettings::auxSendsToJson(const audio::AuxSendsParams& auxSends) const
+{
+    QJsonArray result;
+
+    for (const AuxSendParams& auxSend : auxSends) {
+        result.push_back(auxSendParamsToJson(auxSend));
+    }
+
+    return result;
+}
+
+QJsonObject ProjectAudioSettings::auxSendParamsToJson(const audio::AuxSendParams& auxParams) const
+{
+    QJsonObject result;
+    result.insert("active", auxParams.active);
+    result.insert("signalAmount", auxParams.signalAmount);
+
+    return result;
+}
+
 QJsonObject ProjectAudioSettings::fxParamsToJson(const audio::AudioFxParams& fxParams) const
 {
     QJsonObject result;
@@ -357,6 +476,7 @@ QJsonObject ProjectAudioSettings::resourceMetaToJson(const audio::AudioResourceM
     result.insert("hasNativeEditorSupport", meta.hasNativeEditorSupport);
     result.insert("vendor", QString::fromStdString(meta.vendor));
     result.insert("type", resourceTypeToString(meta.type));
+    result.insert("attributes", attributesToJson(meta.attributes));
 
     return result;
 }
@@ -368,6 +488,17 @@ QJsonObject ProjectAudioSettings::unitConfigToJson(const audio::AudioUnitConfig&
     for (const auto& pair : config) {
         QByteArray byteArray = QByteArray::fromRawData(pair.second.c_str(), static_cast<int>(pair.second.size()));
         result.insert(QString::fromStdString(pair.first), QString(byteArray.toBase64()));
+    }
+
+    return result;
+}
+
+QJsonObject ProjectAudioSettings::attributesToJson(const audio::AudioResourceAttributes& attributes) const
+{
+    QJsonObject result;
+
+    for (const auto& pair : attributes) {
+        result.insert(pair.first.toQString(), pair.second.toQString());
     }
 
     return result;
@@ -415,6 +546,15 @@ QString ProjectAudioSettings::resourceTypeToString(const audio::AudioResourceTyp
     }
 
     return RESOURCE_TYPE_MAP.at(AudioResourceType::Undefined);
+}
+
+QJsonObject ProjectAudioSettings::buildAuxObject(const audio::AudioOutputParams& params) const
+{
+    QJsonObject result;
+
+    result.insert("out", outputParamsToJson(params));
+
+    return result;
 }
 
 QJsonObject ProjectAudioSettings::buildTrackObject(const InstrumentTrackId& id) const

@@ -30,7 +30,7 @@ import MuseScore.Cloud 1.0
 StyledDialogView {
     id: root
 
-    property bool canSaveToComputer: true
+    property bool isPublish: false
     property string name
     property int visibility: CloudVisibility.Private
 
@@ -79,7 +79,7 @@ StyledDialogView {
 
             StyledTextLabel {
                 id: titleLabel
-                text: root.visibility === CloudVisibility.Public
+                text: root.isPublish
                       ? qsTrc("project/save", "Publish to MuseScore.com")
                       : qsTrc("project/save", "Save to cloud")
                 font: ui.theme.largeBodyBoldFont
@@ -117,7 +117,7 @@ StyledDialogView {
                         navigation.row: 1
                         accessible.name: titleLabel.text + ". " + qsTrc("project/save", "Name") + ": " + currentText
 
-                        onCurrentTextEdited: function(newTextValue) {
+                        onTextChanged: function(newTextValue) {
                             root.name = newTextValue
                         }
                     }
@@ -128,7 +128,7 @@ StyledDialogView {
 
                     StyledTextLabel {
                         Layout.fillWidth: true
-                        //: visibility of a score on MuseScore.com: private or public
+                        //: visibility of a score on MuseScore.com: private, public or unlisted
                         text: qsTrc("project/save", "Visibility")
                         horizontalAlignment: Text.AlignLeft
                     }
@@ -137,8 +137,9 @@ StyledDialogView {
                         Layout.fillWidth: true
 
                         model: [
-                            { value: CloudVisibility.Private, text: qsTrc("project/save", "Private") },
-                            { value: CloudVisibility.Public, text: qsTrc("project/save", "Public") }
+                            { value: CloudVisibility.Public, text: qsTrc("project/save", "Public") },
+                            { value: CloudVisibility.Unlisted, text: qsTrc("project/save", "Unlisted") },
+                            { value: CloudVisibility.Private, text: qsTrc("project/save", "Private") }
                         ]
 
                         currentIndex: indexOfValue(root.visibility)
@@ -170,7 +171,7 @@ StyledDialogView {
 
                 FlatButton {
                     text: qsTrc("project/save", "Save to computer")
-                    visible: root.canSaveToComputer
+                    visible: !root.isPublish
 
                     navigation.panel: buttonsNavPanel
                     navigation.column: 2
@@ -193,7 +194,7 @@ StyledDialogView {
 
                 FlatButton {
                     id: saveButton
-                    text: qsTrc("project/save", "Save")
+                    text: root.isPublish ? qsTrc("project/save", "Publish") : qsTrc("project/save", "Save")
                     accentButton: enabled
                     enabled: Boolean(root.name)
 

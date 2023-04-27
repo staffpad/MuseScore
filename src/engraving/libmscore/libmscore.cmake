@@ -37,6 +37,8 @@ set(LIBMSCORE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/barline.h
     ${CMAKE_CURRENT_LIST_DIR}/beam.cpp
     ${CMAKE_CURRENT_LIST_DIR}/beam.h
+    ${CMAKE_CURRENT_LIST_DIR}/beamtremololayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/beamtremololayout.h
     ${CMAKE_CURRENT_LIST_DIR}/bend.cpp
     ${CMAKE_CURRENT_LIST_DIR}/bend.h
     ${CMAKE_CURRENT_LIST_DIR}/box.cpp
@@ -71,6 +73,8 @@ set(LIBMSCORE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/cmd.cpp
     ${CMAKE_CURRENT_LIST_DIR}/connector.cpp
     ${CMAKE_CURRENT_LIST_DIR}/connector.h
+    ${CMAKE_CURRENT_LIST_DIR}/deadslapped.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/deadslapped.h
     ${CMAKE_CURRENT_LIST_DIR}/drumset.cpp
     ${CMAKE_CURRENT_LIST_DIR}/drumset.h
     ${CMAKE_CURRENT_LIST_DIR}/durationelement.cpp
@@ -100,6 +104,8 @@ set(LIBMSCORE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/factory.h
     ${CMAKE_CURRENT_LIST_DIR}/fermata.cpp
     ${CMAKE_CURRENT_LIST_DIR}/fermata.h
+    ${CMAKE_CURRENT_LIST_DIR}/fretcircle.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/fretcircle.h
     ${CMAKE_CURRENT_LIST_DIR}/figuredbass.cpp
     ${CMAKE_CURRENT_LIST_DIR}/figuredbass.h
     ${CMAKE_CURRENT_LIST_DIR}/fingering.cpp
@@ -210,6 +216,8 @@ set(LIBMSCORE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/paste.cpp
     ${CMAKE_CURRENT_LIST_DIR}/pedal.cpp
     ${CMAKE_CURRENT_LIST_DIR}/pedal.h
+    ${CMAKE_CURRENT_LIST_DIR}/pickscrape.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/pickscrape.h
     ${CMAKE_CURRENT_LIST_DIR}/pitch.cpp
     ${CMAKE_CURRENT_LIST_DIR}/pitch.h
     ${CMAKE_CURRENT_LIST_DIR}/pitchspelling.cpp
@@ -229,7 +237,6 @@ set(LIBMSCORE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/rehearsalmark.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rehearsalmark.h
     ${CMAKE_CURRENT_LIST_DIR}/rendermidi.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rendermidi.h
     ${CMAKE_CURRENT_LIST_DIR}/repeatlist.cpp
     ${CMAKE_CURRENT_LIST_DIR}/repeatlist.h
     ${CMAKE_CURRENT_LIST_DIR}/rest.cpp

@@ -134,21 +134,24 @@ void EditStaff::setStaff(Staff* s, const Fraction& tick)
     Part* part = m_orgStaff->part();
     mu::engraving::Score* score = part->score();
 
-    m_instrument = *part->instrument(tick);
+    auto it = mu::findLessOrEqual(part->instruments(), tick.ticks());
+    if (it == part->instruments().cend()) {
+        return;
+    }
+
+    m_instrument = *it->second;
     m_orgInstrument = m_instrument;
 
     m_instrumentKey.instrumentId = m_instrument.id();
     m_instrumentKey.partId = part->id();
-    m_instrumentKey.tick = tick;
+    m_instrumentKey.tick = Fraction::fromTicks(it->first);
 
     m_staff = engraving::Factory::createStaff(part);
     mu::engraving::StaffType* stt = m_staff->setStaffType(Fraction(0, 1), *m_orgStaff->staffType(Fraction(0, 1)));
-    stt->setInvisible(m_orgStaff->staffType(Fraction(0, 1))->invisible());
-    stt->setColor(m_orgStaff->staffType(Fraction(0, 1))->color());
-    stt->setUserMag(m_orgStaff->staffType(Fraction(0, 1))->userMag());
 
     m_staff->setUserDist(m_orgStaff->userDist());
     m_staff->setPart(part);
+    m_staff->setCutaway(m_orgStaff->cutaway());
     m_staff->setHideWhenEmpty(m_orgStaff->hideWhenEmpty());
     m_staff->setShowIfEmpty(m_orgStaff->showIfEmpty());
     m_staff->setHideSystemBarLine(m_orgStaff->hideSystemBarLine());
@@ -170,19 +173,18 @@ void EditStaff::setStaff(Staff* s, const Fraction& tick)
 
     // set dlg controls
     spinExtraDistance->setValue(s->userDist() / score->spatium());
-    invisible->setChecked(m_staff->isLinesInvisible(Fraction(0, 1)));
+    invisible->setChecked(stt->invisible());
     isSmallCheckbox->setChecked(stt->isSmall());
     color->setColor(stt->color().toQColor());
-    partName->setText(part->partName());
-    cutaway->setChecked(m_staff->cutaway());
+    mag->setValue(stt->userMag() * 100.0);
 
+    cutaway->setChecked(m_staff->cutaway());
     hideMode->setCurrentIndex(int(m_staff->hideWhenEmpty()));
     showIfEmpty->setChecked(m_staff->showIfEmpty());
     hideSystemBarLine->setChecked(m_staff->hideSystemBarLine());
     mergeMatchingRests->setChecked(m_staff->mergeMatchingRests());
-    mag->setValue(stt->userMag() * 100.0);
 
-    updateStaffType(*m_staff->staffType(mu::engraving::Fraction(0, 1)));
+    updateStaffType(*stt);
     updateInstrument();
     updateNextPreviousButtons();
 }
@@ -211,13 +213,12 @@ void EditStaff::updateInstrument()
 
     longName->setPlainText(m_instrument.nameAsPlainText());
     shortName->setPlainText(m_instrument.abbreviatureAsPlainText());
-
-    if (partName->text() == instrumentName->text()) {
-        // Updates part name if no custom name has been set before
-        partName->setText(m_instrument.nameAsPlainText());
+    const InstrumentTemplate* templ = mu::engraving::searchTemplate(m_instrument.id());
+    if (templ) {
+        instrumentName->setText(formatInstrumentTitle(templ->trackName, templ->trait));
+    } else {
+        instrumentName->setText(qtrc("notation/editstaff", "Unknown"));
     }
-
-    instrumentName->setText(m_instrument.nameAsPlainText());
 
     m_minPitchA = m_instrument.minPitchA();
     m_maxPitchA = m_instrument.maxPitchA();
@@ -434,9 +435,19 @@ INotationPtr EditStaff::notation() const
     return globalContext()->currentNotation();
 }
 
+IMasterNotationPtr EditStaff::masterNotation() const
+{
+    return globalContext()->currentMasterNotation();
+}
+
 INotationPartsPtr EditStaff::notationParts() const
 {
     return notation() ? notation()->parts() : nullptr;
+}
+
+INotationPartsPtr EditStaff::masterNotationParts() const
+{
+    return masterNotation() ? masterNotation()->parts() : nullptr;
 }
 
 void EditStaff::initStaff()
@@ -532,24 +543,22 @@ void EditStaff::applyPartProperties()
     m_instrument.setMinPitchP(m_minPitchP);
     m_instrument.setMaxPitchP(m_maxPitchP);
 
-    m_instrument.shortNames().clear();
+    StaffNameList shortNames;
     if (sn.length() > 0) {
-        m_instrument.shortNames().push_back(mu::engraving::StaffName(sn, 0));
+        shortNames.push_back(mu::engraving::StaffName(sn, 0));
     }
+    m_instrument.setShortNames(shortNames);
 
-    m_instrument.longNames().clear();
+    StaffNameList longNames;
     if (ln.length() > 0) {
-        m_instrument.longNames().push_back(mu::engraving::StaffName(ln, 0));
+        longNames.push_back(mu::engraving::StaffName(ln, 0));
     }
+    m_instrument.setLongNames(longNames);
 
-    QString newPartName = partName->text().simplified();
-
-    if (m_instrument != m_orgInstrument) {
+    if (m_instrument.id() != m_orgInstrument.id()) {
+        masterNotationParts()->replaceInstrument(m_instrumentKey, m_instrument);
+    } else {
         notationParts()->replaceInstrument(m_instrumentKey, m_instrument);
-    }
-
-    if (part->partName() != newPartName) {
-        notationParts()->setPartName(m_instrumentKey.partId, newPartName);
     }
 
     SharpFlat newSharpFlat = SharpFlat(preferSharpFlat->currentIndex());

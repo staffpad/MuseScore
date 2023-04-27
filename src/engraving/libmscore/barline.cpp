@@ -24,10 +24,11 @@
 
 #include "draw/fontmetrics.h"
 #include "draw/types/font.h"
-#include "rw/xml.h"
+
 #include "translation.h"
 #include "types/symnames.h"
 #include "types/typesconv.h"
+#include "iengravingfont.h"
 
 #include "articulation.h"
 #include "factory.h"
@@ -44,7 +45,6 @@
 #include "stafflines.h"
 #include "stafftype.h"
 #include "symbol.h"
-#include "symbolfont.h"
 #include "system.h"
 #include "undo.h"
 
@@ -53,7 +53,7 @@
 using namespace mu;
 using namespace mu::draw;
 using namespace mu::engraving;
-using namespace mu::engraving::rw;
+using namespace mu::engraving::rw400;
 
 namespace mu::engraving {
 //---------------------------------------------------------
@@ -502,10 +502,10 @@ void BarLine::drawDots(Painter* painter, double x) const
         y1l = st->doty1() * _spatium;
         y2l = st->doty2() * _spatium;
 
-        //workaround to make Bravura, Petaluma and Leland font work correctly with repeatDots
-        if (!(score()->symbolFont()->name() == "Leland"
-              || score()->symbolFont()->name() == "Bravura"
-              || score()->symbolFont()->name() == "Petaluma")) {
+        //workaround to make Emmentaler, Gonville and MuseJazz font work correctly with repeatDots
+        if (score()->engravingFont()->name() == "Emmentaler"
+            || score()->engravingFont()->name() == "Gonville"
+            || score()->engravingFont()->name() == "MuseJazz") {
             double offset = 0.5 * score()->spatium() * mag();
             y1l += offset;
             y2l += offset;
@@ -581,7 +581,7 @@ bool BarLine::isBottom() const
 
 void BarLine::draw(Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     using namespace mu::draw;
     switch (barLineType()) {
     case BarLineType::NORMAL: {
@@ -737,7 +737,7 @@ void BarLine::draw(Painter* painter) const
         Measure* m = s->measure();
         if (m->isIrregular() && score()->markIrregularMeasures() && !m->isMMRest()) {
             painter->setPen(engravingConfiguration()->formattingMarksColor());
-            draw::Font f(u"Edwin");
+            draw::Font f(u"Edwin", Font::Type::Text);
             f.setPointSizeF(12 * spatium() / SPATIUM20);
             f.setBold(true);
             Char ch = m->ticks() > m->timesig() ? u'+' : u'-';
@@ -787,70 +787,6 @@ Fraction BarLine::playTick() const
     }
 
     return tick();
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void BarLine::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-
-    writeProperty(xml, Pid::BARLINE_TYPE);
-    writeProperty(xml, Pid::BARLINE_SPAN);
-    writeProperty(xml, Pid::BARLINE_SPAN_FROM);
-    writeProperty(xml, Pid::BARLINE_SPAN_TO);
-
-    for (const EngravingItem* e : _el) {
-        e->write(xml);
-    }
-    EngravingItem::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void BarLine::read(XmlReader& e)
-{
-    resetProperty(Pid::BARLINE_SPAN);
-    resetProperty(Pid::BARLINE_SPAN_FROM);
-    resetProperty(Pid::BARLINE_SPAN_TO);
-
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "subtype") {
-            setBarLineType(TConv::fromXml(e.readAsciiText(), BarLineType::NORMAL));
-        } else if (tag == "span") {
-            _spanStaff  = e.readBool();
-        } else if (tag == "spanFromOffset") {
-            _spanFrom = e.readInt();
-        } else if (tag == "spanToOffset") {
-            _spanTo = e.readInt();
-        } else if (tag == "Articulation") {
-            Articulation* a = Factory::createArticulation(score()->dummy()->chord());
-            a->read(e);
-            add(a);
-        } else if (tag == "Symbol") {
-            Symbol* s = new Symbol(this);
-            s->setTrack(track());
-            s->read(e);
-            add(s);
-        } else if (tag == "Image") {
-            if (MScore::noImages) {
-                e.skipCurrentElement();
-            } else {
-                Image* image = new Image(this);
-                image->setTrack(track());
-                image->read(e);
-                add(image);
-            }
-        } else if (!EngravingItem::readProperties(e)) {
-            e.unknown();
-        }
-    }
 }
 
 //---------------------------------------------------------
@@ -1160,48 +1096,48 @@ void BarLine::endEditDrag(EditData& ed)
 //   layoutWidth
 //---------------------------------------------------------
 
-double BarLine::layoutWidth(Score* score, BarLineType type)
+double BarLine::layoutWidth() const
 {
-    double dotwidth = score->symbolFont()->width(SymId::repeatDot, 1.0);
+    const double dotWidth = symWidth(SymId::repeatDot);
 
     double w { 0.0 };
-    switch (type) {
+    switch (barLineType()) {
     case BarLineType::DOUBLE:
-        w = (score->styleMM(Sid::doubleBarWidth) * 2.0)
-            + score->styleMM(Sid::doubleBarDistance);
+        w = score()->styleMM(Sid::doubleBarWidth) * 2.0
+            + score()->styleMM(Sid::doubleBarDistance);
         break;
     case BarLineType::DOUBLE_HEAVY:
-        w = (score->styleMM(Sid::endBarWidth) * 2.0)
-            + score->styleMM(Sid::endBarDistance);
+        w = score()->styleMM(Sid::endBarWidth) * 2.0
+            + score()->styleMM(Sid::endBarDistance);
         break;
     case BarLineType::END_START_REPEAT:
-        w = score->styleMM(Sid::endBarWidth)
-            + (score->styleMM(Sid::barWidth) * 2.0)
-            + (score->styleMM(Sid::endBarDistance) * 2.0)
-            + (score->styleMM(Sid::repeatBarlineDotSeparation) * 2.0)
-            + (dotwidth * 2);
+        w = score()->styleMM(Sid::endBarWidth)
+            + score()->styleMM(Sid::barWidth) * 2.0
+            + score()->styleMM(Sid::endBarDistance) * 2.0
+            + score()->styleMM(Sid::repeatBarlineDotSeparation) * 2.0
+            + dotWidth * 2;
         break;
     case BarLineType::START_REPEAT:
     case BarLineType::END_REPEAT:
-        w = score->styleMM(Sid::endBarWidth)
-            + score->styleMM(Sid::barWidth)
-            + score->styleMM(Sid::endBarDistance)
-            + score->styleMM(Sid::repeatBarlineDotSeparation)
-            + dotwidth;
+        w = score()->styleMM(Sid::endBarWidth)
+            + score()->styleMM(Sid::barWidth)
+            + score()->styleMM(Sid::endBarDistance)
+            + score()->styleMM(Sid::repeatBarlineDotSeparation)
+            + dotWidth;
         break;
     case BarLineType::END:
     case BarLineType::REVERSE_END:
-        w = score->styleMM(Sid::endBarWidth)
-            + score->styleMM(Sid::barWidth)
-            + score->styleMM(Sid::endBarDistance);
+        w = score()->styleMM(Sid::endBarWidth)
+            + score()->styleMM(Sid::barWidth)
+            + score()->styleMM(Sid::endBarDistance);
         break;
     case BarLineType::BROKEN:
     case BarLineType::NORMAL:
     case BarLineType::DOTTED:
-        w = score->styleMM(Sid::barWidth);
+        w = score()->styleMM(Sid::barWidth);
         break;
     case BarLineType::HEAVY:
-        w = score->styleMM(Sid::endBarWidth);
+        w = score()->styleMM(Sid::endBarWidth);
         break;
     }
     return w;
@@ -1272,11 +1208,15 @@ void BarLine::layout()
     }
 
     setMag(score()->styleB(Sid::scaleBarlines) && staff() ? staff()->staffMag(tick()) : 1.0);
+    // Note: the true values of y1 and y2 are computed in layout2() (can be done only
+    // after staff distances are known). This is a temporary layout.
     double _spatium = spatium();
     y1 = _spatium * .5 * _spanFrom;
-    y2 = _spatium * .5 * (8.0 + _spanTo);
+    if (RealIsEqual(y2, 0.0)) {
+        y2 = _spatium * .5 * (8.0 + _spanTo);
+    }
 
-    double w = layoutWidth(score(), barLineType()) * mag();
+    double w = layoutWidth() * mag();
     RectF r(0.0, y1, w, y2 - y1);
 
     if (score()->styleB(Sid::repeatBarTips)) {

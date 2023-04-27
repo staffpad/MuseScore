@@ -21,7 +21,6 @@
  */
 #include "cloudconfiguration.h"
 
-#include "config.h"
 #include "settings.h"
 
 #include <QRandomGenerator>
@@ -64,8 +63,8 @@ static QString userAgent()
     };
 
     return QString("MS_EDITOR/%1.%2 (%3)")
-           .arg(VERSION)
-           .arg(BUILD_NUMBER)
+           .arg(MUSESCORE_VERSION)
+           .arg(MUSESCORE_BUILD_NUMBER)
            .arg(systemInfo.join(' ')).toLatin1();
 }
 
@@ -80,20 +79,20 @@ RequestHeaders CloudConfiguration::headers() const
 {
     RequestHeaders headers;
     headers.rawHeaders["Accept"] = "application/json";
-    headers.rawHeaders["X-MS-CLIENT-ID"] = clientId();
+    headers.rawHeaders["X-MS-CLIENT-ID"] = QByteArray::fromStdString(settings()->value(CLIENT_ID_KEY).toString());
     headers.knownHeaders[QNetworkRequest::UserAgentHeader] = userAgent();
 
     return headers;
 }
 
-QByteArray CloudConfiguration::clientId() const
-{
-    return QByteArray::fromStdString(settings()->value(CLIENT_ID_KEY).toString());
-}
-
 QByteArray CloudConfiguration::uploadingLicense() const
 {
     return "all-rights-reserved";
+}
+
+QUrl CloudConfiguration::cloudUrl() const
+{
+    return QUrl("https://musescore.com");
 }
 
 QUrl CloudConfiguration::authorizationUrl() const
@@ -103,7 +102,17 @@ QUrl CloudConfiguration::authorizationUrl() const
 
 QUrl CloudConfiguration::signUpUrl() const
 {
-    return QUrl("https://musescore.com/user/register");
+    return QUrl("https://musescore.com/oauth/authorize-new");
+}
+
+QUrl CloudConfiguration::signInSuccessUrl() const
+{
+    return QUrl("https://musescore.com/desktop-signin-success");
+}
+
+QUrl CloudConfiguration::scoreManagerUrl() const
+{
+    return QUrl("https://musescore.com/my-scores");
 }
 
 QUrl CloudConfiguration::accessTokenUrl() const
@@ -121,14 +130,24 @@ QUrl CloudConfiguration::userInfoApiUrl() const
     return apiRootUrl() + "/me";
 }
 
-QUrl CloudConfiguration::loginApiUrl() const
+QUrl CloudConfiguration::logoutApiUrl() const
 {
     return apiRootUrl() + "/oauth/logout";
 }
 
-QUrl CloudConfiguration::uploadingApiUrl() const
+QUrl CloudConfiguration::scoreInfoApiUrl() const
+{
+    return apiRootUrl() + "/score/info";
+}
+
+QUrl CloudConfiguration::uploadScoreApiUrl() const
 {
     return apiRootUrl() + "/score/upload";
+}
+
+QUrl CloudConfiguration::uploadAudioApiUrl() const
+{
+    return apiRootUrl() + "/score/audio";
 }
 
 mu::io::path_t CloudConfiguration::tokensFilePath() const
@@ -138,5 +157,5 @@ mu::io::path_t CloudConfiguration::tokensFilePath() const
 
 QString CloudConfiguration::apiRootUrl() const
 {
-    return "https://api.musescore.com/editor/v1";
+    return "https://desktop.musescore.com/editor/v1";
 }

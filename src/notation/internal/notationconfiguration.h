@@ -47,7 +47,6 @@ public:
 
     QColor backgroundColor() const override;
     void setBackgroundColor(const QColor& color) override;
-    void resetCurrentBackgroundColorToDefault() override;
 
     io::path_t backgroundWallpaperPath() const override;
     const QPixmap& backgroundWallpaper() const override;
@@ -55,6 +54,8 @@ public:
 
     bool backgroundUseColor() const override;
     void setBackgroundUseColor(bool value) override;
+
+    void resetBackground() override;
 
     async::Notification backgroundChanged() const override;
 
@@ -67,6 +68,8 @@ public:
 
     bool foregroundUseColor() const override;
     void setForegroundUseColor(bool value) override;
+
+    void resetForeground() override;
 
     async::Notification foregroundChanged() const override;
 
@@ -123,6 +126,10 @@ public:
     void setIsPlayRepeatsEnabled(bool enabled) override;
     async::Notification isPlayRepeatsChanged() const override;
 
+    bool isPlayChordSymbolsEnabled() const override;
+    void setIsPlayChordSymbolsEnabled(bool enabled) override;
+    async::Notification isPlayChordSymbolsChanged() const override;
+
     bool isMetronomeEnabled() const override;
     void setIsMetronomeEnabled(bool enabled) override;
 
@@ -148,14 +155,10 @@ public:
     int notePlayDurationMilliseconds() const override;
     void setNotePlayDurationMilliseconds(int durationMs) override;
 
-    void setTemplateModeEnabled(bool enabled) override;
-    void setTestModeEnabled(bool enabled) override;
+    void setTemplateModeEnabled(std::optional<bool> enabled) override;
+    void setTestModeEnabled(std::optional<bool> enabled) override;
 
-    io::paths_t instrumentListPaths() const override;
-    async::Notification instrumentListPathsChanged() const override;
-
-    io::paths_t userInstrumentListPaths() const override;
-    void setUserInstrumentListPaths(const io::paths_t& paths) override;
+    io::path_t instrumentListPath() const override;
 
     io::paths_t scoreOrderListPaths() const override;
     async::Notification scoreOrderListPathsChanged() const override;
@@ -175,19 +178,16 @@ public:
     bool needToShowAddFiguredBassErrorMessage() const override;
     void setNeedToShowAddFiguredBassErrorMessage(bool show) override;
 
-    bool needToShowAddBoxesErrorMessage() const override;
-    void setNeedToShowAddBoxesErrorMessage(bool show) override;
+    bool needToShowMScoreError(const std::string& errorKey) const override;
+    void setNeedToShowMScoreError(const std::string& errorKey, bool show) override;
 
     ValCh<int> pianoKeyboardNumberOfKeys() const override;
     void setPianoKeyboardNumberOfKeys(int number) override;
 
+    io::path_t styleFileImportPath() const override;
+    void setStyleFileImportPath(const io::path_t& path) override;
+
 private:
-    io::path_t firstInstrumentListPath() const;
-    void setFirstInstrumentListPath(const io::path_t& path);
-
-    io::path_t secondInstrumentListPath() const;
-    void setSecondInstrumentListPath(const io::path_t& path);
-
     io::path_t firstScoreOrderListPath() const;
     void setFirstScoreOrderListPath(const io::path_t& path);
 
@@ -198,10 +198,10 @@ private:
     async::Notification m_foregroundChanged;
     async::Channel<framework::Orientation> m_canvasOrientationChanged;
     async::Channel<io::path_t> m_userStylesPathChanged;
-    async::Notification m_instrumentListPathsChanged;
     async::Notification m_scoreOrderListPathsChanged;
     async::Notification m_isLimitCanvasScrollAreaChanged;
     async::Notification m_isPlayRepeatsChanged;
+    async::Notification m_isPlayChordSymbolsChanged;
     ValCh<int> m_pianoKeyboardNumberOfKeys;
 };
 }

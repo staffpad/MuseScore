@@ -23,6 +23,7 @@
 #include "arpeggiorenderer.h"
 
 #include "libmscore/chord.h"
+#include "libmscore/arpeggio.h"
 
 using namespace mu::engraving;
 using namespace mu::mpe;
@@ -48,13 +49,18 @@ void ArpeggioRenderer::doRender(const EngravingItem* item, const mpe::Articulati
         return;
     }
 
+    const Arpeggio* arpeggio = chord->arpeggio();
+    IF_ASSERT_FAILED(arpeggio) {
+        return;
+    }
+
     int stepsCount = static_cast<int>(chord->notes().size());
     mpe::percentage_t percentageStep = mpe::HUNDRED_PERCENT / stepsCount;
 
     auto buildEvent = [&](NominalNoteCtx& noteCtx, const int stepNumber) {
         noteCtx.chordCtx.commonArticulations.updateOccupiedRange(preferredType, stepNumber * percentageStep,
                                                                  (stepNumber + 1) * percentageStep);
-        noteCtx.timestamp += timestampOffsetStep(context) * stepNumber;
+        noteCtx.timestamp += timestampOffsetStep(context) * stepNumber * arpeggio->Stretch();
         result.emplace_back(buildNoteEvent(std::move(noteCtx)));
     };
 
@@ -88,7 +94,7 @@ bool ArpeggioRenderer::isDirectionUp(const mpe::ArticulationType type)
 
 msecs_t ArpeggioRenderer::timestampOffsetStep(const RenderingContext& ctx)
 {
-    constexpr int MINIMAL_TIMESTAMP_OFFSET_STEP = 60;
+    constexpr int MINIMAL_TIMESTAMP_OFFSET_STEP = 60000;
 
     if (RealIsEqualOrMore(ctx.beatsPerSecond.val, PRESTISSIMO_BPS_BOUND)) {
         return MINIMAL_TIMESTAMP_OFFSET_STEP * 1.5;
@@ -110,7 +116,7 @@ std::map<pitch_level_t, NominalNoteCtx> ArpeggioRenderer::arpeggioNotes(const Ch
     std::map<pitch_level_t, NominalNoteCtx> result;
 
     for (const Note* note : chord->notes()) {
-        if (!isNotePlayable(note)) {
+        if (!isNotePlayable(note, ctx.commonArticulations)) {
             continue;
         }
 

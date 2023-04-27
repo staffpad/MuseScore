@@ -23,9 +23,11 @@
 #include "xmlwriter.h"
 
 #include "types/typesconv.h"
-#include "rw/writecontext.h"
+
 #include "libmscore/engravingitem.h"
 #include "libmscore/property.h"
+
+#include "400/writecontext.h"
 
 #include "log.h"
 
@@ -242,9 +244,6 @@ void XmlWriter::tagProperty(const AsciiStringView& name, P_TYPE type, const Prop
     break;
     case P_TYPE::LAYOUTBREAK_TYPE: {
         element(name, TConv::toXml(data.value<LayoutBreakType>()));
-    } break;
-    case P_TYPE::VELO_TYPE: {
-        element(name, TConv::toXml(data.value<VeloType>()));
     } break;
     case P_TYPE::BARLINE_TYPE: {
         element(name, TConv::toXml(data.value<BarLineType>()));

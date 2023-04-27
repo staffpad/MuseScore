@@ -74,7 +74,7 @@ Promise<TrackName> TracksHandler::trackName(const TrackSequenceId sequenceId, co
 }
 
 Promise<TrackId, AudioParams> TracksHandler::addTrack(const TrackSequenceId sequenceId, const std::string& trackName,
-                                                      QIODevice* playbackData,
+                                                      io::IODevice* playbackData,
                                                       AudioParams&& params)
 {
     return Promise<TrackId, AudioParams>([this, sequenceId, trackName, playbackData, params](auto resolve, auto reject) {
@@ -109,6 +109,28 @@ Promise<TrackId, AudioParams> TracksHandler::addTrack(const TrackSequenceId sequ
         }
 
         RetVal2<TrackId, AudioParams> result = s->addTrack(trackName, playbackData, params);
+
+        if (!result.ret) {
+            return reject(result.ret.code(), result.ret.text());
+        }
+
+        return resolve(result.val1, result.val2);
+    }, AudioThread::ID);
+}
+
+Promise<TrackId, AudioOutputParams> TracksHandler::addAuxTrack(const TrackSequenceId sequenceId, const std::string& trackName,
+                                                               const AudioOutputParams& outputParams)
+{
+    return Promise<TrackId, AudioOutputParams>([this, sequenceId, trackName, outputParams](auto resolve, auto reject) {
+        ONLY_AUDIO_WORKER_THREAD;
+
+        ITrackSequencePtr s = sequence(sequenceId);
+
+        if (!s) {
+            return reject(static_cast<int>(Err::InvalidSequenceId), "invalid sequence id");
+        }
+
+        RetVal2<TrackId, AudioOutputParams> result = s->addAuxTrack(trackName, outputParams);
 
         if (!result.ret) {
             return reject(result.ret.code(), result.ret.text());
@@ -212,6 +234,11 @@ Channel<TrackSequenceId, TrackId, AudioInputParams> TracksHandler::inputParamsCh
     ONLY_AUDIO_MAIN_OR_WORKER_THREAD;
 
     return m_inputParamsChanged;
+}
+
+void TracksHandler::clearSources()
+{
+    resolver()->clearSources();
 }
 
 ITrackSequencePtr TracksHandler::sequence(const TrackSequenceId id) const

@@ -25,6 +25,8 @@
 #include "modularity/imodulesetup.h"
 
 namespace mu::iex::guitarpro {
+class GuitarProReader;
+
 class GuitarProModule : public modularity::IModuleSetup
 {
 public:
@@ -32,7 +34,6 @@ public:
     std::string moduleName() const override;
     void registerExports() override;
     void resolveImports() override;
-    void onInit(const framework::IApplication::RunMode& mode) override;
 };
 }
 

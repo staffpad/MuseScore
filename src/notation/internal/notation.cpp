@@ -28,7 +28,6 @@
 
 #include "libmscore/masterscore.h"
 #include "libmscore/page.h"
-#include "libmscore/rendermidi.h"
 #include "engraving/infrastructure/paint.h"
 
 #include "notationpainting.h"
@@ -74,7 +73,7 @@ Notation::Notation(mu::engraving::Score* score)
         notifyAboutNotationChanged();
     });
 
-    m_midiInput->noteChanged().onNotify(this, [this]() {
+    m_midiInput->notesReceived().onReceive(this, [this](const std::vector<const Note*>&){
         notifyAboutNotationChanged();
     });
 
@@ -91,9 +90,11 @@ Notation::Notation(mu::engraving::Score* score)
     });
 
     configuration()->canvasOrientation().ch.onReceive(this, [this](framework::Orientation) {
-        m_score->doLayout();
-        for (mu::engraving::Score* score : m_score->scoreList()) {
-            score->doLayout();
+        if (m_score) {
+            m_score->doLayout();
+            for (mu::engraving::Score* score : m_score->scoreList()) {
+                score->doLayout();
+            }
         }
     });
 
@@ -122,8 +123,6 @@ void Notation::init()
 {
     bool isVertical = configuration()->canvasOrientation().val == framework::Orientation::Vertical;
     mu::engraving::MScore::setVerticalOrientation(isVertical);
-
-    mu::engraving::MScore::playRepeats = configuration()->isPlayRepeatsEnabled();
 }
 
 void Notation::setScore(mu::engraving::Score* score)

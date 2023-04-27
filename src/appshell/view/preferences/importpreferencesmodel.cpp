@@ -70,9 +70,9 @@ QVariantList ImportPreferencesModel::shortestNotes() const
     return result;
 }
 
-QString ImportPreferencesModel::stylePathFilter() const
+QStringList ImportPreferencesModel::stylePathFilter() const
 {
-    return qtrc("appshell/preferences", "MuseScore style file") + " (*.mss)";
+    return { qtrc("appshell/preferences", "MuseScore style file") + " (*.mss)" };
 }
 
 QString ImportPreferencesModel::styleChooseTitle() const
@@ -87,7 +87,7 @@ QString ImportPreferencesModel::fileDirectory(const QString& filePath) const
 
 QString ImportPreferencesModel::styleFileImportPath() const
 {
-    return musicXmlConfiguration()->styleFileImportPath().toQString();
+    return notationConfiguration()->styleFileImportPath().toQString();
 }
 
 QString ImportPreferencesModel::currentOvertureCharset() const
@@ -126,7 +126,7 @@ void ImportPreferencesModel::setStyleFileImportPath(QString path)
         return;
     }
 
-    musicXmlConfiguration()->setStyleFileImportPath(path.toStdString());
+    notationConfiguration()->setStyleFileImportPath(path.toStdString());
     emit styleFileImportPathChanged(path);
 }
 

@@ -24,11 +24,11 @@
 #include <cmath>
 
 #include "types/typesconv.h"
-#include "rw/xml.h"
+
+#include "iengravingfont.h"
 
 #include "score.h"
 #include "staff.h"
-#include "symbolfont.h"
 #include "system.h"
 
 #include "log.h"
@@ -48,7 +48,7 @@ VibratoSegment::VibratoSegment(Vibrato* sp, System* parent)
 
 void VibratoSegment::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     painter->setPen(spanner()->curColor());
     drawSymbols(_symbols, painter);
 }
@@ -63,7 +63,7 @@ void VibratoSegment::symbolLine(SymId start, SymId fill)
     double x2 = pos2().x();
     double w   = x2 - x1;
     double mag = magS();
-    SymbolFont* f = score()->symbolFont();
+    IEngravingFontPtr f = score()->engravingFont();
 
     _symbols.clear();
     _symbols.push_back(start);
@@ -83,7 +83,7 @@ void VibratoSegment::symbolLine(SymId start, SymId fill, SymId end)
     double x2 = pos2().x();
     double w   = x2 - x1;
     double mag = magS();
-    SymbolFont* f = score()->symbolFont();
+    IEngravingFontPtr f = score()->engravingFont();
 
     _symbols.clear();
     _symbols.push_back(start);
@@ -212,45 +212,6 @@ LineSegment* Vibrato::createLineSegment(System* parent)
     seg->setColor(color());
     seg->initElementStyle(&vibratoSegmentStyle);
     return seg;
-}
-
-//---------------------------------------------------------
-//   Vibrato::write
-//---------------------------------------------------------
-
-void Vibrato::write(XmlWriter& xml) const
-{
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    xml.startElement(this);
-    xml.tag("subtype", TConv::toXml(vibratoType()));
-    writeProperty(xml, Pid::PLAY);
-    for (const StyledProperty& spp : *styledProperties()) {
-        writeProperty(xml, spp.pid);
-    }
-    SLine::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   Vibrato::read
-//---------------------------------------------------------
-
-void Vibrato::read(XmlReader& e)
-{
-    eraseSpannerSegments();
-
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "subtype") {
-            setVibratoType(TConv::fromXml(e.readAsciiText(), VibratoType::GUITAR_VIBRATO));
-        } else if (tag == "play") {
-            setPlayArticulation(e.readBool());
-        } else if (!SLine::readProperties(e)) {
-            e.unknown();
-        }
-    }
 }
 
 //---------------------------------------------------------

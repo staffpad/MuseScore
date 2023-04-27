@@ -1422,7 +1422,6 @@ void OveToMScore::convertMeasureMisc(Measure* measure, int part, int staff, int 
 // beam in grace
 int getGraceLevel(const QList<ovebase::NoteContainer*>& containers, int tick, int unit)
 {
-    int graceCount = 0;
     int level = 0; // normal chord rest
 
     for (int i = 0; i < containers.size(); ++i) {
@@ -1431,12 +1430,9 @@ int getGraceLevel(const QList<ovebase::NoteContainer*>& containers, int tick, in
             break;
         }
 
-        if (container->getIsGrace() && container->getTick() == tick) {
-            ++graceCount;
-
-            if (unit <= container->start()->getOffset()) {
-                ++level;
-            }
+        if (container->getIsGrace() && container->getTick() == tick
+            && unit <= container->start()->getOffset()) {
+            ++level;
         }
     }
 
@@ -1540,7 +1536,7 @@ void OveToMScore::convertNotes(Measure* measure, int part, int staff, int track)
                 if (!isRestDefaultLine(notePtr, container->getNoteType()) && notePtr->getLine() != 0) {
                     double yOffset = -(double)(notePtr->getLine());
                     int stepOffset = cr->staff()->staffType(cr->tick())->stepOffset();
-                    int lineOffset = static_cast<mu::engraving::Rest*>(cr)->computeLineOffset(5);
+                    int lineOffset = static_cast<mu::engraving::Rest*>(cr)->computeVoiceOffset(5);
                     yOffset -= qreal(lineOffset + stepOffset);
                     yOffset *= m_score->spatium() / 2.0;
                     cr->ryoffset() = yOffset;
@@ -1610,9 +1606,7 @@ void OveToMScore::convertNotes(Measure* measure, int part, int staff, int track)
                 Note* note = Factory::createNote(mu::engraving::toChord(cr));
                 int pitch = oveNote->getNote();
 
-                // note->setTrack(noteTrack);
-                note->setVeloType(VeloType::USER_VAL);
-                note->setVeloOffset(oveNote->getOnVelocity());
+                note->setUserVelocity(oveNote->getOnVelocity());
                 note->setPitch(pitch);
 
                 // tpc

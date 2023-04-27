@@ -30,6 +30,9 @@
 
 #include <map>
 
+#include "modularity/ioc.h"
+#include "iengravingfontsprovider.h"
+
 #include "style/style.h"
 #include "compat/midi/midipatch.h"
 
@@ -192,12 +195,13 @@ private:
 
 class UndoStack
 {
-    UndoMacro* curCmd;
+    UndoMacro* curCmd = nullptr;
     std::vector<UndoMacro*> list;
     std::vector<int> stateList;
-    int nextState;
-    int cleanState;
+    int nextState = 0;
+    int cleanState = 0;
     size_t curIdx = 0;
+    bool isLocked = false;
 
     void remove(size_t idx);
 
@@ -205,25 +209,23 @@ public:
     UndoStack();
     ~UndoStack();
 
+    bool locked() const;
+    void setLocked(bool val);
     bool active() const { return curCmd != 0; }
     void beginMacro(Score*);
     void endMacro(bool rollback);
     void push(UndoCommand*, EditData*);        // push & execute
     void push1(UndoCommand*);
     void pop();
-    void setClean();
     bool canUndo() const { return curIdx > 0; }
     bool canRedo() const { return curIdx < list.size(); }
-    int state() const { return stateList[curIdx]; }
-    bool isClean() const { return cleanState == state(); }
+    bool isClean() const { return cleanState == stateList[curIdx]; }
     size_t getCurIdx() const { return curIdx; }
-    bool empty() const { return !canUndo() && !canRedo(); }
     UndoMacro* current() const { return curCmd; }
     UndoMacro* last() const { return curIdx > 0 ? list[curIdx - 1] : 0; }
     UndoMacro* prev() const { return curIdx > 1 ? list[curIdx - 2] : 0; }
     void undo(EditData*);
     void redo(EditData*);
-    void rollback();
     void reopen();
 
     void mergeCommands(size_t startIdx);
@@ -234,34 +236,34 @@ class InsertPart : public UndoCommand
 {
     OBJECT_ALLOCATOR(engraving, InsertPart)
 
-    Part* part = nullptr;
-    int idx = 0;
+    Part* m_part = nullptr;
+    size_t m_targetPartIdx = 0;
 
 public:
-    InsertPart(Part* p, int i);
+    InsertPart(Part* p, size_t targetPartIdx);
     void undo(EditData*) override;
     void redo(EditData*) override;
 
     UNDO_TYPE(CommandType::InsertPart)
     UNDO_NAME("InsertPart")
-    UNDO_CHANGED_OBJECTS({ part })
+    UNDO_CHANGED_OBJECTS({ m_part })
 };
 
 class RemovePart : public UndoCommand
 {
     OBJECT_ALLOCATOR(engraving, RemovePart)
 
-    Part* part = nullptr;
-    staff_idx_t idx = mu::nidx;
+    Part* m_part = nullptr;
+    size_t m_partIdx = mu::nidx;
 
 public:
-    RemovePart(Part*, staff_idx_t idx);
+    RemovePart(Part*, size_t partIdx);
     void undo(EditData*) override;
     void redo(EditData*) override;
 
     UNDO_TYPE(CommandType::RemovePart)
     UNDO_NAME("RemovePart")
-    UNDO_CHANGED_OBJECTS({ part })
+    UNDO_CHANGED_OBJECTS({ m_part })
 };
 
 class SetSoloist : public UndoCommand
@@ -304,6 +306,7 @@ class RemoveStaff : public UndoCommand
 
     Staff* staff = nullptr;
     staff_idx_t ridx = mu::nidx;
+    bool wasSystemObjectStaff = false;
 
 public:
     RemoveStaff(Staff*);
@@ -402,24 +405,6 @@ public:
 
     UNDO_TYPE(CommandType::SortStaves)
     UNDO_NAME("SortStaves")
-    UNDO_CHANGED_OBJECTS({ score })
-};
-
-class MapExcerptTracks : public UndoCommand
-{
-    OBJECT_ALLOCATOR(engraving, MapExcerptTracks)
-
-    Score* score = nullptr;
-    std::vector<staff_idx_t> list;
-    std::vector<staff_idx_t> rlist;
-
-public:
-    MapExcerptTracks(Score*, const std::vector<staff_idx_t>&);
-    void undo(EditData*) override;
-    void redo(EditData*) override;
-
-    UNDO_TYPE(CommandType::MapExcerptTracks)
-    UNDO_NAME("MapExcerptTracks")
     UNDO_CHANGED_OBJECTS({ score })
 };
 
@@ -763,6 +748,8 @@ class ChangeStyle : public UndoCommand
 {
     OBJECT_ALLOCATOR(engraving, ChangeStyle)
 
+    INJECT_STATIC(engraving, IEngravingFontsProvider, engravingFonts)
+
     Score* score = nullptr;
     MStyle style;
     bool overlap = false;
@@ -839,13 +826,12 @@ class ChangeVelocity : public UndoCommand
     OBJECT_ALLOCATOR(engraving, ChangeVelocity)
 
     Note* note = nullptr;
-    VeloType veloType;
-    int veloOffset = 0;
+    int userVelocity = 0;
 
     void flip(EditData*) override;
 
 public:
-    ChangeVelocity(Note*, VeloType, int);
+    ChangeVelocity(Note*, int);
 
     UNDO_TYPE(CommandType::ChangeVelocity)
     UNDO_NAME("ChangeVelocity")
@@ -1193,7 +1179,7 @@ class AddBracket : public UndoCommand
     OBJECT_ALLOCATOR(engraving, AddBracket)
 
     Staff* staff = nullptr;
-    int level = 0;
+    size_t level = 0;
     BracketType bracketType = BracketType::NORMAL;
     size_t span = 0;
 
@@ -1201,7 +1187,7 @@ class AddBracket : public UndoCommand
     void redo(EditData*) override;
 
 public:
-    AddBracket(Staff* s, int l, BracketType t, size_t sp)
+    AddBracket(Staff* s, size_t l, BracketType t, size_t sp)
         : staff(s), level(l), bracketType(t), span(sp) {}
 
     UNDO_TYPE(CommandType::AddBracket)

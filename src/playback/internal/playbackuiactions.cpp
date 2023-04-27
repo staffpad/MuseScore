@@ -65,6 +65,13 @@ const UiActionList PlaybackUiActions::m_mainActions = {
              TranslatableString("action", "Toggle metronome playback"),
              IconCode::Code::METRONOME,
              Checkable::Yes
+             ),
+    UiAction("playback-setup",
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_NOTATION_FOCUSED,
+             TranslatableString("action", "Playback setup"),
+             TranslatableString("action", "Open playback setup dialog"),
+             IconCode::Code::NONE
              )
 };
 
@@ -85,6 +92,14 @@ const UiActionList PlaybackUiActions::m_settingsActions = {
              IconCode::Code::PLAY_REPEATS,
              Checkable::Yes
              ),
+    UiAction("play-chord-symbols",
+             mu::context::UiCtxAny,
+             mu::context::CTX_NOTATION_FOCUSED,
+             TranslatableString("action", "Play chord symbols"),
+             TranslatableString("action", "Play chord symbols"),
+             IconCode::Code::CHORD_SYMBOL,
+             Checkable::Yes
+             ),
     UiAction("pan",
              mu::context::UiCtxAny,
              mu::context::CTX_ANY,
@@ -93,14 +108,14 @@ const UiActionList PlaybackUiActions::m_settingsActions = {
              IconCode::Code::PAN_SCORE,
              Checkable::Yes
              ),
-    UiAction("countin",
-             mu::context::UiCtxAny,
-             mu::context::CTX_ANY,
-             TranslatableString("action", "Enable count-in when playing"),
-             TranslatableString("action", "Enable count-in when playing"),
-             IconCode::Code::COUNT_IN,
-             Checkable::Yes
-             ),
+//    UiAction("countin",                                      // See #14807
+//             mu::context::UiCtxAny,
+//             mu::context::CTX_ANY,
+//             TranslatableString("action", "Enable count-in when playing"),
+//             TranslatableString("action", "Enable count-in when playing"),
+//             IconCode::Code::COUNT_IN,
+//             Checkable::Yes
+//             ),
 };
 
 const UiActionList PlaybackUiActions::m_loopBoundaryActions = {

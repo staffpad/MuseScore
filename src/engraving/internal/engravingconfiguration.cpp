@@ -21,9 +21,17 @@
  */
 #include "engravingconfiguration.h"
 
+#include <cstdlib>
+
+#ifndef NO_QT_SUPPORT
+#include <QLocale>
+#include <QPageSize>
+#endif
+
 #include "global/settings.h"
 #include "draw/types/color.h"
 #include "libmscore/mscore.h"
+#include "translation.h"
 
 #include "log.h"
 
@@ -61,6 +69,7 @@ void EngravingConfiguration::init()
         Settings::Key key("engraving", "engraving/colors/voice" + std::to_string(voice + 1));
 
         settings()->setDefaultValue(key, Val(defaultVoiceColors[voice].toQColor()));
+        settings()->setDescription(key, qtrc("engraving", "Voice %1 color").arg(voice + 1).toStdString());
         settings()->setCanBeManuallyEdited(key, true);
         settings()->valueChanged(key).onReceive(this, [this, voice](const Val& val) {
             Color color = val.toQColor();
@@ -98,6 +107,44 @@ void EngravingConfiguration::setPartStyleFilePath(const io::path_t& path)
     settings()->setSharedValue(PART_STYLE_FILE_PATH, Val(path.toStdString()));
 }
 
+static bool defaultPageSizeIsLetter()
+{
+    // try PAPERSIZE environment variable
+    const char* papersize = getenv("PAPERSIZE");
+    if (papersize) {
+        return strcmp(papersize, "letter") == 0;
+    }
+#ifndef NO_QT_SUPPORT
+    // try locale
+    switch (QLocale::system().country()) {
+    case QLocale::UnitedStates:
+    case QLocale::Canada:
+    case QLocale::Mexico:
+    case QLocale::Chile:
+    case QLocale::Colombia:
+    case QLocale::CostaRica:
+    case QLocale::Panama:
+    case QLocale::Guatemala:
+    case QLocale::DominicanRepublic:
+    case QLocale::Philippines:
+        return true;
+    default:
+        return false;
+    }
+#else
+    return false;
+#endif
+}
+
+SizeF EngravingConfiguration::defaultPageSize() const
+{
+    // Needs to be determined only once, therefore static
+    static SizeF size = SizeF::fromQSizeF(
+        QPageSize::size(defaultPageSizeIsLetter() ? QPageSize::Letter : QPageSize::A4, QPageSize::Inch));
+
+    return size;
+}
+
 mu::String EngravingConfiguration::iconsFontFamily() const
 {
     return String::fromStdString(uiConfiguration()->iconsFontFamily());
@@ -105,7 +152,7 @@ mu::String EngravingConfiguration::iconsFontFamily() const
 
 Color EngravingConfiguration::defaultColor() const
 {
-    return Color::black;
+    return Color::BLACK;
 }
 
 Color EngravingConfiguration::scoreInversionColor() const
@@ -136,7 +183,7 @@ Color EngravingConfiguration::warningSelectedColor() const
 
 Color EngravingConfiguration::criticalColor() const
 {
-    return Color::redColor;
+    return Color::RED;
 }
 
 Color EngravingConfiguration::criticalSelectedColor() const
@@ -151,12 +198,12 @@ Color EngravingConfiguration::formattingMarksColor() const
 
 Color EngravingConfiguration::thumbnailBackgroundColor() const
 {
-    return Color::white;
+    return Color::WHITE;
 }
 
 Color EngravingConfiguration::noteBackgroundColor() const
 {
-    return Color::white;
+    return Color::WHITE;
 }
 
 double EngravingConfiguration::guiScaling() const
@@ -229,4 +276,44 @@ mu::async::Notification EngravingConfiguration::debuggingOptionsChanged() const
 bool EngravingConfiguration::isAccessibleEnabled() const
 {
     return accessibilityConfiguration() ? accessibilityConfiguration()->enabled() : false;
+}
+
+bool EngravingConfiguration::guitarProImportExperimental() const
+{
+    return guitarProConfiguration() ? guitarProConfiguration()->experimental() : false;
+}
+
+bool EngravingConfiguration::negativeFretsAllowed() const
+{
+    return guitarProImportExperimental();
+}
+
+bool EngravingConfiguration::tablatureParenthesesZIndexWorkaround() const
+{
+    return guitarProImportExperimental();
+}
+
+bool EngravingConfiguration::crossNoteHeadAlwaysBlack() const
+{
+    return guitarProImportExperimental();
+}
+
+bool EngravingConfiguration::enableExperimentalFretCircle() const
+{
+    return false;
+}
+
+void EngravingConfiguration::setGuitarProMultivoiceEnabled(bool multiVoice)
+{
+    m_multiVoice = multiVoice;
+}
+
+bool EngravingConfiguration::guitarProMultivoiceEnabled() const
+{
+    return m_multiVoice;
+}
+
+bool EngravingConfiguration::minDistanceForPartialSkylineCalculated() const
+{
+    return guitarProImportExperimental();
 }

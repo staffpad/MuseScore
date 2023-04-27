@@ -23,7 +23,7 @@
 #ifndef MU_VST_VSTSEQUENCER_H
 #define MU_VST_VSTSEQUENCER_H
 
-#include "audio/abstracteventsequencer.h"
+#include "audio/internal/abstracteventsequencer.h"
 
 #include "vsttypes.h"
 
@@ -68,9 +68,15 @@ public:
 private:
     void updatePlaybackEvents(EventSequenceMap& destination, const mpe::PlaybackEventsMap& changes);
 
-    VstEvent buildEvent(const Steinberg::Vst::Event::EventTypes type, const int32_t noteIdx, const float velocityFraction);
+    void appendControlSwitch(EventSequenceMap& destination, const mpe::NoteEvent& noteEvent, const mpe::ArticulationTypeSet& appliableTypes,
+                             const ControllIdx controlIdx);
+
+    VstEvent buildEvent(const Steinberg::Vst::Event::EventTypes type, const int32_t noteIdx, const float velocityFraction,
+                        const float tuning) const;
+    PluginParamInfo buildParamInfo(const PluginParamId id, const PluginParamValue value) const;
 
     int32_t noteIndex(const mpe::pitch_level_t pitchLevel) const;
+    float noteTuning(const mpe::NoteEvent& noteEvent, const int noteIdx) const;
     float noteVelocityFraction(const mpe::NoteEvent& noteEvent) const;
     float expressionLevel(const mpe::dynamic_level_t dynamicLevel) const;
 

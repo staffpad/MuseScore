@@ -26,21 +26,31 @@
 #include <vector>
 #include <cstdio>
 
+#include "async/asyncable.h"
+#include "modularity/ioc.h"
+
+#include "audio/iaudioconfiguration.h"
 #include "audiotypes.h"
 #include "iaudiosource.h"
 #include "internal/encoders/abstractaudioencoder.h"
 
 namespace mu::audio::soundtrack {
-class SoundTrackWriter
+class SoundTrackWriter : public async::Asyncable
 {
+    INJECT_STATIC(audio, IAudioConfiguration, config)
 public:
     SoundTrackWriter(const io::path_t& destination, const SoundTrackFormat& format, const msecs_t totalDuration, IAudioSourcePtr source);
 
-    bool write();
+    Ret write();
+    void abort();
+
+    framework::Progress progress();
 
 private:
     encode::AbstractAudioEncoderPtr createEncoder(const SoundTrackType& type) const;
-    bool prepareInputBuffer();
+    Ret prepareInputBuffer();
+
+    void sendStepProgress(int step, int64_t current, int64_t total);
 
     IAudioSourcePtr m_source = nullptr;
 
@@ -48,6 +58,9 @@ private:
     std::vector<float> m_intermBuffer;
 
     encode::AbstractAudioEncoderPtr m_encoderPtr = nullptr;
+
+    framework::Progress m_progress;
+    std::atomic<bool> m_isAborted = false;
 };
 }
 

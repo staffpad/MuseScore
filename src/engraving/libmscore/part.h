@@ -34,7 +34,6 @@ class Read206;
 }
 
 namespace mu::engraving {
-class XmlWriter;
 class Staff;
 class Score;
 class InstrumentTemplate;
@@ -70,6 +69,7 @@ enum class PreferSharpFlat : char {
 class Part final : public EngravingObject
 {
     OBJECT_ALLOCATOR(engraving, Part)
+    DECLARE_CLASSOF(ElementType::PART)
 
     String _partName;              ///< used in tracklist (mixer)
     InstrumentList _instruments;
@@ -79,7 +79,6 @@ class Part final : public EngravingObject
     bool _soloist = false;           ///< used in score ordering
     int _capoFret = 0;
 
-    static const int DEFAULT_COLOR = 0x3399ff;
     int _color = 0;                  ///User specified color for helping to label parts
 
     PreferSharpFlat _preferSharpFlat = PreferSharpFlat::DEFAULT;
@@ -87,6 +86,9 @@ class Part final : public EngravingObject
     friend class compat::Read206;
 
 public:
+    static const Fraction MAIN_INSTRUMENT_TICK;
+    static const int DEFAULT_COLOR = 0x3399ff;
+
     Part(Score* score = nullptr);
     void initFromInstrTemplate(const InstrumentTemplate*);
 
@@ -97,10 +99,10 @@ public:
 
     void read(XmlReader&);
     bool readProperties(XmlReader&);
-    void write(XmlWriter& xml) const;
 
     size_t nstaves() const;
     const std::vector<Staff*>& staves() const;
+    std::set<staff_idx_t> staveIdxList() const;
     void appendStaff(Staff* staff);
     void clearStaves();
 
@@ -158,7 +160,6 @@ public:
     void setInstrument(const Instrument&, Fraction = { -1, 1 });
     void setInstruments(const InstrumentList& instruments);
     void removeInstrument(const Fraction&);
-    void removeInstrument(const String&);
     const InstrumentList& instruments() const;
 
     void insertTime(const Fraction& tick, const Fraction& len);

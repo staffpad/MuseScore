@@ -58,11 +58,32 @@ FocusableItem {
 
         OffsetSection {
             id: beginningTextOffsetSection
-            titleText: qsTrc("inspector", "Vertical offset")
-            verticalOffset: root.model ? root.model.beginningTextVerticalOffset : null
+            titleText: qsTrc("inspector", "Offset")
+            propertyItem: root.model ? root.model.beginningTextOffset : null
 
             navigationPanel: root.navigationPanel
             navigationRowStart: beginningTextSection.navigationRowEnd + 1
+        }
+
+        SeparatorLine { anchors.margins: -12 }
+
+        SpinBoxPropertyView {
+            id: gapBetweenTextAndLineControl
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.rightMargin: 2
+
+            titleText: qsTrc("inspector", "Gap between text and line")
+            propertyItem: root.model ? root.model.gapBetweenTextAndLine : null
+
+            step: 0.1
+            maxValue: 100.0
+            minValue: 0.0
+            decimals: 2
+
+            navigationName: "GapBetweenTextAndLine"
+            navigationPanel: root.navigationPanel
+            navigationRowStart: beginningTextOffsetSection.navigationRowEnd + 1
         }
 
         SeparatorLine { anchors.margins: -12 }
@@ -73,13 +94,13 @@ FocusableItem {
             propertyItem: root.model ? root.model.continuousText : null
 
             navigationPanel: root.navigationPanel
-            navigationRowStart: beginningTextOffsetSection.navigationRowEnd + 1
+            navigationRowStart: gapBetweenTextAndLineControl.navigationRowEnd + 1
         }
 
         OffsetSection {
             id: continuousTextOffsetSection
-            titleText: qsTrc("inspector", "Vertical offset")
-            verticalOffset: root.model ? root.model.continuousTextVerticalOffset : null
+            titleText: qsTrc("inspector", "Offset")
+            propertyItem: root.model ? root.model.continuousTextOffset : null
 
             navigationPanel: root.navigationPanel
             navigationRowStart: continuousTextSection.navigationRowEnd + 1
@@ -98,8 +119,8 @@ FocusableItem {
 
         OffsetSection {
             id: endTextOffsetSection
-            titleText: qsTrc("inspector", "Vertical offset")
-            verticalOffset: root.model ? root.model.endTextVerticalOffset : null
+            titleText: qsTrc("inspector", "Offset")
+            propertyItem: root.model ? root.model.endTextOffset : null
 
             navigationPanel: root.navigationPanel
             navigationRowStart: endTextSection.navigationRowEnd + 1

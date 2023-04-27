@@ -20,6 +20,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#ifndef MU_ENGRAVING_TYPES_H
+#define MU_ENGRAVING_TYPES_H
+
 #include <functional>
 #include <map>
 #include <unordered_set>
@@ -38,9 +41,6 @@
 #include "groupnode.h"
 #include "pitchvalue.h"
 #include "symid.h"
-
-#ifndef MU_ENGRAVING_TYPES_H
-#define MU_ENGRAVING_TYPES_H
 
 namespace mu::engraving {
 using staff_idx_t = size_t;
@@ -88,6 +88,7 @@ enum class ElementType {
     TIMESIG,
     REST,
     MMREST,
+    DEAD_SLAPPED,
     BREATH,
     MEASURE_REPEAT,
     TIE,
@@ -96,6 +97,7 @@ enum class ElementType {
     CHORDLINE,
     DYNAMIC,
     BEAM,
+    BEAM_SEGMENT,
     HOOK,
     LYRICS,
     FIGURED_BASS,
@@ -127,6 +129,7 @@ enum class ElementType {
     WHAMMY_BAR_SEGMENT,
     RASGUEADO_SEGMENT,
     HARMONIC_MARK_SEGMENT,
+    PICK_SCRAPE_SEGMENT,
     TEXTLINE_SEGMENT,
     VOLTA_SEGMENT,
     PEDAL_SEGMENT,
@@ -157,6 +160,7 @@ enum class ElementType {
     WHAMMY_BAR,
     RASGUEADO,
     HARMONIC_MARK,
+    PICK_SCRAPE,
     TEXTLINE,
     TEXTLINE_BASE,
     NOTELINE,
@@ -181,6 +185,7 @@ enum class ElementType {
     BAGPIPE_EMBELLISHMENT,
     STICKING,
     GRACE_NOTES_GROUP,
+    FRET_CIRCLE,
 
     ROOT_ITEM,
     DUMMY,
@@ -188,6 +193,8 @@ enum class ElementType {
     MAXTYPE
     ///\}
 };
+
+constexpr size_t TOT_ELEMENT_TYPES = static_cast<size_t>(ElementType::MAXTYPE);
 
 using ElementTypeSet = std::unordered_set<ElementType>;
 
@@ -406,6 +413,7 @@ enum class NoteHeadGroup : signed char {
     HEAD_BREVIS_ALT,
 
     HEAD_SLASH,
+    HEAD_LARGE_DIAMOND,
 
     HEAD_SOL,
     HEAD_LA,
@@ -468,6 +476,9 @@ enum class NoteHeadGroup : signed char {
     HEAD_H,
     HEAD_H_SHARP,
 
+    HEAD_SWISS_RUDIMENTS_FLAM,
+    HEAD_SWISS_RUDIMENTS_DOUBLE,
+
     HEAD_CUSTOM,
     HEAD_GROUPS,
     HEAD_INVALID = -1
@@ -493,8 +504,8 @@ enum class ClefType : signed char {
     C1_F18C,
     C3_F18C,
     C4_F18C,
-    C3_F20C,
     C1_F20C,
+    C3_F20C,
     C4_F20C,
     F,
     F15_MB,
@@ -620,6 +631,7 @@ enum class TextStyleType {
 
     // System-level styles
     TEMPO,
+    TEMPO_CHANGE,
     METRONOME,
     REPEAT_LEFT,       // align to start of measure
     REPEAT_RIGHT,      // align to end of measure
@@ -696,7 +708,9 @@ enum class PlayingTechniqueType {
     Vibrato,
     Legato,
     Distortion,
-    Overdrive
+    Overdrive,
+    Harmonics,
+    JazzTone,
 };
 
 enum class GradualTempoChangeType {
@@ -864,6 +878,17 @@ enum class VibratoType : char {
     GUITAR_VIBRATO, GUITAR_VIBRATO_WIDE, VIBRATO_SAWTOOTH, VIBRATO_SAWTOOTH_WIDE
 };
 
+enum class ArticulationTextType {
+    NO_TEXT,
+    TAP,
+    SLAP,
+    POP
+};
+
+enum class LyricsSyllabic : char {
+    SINGLE, BEGIN, END, MIDDLE
+};
+
 //---------------------------------------------------------
 //   Key
 //---------------------------------------------------------
@@ -899,6 +924,17 @@ static inline bool operator==(const Key a, const Key b) { return int(a) == int(b
 static inline bool operator!=(const Key a, const Key b) { return static_cast<int>(a) != static_cast<int>(b); }
 static inline Key operator+=(Key& a, const Key& b) { return a = Key(static_cast<int>(a) + static_cast<int>(b)); }
 static inline Key operator-=(Key& a, const Key& b) { return a = Key(static_cast<int>(a) - static_cast<int>(b)); }
+
+struct PartAudioSettingsCompat {
+    InstrumentTrackId instrumentId;
+    bool mute = false;
+    bool solo = false;
+    int velocity = 127;
+};
+
+struct SettingsCompat {
+    std::map<ID /*partid*/, PartAudioSettingsCompat> audioSettings;
+};
 } // mu::engraving
 
 template<>
@@ -913,6 +949,7 @@ struct std::hash<mu::engraving::InstrumentTrackId>
 };
 
 #ifndef NO_QT_SUPPORT
+Q_DECLARE_METATYPE(mu::engraving::BeamMode)
 Q_DECLARE_METATYPE(mu::engraving::JumpType)
 Q_DECLARE_METATYPE(mu::engraving::MarkerType)
 Q_DECLARE_METATYPE(mu::engraving::TrillType)

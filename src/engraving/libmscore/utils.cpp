@@ -30,7 +30,6 @@
 #include "chord.h"
 #include "chordrest.h"
 #include "clef.h"
-#include "config.h"
 #include "measure.h"
 #include "note.h"
 #include "page.h"
@@ -1045,20 +1044,6 @@ int chromaticPitchSteps(const Note* noteL, const Note* noteR, const int nominalD
         if (chord->vStaffIdx() != chordL->vStaffIdx()) {
             continue;
         }
-        for (Note* note : chord->notes()) {
-            if (note->tieBack()) {
-                continue;
-            }
-            int pc = (note->line() + 700) % 7;
-            int pc2 = (lineL2 + 700) % 7;
-            if (pc2 == pc) {
-                // e.g., if there is an F# note at this staff/tick, then force every F to be F#.
-                int octaves = (note->line() - lineL2) / 7;
-                halfsteps = note->epitch() + 12 * octaves - epitchL;
-                done = true;
-                break;
-            }
-        }
         if (!done) {
             if (staffL->isPitchedStaff(segment->tick())) {
                 bool error = false;
@@ -1150,5 +1135,95 @@ Fraction actualTicks(Fraction duration, Tuplet* tuplet, Fraction timeStretch)
         f /= t->ratio();
     }
     return f;
+}
+
+double yStaffDifference(const System* system1, staff_idx_t staffIdx1, const System* system2, staff_idx_t staffIdx2)
+{
+    if (!system1 || !system2) {
+        return 0.0;
+    }
+    const SysStaff* staff1 = system1->staff(staffIdx1);
+    const SysStaff* staff2 = system2->staff(staffIdx2);
+    if (!staff1 || !staff2) {
+        return 0.0;
+    }
+    return staff1->y() - staff2->y();
+}
+
+bool allowRemoveWhenRemovingStaves(EngravingItem* item, staff_idx_t startStaff, staff_idx_t endStaff)
+{
+    // Sanity checks
+    if (!item || item->staffIdx() == mu::nidx || startStaff == mu::nidx || endStaff == mu::nidx) {
+        return false;
+    }
+
+    Score* score = item->score();
+    if (score->nstaves() == 1) {
+        return true;
+    }
+
+    if (endStaff == 0) { // Default initialized
+        endStaff = startStaff + 1;
+    }
+
+    staff_idx_t staffIdx = item->staffIdx();
+    if (staffIdx < startStaff || staffIdx >= endStaff) {
+        return false;
+    }
+
+    Staff* nextRemaining = score->staff(endStaff);
+    bool nextRemainingIsSystemObjectStaff = nextRemaining && score->isSystemObjectStaff(nextRemaining);
+    if (item->isTopSystemObject() && !nextRemainingIsSystemObjectStaff) {
+        return false;
+    }
+
+    return true;
+}
+
+bool moveDownWhenAddingStaves(EngravingItem* item, staff_idx_t startStaff, staff_idx_t endStaff)
+{
+    // Sanity checks
+    if (!item || item->staffIdx() == mu::nidx || startStaff == mu::nidx || endStaff == mu::nidx) {
+        return false;
+    }
+
+    if (item->staffIdx() < startStaff) {
+        return false;
+    }
+
+    if (endStaff == 0) { // Default initialized
+        endStaff = startStaff + 1;
+    }
+
+    Score* score = item->score();
+    Staff* nextAfterInserted = score->staff(endStaff);
+    bool nextAfterInsertedIsSystemObjectStaff = nextAfterInserted && score->isSystemObjectStaff(nextAfterInserted);
+    if (item->isTopSystemObject() && !nextAfterInsertedIsSystemObjectStaff) {
+        return false;
+    }
+
+    return true;
+}
+
+void collectChordsAndRest(Segment* segment, staff_idx_t staffIdx, std::vector<Chord*>& chords, std::vector<Rest*>& rests)
+{
+    if (!segment) {
+        return;
+    }
+
+    track_idx_t startTrack = staffIdx * VOICES;
+    track_idx_t endTrack = startTrack + VOICES;
+
+    for (track_idx_t track = startTrack; track < endTrack; ++track) {
+        EngravingItem* e = segment->elementAt(track);
+        if (!e) {
+            continue;
+        }
+        if (e->isChord() && !toChordRest(e)->staffMove()) {
+            chords.push_back(toChord(e));
+        } else if (e->isRest() && !toChordRest(e)->staffMove()) {
+            rests.push_back(toRest(e));
+        }
+    }
 }
 }

@@ -102,7 +102,7 @@ apt_packages_ffmpeg=(
   libswscale-dev
   )
 
-sudo apt-get update # no package lists in Docker image
+sudo apt-get update 
 sudo apt-get install -y --no-install-recommends \
   "${apt_packages_basic[@]}" \
   "${apt_packages_standard[@]}" \
@@ -135,7 +135,6 @@ echo export QML2_IMPORT_PATH="${qt_dir}/qml" >> ${ENV_FILE}
 ##########################################################################
 
 # COMPILER
-
 gcc_version="10"
 sudo apt-get install -y --no-install-recommends "g++-${gcc_version}"
 sudo update-alternatives \
@@ -146,7 +145,7 @@ echo export CC="/usr/bin/gcc-${gcc_version}" >> ${ENV_FILE}
 echo export CXX="/usr/bin/g++-${gcc_version}" >> ${ENV_FILE}
 
 gcc-${gcc_version} --version
-g++-${gcc_version} --version 
+g++-${gcc_version} --version
 
 # CMAKE
 # Get newer CMake (only used cached version if it is the same)

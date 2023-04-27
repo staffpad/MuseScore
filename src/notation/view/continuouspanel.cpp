@@ -183,11 +183,11 @@ void ContinuousPanel::paint(mu::draw::Painter& painter, const NotationViewContex
             mu::engraving::Segment* parent = score->tick2segment(Fraction::fromTicks(tick));
 
             // Find maximum width for the staff name
-            std::list<mu::engraving::StaffName>& staffNamesLong
+            const std::list<mu::engraving::StaffName>& staffNamesLong
                 = currentStaff->part()->instrument(mu::engraving::Fraction::fromTicks(tick))->longNames();
             QString staffName = staffNamesLong.empty() ? u" " : staffNamesLong.front().name();
             if (staffName == "") {
-                std::list<mu::engraving::StaffName>& staffNamesShort
+                const std::list<mu::engraving::StaffName>& staffNamesShort
                     = currentStaff->part()->instrument(mu::engraving::Fraction::fromTicks(tick))->shortNames();
                 staffName = staffNamesShort.empty() ? u"" : staffNamesShort.front().name();
             }
@@ -291,7 +291,6 @@ void ContinuousPanel::paint(mu::draw::Painter& painter, const NotationViewContex
     painter.save();
 
     // Draw colored rectangle
-    painter.setClipping(false);
     PointF pos(offsetPanel, 0);
 
     painter.translate(pos);
@@ -304,16 +303,13 @@ void ContinuousPanel::paint(mu::draw::Painter& painter, const NotationViewContex
     RectF bg(m_rect);
     bg.setWidth(widthClef + widthKeySig + widthTimeSig + leftMarginTotal + panelRightPadding);
 
-    const QPixmap& wallpaper = notationConfiguration()->backgroundWallpaper();
+    const QPixmap& wallpaper = notationConfiguration()->foregroundWallpaper();
 
-    if (notationConfiguration()->backgroundUseColor() || wallpaper.isNull()) {
+    if (notationConfiguration()->foregroundUseColor() || wallpaper.isNull()) {
         painter.fillRect(bg, notationConfiguration()->foregroundColor());
     } else {
         painter.drawTiledPixmap(bg, wallpaper, bg.topLeft() - PointF(lrint(ctx.xOffset), lrint(ctx.yOffset)));
     }
-
-    painter.setClipRect(m_rect);
-    painter.setClipping(true);
 
     mu::draw::Color color = engravingConfiguration()->formattingMarksColor();
 
@@ -373,11 +369,11 @@ void ContinuousPanel::paint(mu::draw::Painter& painter, const NotationViewContex
             barLine->draw(&painter);
 
             // Draw the current staff name
-            std::list<mu::engraving::StaffName>& staffNamesLong
+            const std::list<mu::engraving::StaffName>& staffNamesLong
                 = currentStaff->part()->instrument(mu::engraving::Fraction::fromTicks(tick))->longNames();
             QString staffName = staffNamesLong.empty() ? u" " : staffNamesLong.front().name();
             if (staffName == "") {
-                std::list<mu::engraving::StaffName>& staffNamesShort
+                const std::list<mu::engraving::StaffName>& staffNamesShort
                     = currentStaff->part()->instrument(mu::engraving::Fraction::fromTicks(tick))->shortNames();
                 staffName = staffNamesShort.empty() ? u"" : staffNamesShort.front().name();
             }

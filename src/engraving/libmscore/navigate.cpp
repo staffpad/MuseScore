@@ -24,6 +24,7 @@
 
 #include "chord.h"
 #include "engravingitem.h"
+#include "lyrics.h"
 #include "measure.h"
 #include "measurerepeat.h"
 #include "note.h"
@@ -722,6 +723,7 @@ EngravingItem* Score::nextElement()
         case ElementType::WHAMMY_BAR_SEGMENT:
         case ElementType::RASGUEADO_SEGMENT:
         case ElementType::HARMONIC_MARK_SEGMENT:
+        case ElementType::PICK_SCRAPE_SEGMENT:
         case ElementType::PEDAL_SEGMENT: {
             SpannerSegment* s = toSpannerSegment(e);
             Spanner* sp = s->spanner();
@@ -963,5 +965,29 @@ EngravingItem* Score::prevElement()
         e = e->parentItem();
     }
     return score()->firstElement();
+}
+
+//---------------------------------------------------------
+//   prevLyrics
+//    - find the lyric (if any) before this one (not including lines)
+//    - currently used to determine the first lyric of a melisma
+//---------------------------------------------------------
+
+Lyrics* prevLyrics(const Lyrics* lyrics)
+{
+    track_idx_t currTrack = lyrics->track();
+    Segment* seg = lyrics->segment();
+    if (!seg) {
+        return nullptr;
+    }
+    Segment* prevSegment = seg;
+    while ((prevSegment = prevSegment->prev1(mu::engraving::SegmentType::ChordRest))) {
+        EngravingItem* el = prevSegment->element(currTrack);
+        Lyrics* prevLyrics = el && el->isChord() ? toChordRest(el)->lyrics(lyrics->no(), lyrics->placement()) : nullptr;
+        if (prevLyrics) {
+            return prevLyrics;
+        }
+    }
+    return nullptr;
 }
 }

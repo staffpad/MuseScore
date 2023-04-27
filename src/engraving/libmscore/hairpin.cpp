@@ -28,7 +28,7 @@
 
 #include "draw/types/pen.h"
 #include "draw/types/transform.h"
-#include "rw/xml.h"
+
 #include "types/typesconv.h"
 
 #include "dynamic.h"
@@ -39,6 +39,8 @@
 #include "staff.h"
 #include "system.h"
 #include "text.h"
+
+#include "log.h"
 
 using namespace mu;
 using namespace mu::draw;
@@ -72,6 +74,7 @@ static const ElementStyle hairpinStyle {
     { Sid::hairpinLineStyle,                   Pid::LINE_STYLE },
     { Sid::hairpinLineDashLineLen,             Pid::DASH_LINE_LEN },
     { Sid::hairpinLineDashGapLen,              Pid::DASH_GAP_LEN },
+    { Sid::hairpinFontSpatiumDependent,        Pid::TEXT_SIZE_SPATIUM_DEPENDENT, },
 };
 
 //---------------------------------------------------------
@@ -511,7 +514,7 @@ void HairpinSegment::editDrag(EditData& ed)
 
 void HairpinSegment::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     using namespace mu::draw;
     TextLineBaseSegment::draw(painter);
 
@@ -585,9 +588,9 @@ Sid HairpinSegment::getPropertyStyle(Pid pid) const
     case Pid::LINE_STYLE:
         return hairpin()->isLineType() ? Sid::hairpinLineLineStyle : Sid::hairpinLineStyle;
     case Pid::DASH_LINE_LEN:
-        return hairpin()->isLineType() ? Sid::hairpinLineDashLineLen : Sid::NOSTYLE;
+        return hairpin()->isLineType() ? Sid::hairpinLineDashLineLen : Sid::hairpinDashLineLen;
     case Pid::DASH_GAP_LEN:
-        return hairpin()->isLineType() ? Sid::hairpinLineDashGapLen : Sid::NOSTYLE;
+        return hairpin()->isLineType() ? Sid::hairpinLineDashGapLen : Sid::hairpinDashGapLen;
     default:
         break;
     }
@@ -625,9 +628,9 @@ Sid Hairpin::getPropertyStyle(Pid pid) const
     case Pid::LINE_STYLE:
         return isLineType() ? Sid::hairpinLineLineStyle : Sid::hairpinLineStyle;
     case Pid::DASH_LINE_LEN:
-        return isLineType() ? Sid::hairpinLineDashLineLen : Sid::NOSTYLE;
+        return isLineType() ? Sid::hairpinLineDashLineLen : Sid::hairpinDashLineLen;
     case Pid::DASH_GAP_LEN:
-        return isLineType() ? Sid::hairpinLineDashGapLen : Sid::NOSTYLE;
+        return isLineType() ? Sid::hairpinLineDashGapLen : Sid::hairpinDashGapLen;
     default:
         break;
     }
@@ -711,73 +714,6 @@ LineSegment* Hairpin::createLineSegment(System* parent)
     h->setTrack(track());
     h->initElementStyle(&hairpinSegmentStyle);
     return h;
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Hairpin::write(XmlWriter& xml) const
-{
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    xml.startElement(this);
-    xml.tag("subtype", int(_hairpinType));
-    writeProperty(xml, Pid::VELO_CHANGE);
-    writeProperty(xml, Pid::HAIRPIN_CIRCLEDTIP);
-    writeProperty(xml, Pid::DYNAMIC_RANGE);
-//      writeProperty(xml, Pid::BEGIN_TEXT);
-    writeProperty(xml, Pid::END_TEXT);
-//      writeProperty(xml, Pid::CONTINUE_TEXT);
-    writeProperty(xml, Pid::LINE_VISIBLE);
-    writeProperty(xml, Pid::SINGLE_NOTE_DYNAMICS);
-    writeProperty(xml, Pid::VELO_CHANGE_METHOD);
-
-    for (const StyledProperty& spp : *styledProperties()) {
-        if (!isStyled(spp.pid)) {
-            writeProperty(xml, spp.pid);
-        }
-    }
-    SLine::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Hairpin::read(XmlReader& e)
-{
-    eraseSpannerSegments();
-
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "subtype") {
-            setHairpinType(HairpinType(e.readInt()));
-        } else if (readStyledProperty(e, tag)) {
-        } else if (tag == "hairpinCircledTip") {
-            _hairpinCircledTip = e.readInt();
-        } else if (tag == "veloChange") {
-            _veloChange = e.readInt();
-        } else if (tag == "dynType") {
-            _dynRange = TConv::fromXml(e.readAsciiText(), DynamicRange::STAFF);
-        } else if (tag == "useTextLine") {        // obsolete
-            e.readInt();
-            if (hairpinType() == HairpinType::CRESC_HAIRPIN) {
-                setHairpinType(HairpinType::CRESC_LINE);
-            } else if (hairpinType() == HairpinType::DECRESC_HAIRPIN) {
-                setHairpinType(HairpinType::DECRESC_LINE);
-            }
-        } else if (tag == "singleNoteDynamics") {
-            _singleNoteDynamics = e.readBool();
-        } else if (tag == "veloChangeMethod") {
-            _veloChangeMethod = TConv::fromXml(e.readAsciiText(), ChangeMethod::NORMAL);
-        } else if (!TextLineBase::readProperties(e)) {
-            e.unknown();
-        }
-    }
-    styleChanged();
 }
 
 //---------------------------------------------------------

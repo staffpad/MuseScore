@@ -22,7 +22,6 @@
 #include "textframe.h"
 
 #include "draw/fontmetrics.h"
-#include "rw/xml.h"
 
 #include "box.h"
 #include "factory.h"
@@ -87,35 +86,6 @@ void TBox::layout()
 }
 
 //---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void TBox::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    Box::writeProperties(xml);
-    m_text->write(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void TBox::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "Text") {
-            m_text->read(e);
-        } else if (Box::readProperties(e)) {
-        } else {
-            e.unknown();
-        }
-    }
-}
-
-//---------------------------------------------------------
 //   drop
 //---------------------------------------------------------
 
@@ -142,6 +112,7 @@ void TBox::add(EngravingItem* e)
     if (e->isText()) {
         // does not normally happen, since drop() handles this directly
         m_text->undoChangeProperty(Pid::TEXT, toText(e)->xmlText());
+        e->setParent(this);
         e->added();
     } else {
         VBox::add(e);

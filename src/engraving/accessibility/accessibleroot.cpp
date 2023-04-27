@@ -24,7 +24,9 @@
 #include "../libmscore/score.h"
 #include "../libmscore/staff.h"
 #include "../libmscore/part.h"
+#include "../libmscore/segment.h"
 
+#include "log.h"
 #include "translation.h"
 
 using namespace mu::engraving;
@@ -65,7 +67,7 @@ AccessibleItemWeakPtr AccessibleRoot::focusedElement() const
     return m_focusedElement;
 }
 
-void AccessibleRoot::notifyAboutFocuedElemntNameChanged()
+void AccessibleRoot::notifyAboutFocusedElementNameChanged()
 {
     m_staffInfo = "";
 
@@ -152,7 +154,72 @@ void AccessibleRoot::updateStaffInfo(const AccessibleItemWeakPtr newAccessibleIt
     }
 }
 
+QString AccessibleRoot::commandInfo() const
+{
+    return m_commandInfo;
+}
+
+void AccessibleRoot::setCommandInfo(const QString& command)
+{
+    m_commandInfo = command;
+
+    if (!m_commandInfo.isEmpty()) {
+        notifyAboutFocusedElementNameChanged();
+    }
+}
+
 void AccessibleRoot::setMapToScreenFunc(const AccessibleMapToScreenFunc& func)
 {
     m_accessibleMapToScreenFunc = func;
+}
+
+bool AccessibleRoot::isRangeSelection() const
+{
+    return element()->score()->selection().isRange();
+}
+
+QString AccessibleRoot::rangeSelectionInfo()
+{
+    Score* score = element()->score();
+    Selection selection = score->selection();
+    Segment* startSegment = selection.startSegment();
+    Segment* endSegment = selection.endSegment();
+
+    if (endSegment) {
+        // Make end beat match status bar text
+        endSegment = endSegment->prev1(SegmentType::ChordRest);
+    }
+
+    IF_ASSERT_FAILED(selection.isRange() && startSegment && endSegment) {
+        return QString();
+    }
+
+    String startBarBeat = startSegment->formatBarsAndBeats();
+    String endBarBeat = endSegment->formatBarsAndBeats();
+
+    startBarBeat.remove(u';'); // Too many pauses in speech
+    endBarBeat.remove(u';');
+
+    QString staffInstrument1, staffInstrument2;
+    staff_idx_t startStaff = selection.staffStart();
+    staff_idx_t endStaff = selection.staffEnd() - 1;
+
+    if (startStaff != endStaff) {
+        Staff* staff1 = score->staff(startStaff);
+        Staff* staff2 = score->staff(endStaff);
+        if (staff1 && staff2) {
+            staffInstrument1 = qtrc("engraving", "Staff %1 (%2)")
+                               .arg(QString::number(startStaff + 1))
+                               .arg(staff1 ? staff1->partName().toQString() : "");
+            staffInstrument2 = qtrc("engraving", "Staff %1 (%2)")
+                               .arg(QString::number(endStaff + 1))
+                               .arg(staff2 ? staff2->partName().toQString() : "");
+        }
+    }
+
+    return qtrc("engraving", "Range selection starts %1%2 ends %3%4")
+           .arg(startBarBeat)
+           .arg(!staffInstrument1.isEmpty() ? (" " + staffInstrument1) : "")
+           .arg(endBarBeat)
+           .arg(!staffInstrument2.isEmpty() ? (" " + staffInstrument2) : "");
 }

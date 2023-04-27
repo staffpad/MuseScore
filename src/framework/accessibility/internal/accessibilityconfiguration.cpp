@@ -23,8 +23,6 @@
 
 #include <QAccessible>
 
-#include "config.h"
-
 using namespace mu::accessibility;
 
 class AccessibilityActivationObserver : public QAccessible::ActivationObserver
@@ -62,17 +60,19 @@ void AccessibilityConfiguration::init()
     s_accessibilityActivationObserver = new AccessibilityActivationObserver();
 
     QAccessible::installActivationObserver(s_accessibilityActivationObserver);
+
+    m_inited = true;
 }
 
 bool AccessibilityConfiguration::enabled() const
 {
-    if (!navigationController()) {
+    if (!m_inited) {
         return false;
     }
 
-#ifdef BUILD_DIAGNOSTICS
-    return true;
-#else
+    if (!navigationController()) {
+        return false;
+    }
 
     if (!active()) {
         return false;
@@ -80,10 +80,13 @@ bool AccessibilityConfiguration::enabled() const
 
     //! NOTE Accessibility available if navigation is used
     return navigationController()->activeSection() != nullptr;
-#endif
 }
 
 bool AccessibilityConfiguration::active() const
 {
+    if (!m_inited) {
+        return false;
+    }
+
     return s_accessibilityActivationObserver->isAccessibilityActive();
 }

@@ -34,8 +34,6 @@
 #include "defer.h"
 #include "log.h"
 
-#include "config.h"
-
 // #define NAVIGATION_LOGGING_ENABLED
 
 #ifdef NAVIGATION_LOGGING_ENABLED
@@ -305,7 +303,7 @@ void NavigationController::reg(INavigationSection* section)
     section->setOnActiveRequested([this](INavigationSection* section, INavigationPanel* panel, INavigationControl* control,
                                          bool enableHighlight, ActivationType activationType) {
         if (control && activationType == ActivationType::ByMouse) {
-            if (mainWindow()->qWindow() == control->window()) {
+            if (section->type() != INavigationSection::Type::Exclusive) {
                 return;
             }
         }
@@ -361,7 +359,7 @@ void NavigationController::resetIfNeed(QObject* watched)
         return;
     }
 
-#ifdef BUILD_DIAGNOSTICS
+#ifdef MUE_BUILD_DIAGNOSTICS_MODULE
     if (diagnostics::isDiagnosticHierarchy(watched)) {
         return;
     }
@@ -920,8 +918,19 @@ void NavigationController::onEscape()
     }
 
     INavigationControl* activeCtrl = findActive(activePanel->controls());
-    if (activeCtrl) {
-        activeCtrl->onEvent(e);
+    if (!activeCtrl) {
+        return;
+    }
+
+    activeCtrl->onEvent(e);
+    if (e->accepted) {
+        return;
+    }
+
+    activeCtrl->setActive(false);
+
+    if (m_defaultNavigationControl) {
+        doActivateControl(m_defaultNavigationControl);
     }
 }
 

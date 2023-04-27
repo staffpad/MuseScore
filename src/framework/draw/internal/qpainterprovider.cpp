@@ -42,9 +42,10 @@ QPainterProvider::QPainterProvider(QPainter* painter, bool ownsPainter)
     : m_painter(painter), m_ownsPainter(ownsPainter), m_drawObjectsLogger(new DrawObjectsLogger())
 {
     if (painter->isActive()) {
-        m_font = Font::fromQFont(m_painter->font());
+        m_font = Font::fromQFont(m_painter->font(), Font::Type::Undefined);
         m_pen = Pen::fromQPen(m_painter->pen());
         m_brush = Brush::fromQBrush(m_painter->brush());
+        m_transform = Transform::fromQTransform(m_painter->transform());
     }
 }
 
@@ -93,14 +94,15 @@ bool QPainterProvider::isActive() const
     return m_painter->isActive();
 }
 
-void QPainterProvider::beginObject(const std::string& name, const PointF& pagePos)
+void QPainterProvider::beginObject(const std::string& name)
 {
-    m_drawObjectsLogger->beginObject(name, pagePos);
+    UNUSED(name)
+    //m_drawObjectsLogger->beginObject(name);
 }
 
 void QPainterProvider::endObject()
 {
-    m_drawObjectsLogger->endObject();
+    //m_drawObjectsLogger->endObject();
 }
 
 void QPainterProvider::setAntialiasing(bool arg)
@@ -119,6 +121,18 @@ void QPainterProvider::setCompositionMode(CompositionMode mode)
         return QPainter::CompositionMode_SourceOver;
     };
     m_painter->setCompositionMode(toQPainter(mode));
+}
+
+void QPainterProvider::setWindow(const RectF& window)
+{
+    // no need set
+    UNUSED(window);
+}
+
+void QPainterProvider::setViewport(const RectF& viewport)
+{
+    // no need set
+    UNUSED(viewport);
 }
 
 void QPainterProvider::setFont(const Font& font)
@@ -170,9 +184,10 @@ void QPainterProvider::save()
 void QPainterProvider::restore()
 {
     m_painter->restore();
-    m_font = Font::fromQFont(m_painter->font());
+    m_font = Font::fromQFont(m_painter->font(), Font::Type::Undefined);
     m_pen = Pen::fromQPen(m_painter->pen());
     m_brush = Brush::fromQBrush(m_painter->brush());
+    m_transform = Transform::fromQTransform(m_painter->transform());
 }
 
 void QPainterProvider::setTransform(const Transform& transform)
@@ -293,7 +308,7 @@ void QPainterProvider::drawSymbol(const PointF& point, char32_t ucs4Code)
         cache[ucs4Code] = QString::fromUcs4(&ucs4Code, 1);
     }
 
-    m_painter->drawText(QPointF(point.x(), point.y()), cache[ucs4Code]);
+    drawText(point, cache.value(ucs4Code));
 }
 
 void QPainterProvider::drawPixmap(const PointF& point, const Pixmap& pm)
@@ -328,6 +343,11 @@ void QPainterProvider::drawPixmap(const PointF& point, const QPixmap& pm)
 void QPainterProvider::drawTiledPixmap(const RectF& rect, const QPixmap& pm, const PointF& offset)
 {
     m_painter->drawTiledPixmap(rect.toQRectF(), pm, QPointF(offset.x(), offset.y()));
+}
+
+bool QPainterProvider::hasClipping() const
+{
+    return m_painter->hasClipping();
 }
 
 void QPainterProvider::setClipRect(const RectF& rect)

@@ -94,6 +94,7 @@ public:
 class System final : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, System)
+    DECLARE_CLASSOF(ElementType::SYSTEM)
 
     SystemDivider* _systemDividerLeft    { nullptr };       // to the next system
     SystemDivider* _systemDividerRight   { nullptr };
@@ -123,7 +124,7 @@ class System final : public EngravingItem
 
     double instrumentNamesWidth();
     double layoutBrackets(const LayoutContext& ctx);
-    double totalBracketOffset(const LayoutContext& ctx);
+    static double totalBracketOffset(LayoutContext& ctx);
 
 public:
     ~System();
@@ -139,8 +140,6 @@ public:
     void add(EngravingItem*) override;
     void remove(EngravingItem*) override;
     void change(EngravingItem* o, EngravingItem* n) override;
-    void write(XmlWriter&) const override;
-    void read(XmlReader&) override;
 
     void scanElements(void* data, void (* func)(void*, EngravingItem*), bool all=true) override;
 
@@ -150,7 +149,7 @@ public:
 
     Page* page() const { return (Page*)explicitParent(); }
 
-    void layoutSystem(const LayoutContext& ctx, double xo1, const bool isFirstSystem = false, bool firstSystemIndent = false);
+    void layoutSystem(LayoutContext& ctx, double xo1, const bool isFirstSystem = false, bool firstSystemIndent = false);
 
     void setMeasureHeight(double height);
     void layoutBracketsVertical();
@@ -233,6 +232,7 @@ public:
     Fraction maxSysTicks() const;
 
     double squeezableSpace() const;
+    bool hasCrossStaffOrModifiedBeams();
 
 #ifndef ENGRAVING_NO_ACCESSIBILITY
     AccessibleItemPtr createAccessible() override;

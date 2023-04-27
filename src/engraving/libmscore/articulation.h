@@ -41,6 +41,18 @@ class System;
 //    gives infos about note attributes
 //---------------------------------------------------------
 
+enum class ArticulationCategory : char {
+    NONE = 0x0,
+    DOUBLE = 0x1,
+    TENUTO = 0x2,
+    STACCATO = 0x4,
+    ACCENT = 0x8,
+    MARCATO = 0x10,
+    LUTE_FINGERING = 0x20,
+};
+DECLARE_FLAGS(ArticulationCategories, ArticulationCategory)
+DECLARE_OPERATORS_FOR_FLAGS(ArticulationCategories)
+
 enum class ArticulationAnchor : char {
     TOP_STAFF,        // anchor is always placed at top of staff
     BOTTOM_STAFF,     // anchor is always placed at bottom of staff
@@ -83,13 +95,7 @@ std::set<SymId> flipArticulations(const std::set<SymId>& articulationSymbolIds, 
 class Articulation final : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, Articulation)
-public:
-
-    enum TextType {
-        NO_TEXT,
-        SLAP,
-        POP
-    };
+    DECLARE_CLASSOF(ElementType::ARTICULATION)
 
 private:
 
@@ -97,8 +103,8 @@ private:
     DirectionV _direction;
     String _channelName;
 
-    TextType m_textType;
-    mu::draw::Font m_font; // used for drawing text type articulations
+    ArticulationTextType m_textType = ArticulationTextType::NO_TEXT;
+    draw::Font m_font; // used for drawing text type articulations
 
     ArticulationAnchor _anchor;
 
@@ -112,7 +118,7 @@ private:
     Articulation(ChordRest* parent);
 
     void draw(mu::draw::Painter*) const override;
-    bool isHiddenOnTabStaff() const;
+
     void setupShowOnTabStyles();
 
     enum class AnchorGroup {
@@ -121,6 +127,9 @@ private:
         OTHER
     };
     static AnchorGroup anchorGroup(SymId);
+
+    ArticulationCategories m_categories = ArticulationCategory::NONE;
+    void computeCategories();
 
 public:
 
@@ -134,7 +143,8 @@ public:
     SymId symId() const { return _symId; }
     void setSymId(SymId id);
     int subtype() const override;
-    void setTextType(TextType textType);
+    void setTextType(ArticulationTextType textType);
+    ArticulationTextType textType() const { return m_textType; }
     TranslatableString typeUserName() const override;
     String translatedTypeUserName() const override;
     String articulationName() const;    // type-name of articulation; used for midi rendering
@@ -143,9 +153,8 @@ public:
     void layout() override;
     bool layoutCloseToNote() const;
 
-    void read(XmlReader&) override;
-    void write(XmlWriter& xml) const override;
-    bool readProperties(XmlReader&) override;
+    const draw::Font& font() const { return m_font; }
+    bool isHiddenOnTabStaff() const;
 
     std::vector<mu::LineF> dragAnchorLines() const override;
 
@@ -180,17 +189,21 @@ public:
 
     String accessibleInfo() const override;
 
-    bool isDouble() const;
-    bool isTenuto() const;
-    bool isStaccato() const;
-    bool isAccent() const;
-    bool isMarcato() const;
-    bool isLuteFingering() const;
+    bool isDouble() const { return m_categories & ArticulationCategory::DOUBLE; }
+    bool isTenuto() const { return m_categories & ArticulationCategory::TENUTO; }
+    bool isStaccato() const { return m_categories & ArticulationCategory::STACCATO; }
+    bool isAccent() const { return m_categories & ArticulationCategory::ACCENT; }
+    bool isMarcato() const { return m_categories & ArticulationCategory::MARCATO; }
+    bool isLuteFingering() { return m_categories & ArticulationCategory::LUTE_FINGERING; }
 
     bool isOrnament() const;
     static bool isOrnament(int subtype);
 
     void doAutoplace();
+
+    void styleChanged() override;
+
+    bool isOnCrossBeamSide() const;
 };
 } // namespace mu::engraving
 

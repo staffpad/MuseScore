@@ -22,7 +22,6 @@
 #include "slurtie.h"
 
 #include "draw/types/pen.h"
-#include "rw/xml.h"
 
 #include "chord.h"
 #include "mscoreview.h"
@@ -331,65 +330,6 @@ void SlurTieSegment::undoChangeProperty(Pid pid, const PropertyValue& val, Prope
 }
 
 //---------------------------------------------------------
-//   writeProperties
-//---------------------------------------------------------
-
-void SlurTieSegment::writeSlur(XmlWriter& xml, int no) const
-{
-    if (visible() && autoplace()
-        && (color() == engravingConfiguration()->defaultColor())
-        && offset().isNull()
-        && ups(Grip::START).off.isNull()
-        && ups(Grip::BEZIER1).off.isNull()
-        && ups(Grip::BEZIER2).off.isNull()
-        && ups(Grip::END).off.isNull()
-        ) {
-        return;
-    }
-
-    xml.startElement(this, { { "no", no } });
-
-    double _spatium = score()->spatium();
-    if (!ups(Grip::START).off.isNull()) {
-        xml.tagPoint("o1", ups(Grip::START).off / _spatium);
-    }
-    if (!ups(Grip::BEZIER1).off.isNull()) {
-        xml.tagPoint("o2", ups(Grip::BEZIER1).off / _spatium);
-    }
-    if (!ups(Grip::BEZIER2).off.isNull()) {
-        xml.tagPoint("o3", ups(Grip::BEZIER2).off / _spatium);
-    }
-    if (!ups(Grip::END).off.isNull()) {
-        xml.tagPoint("o4", ups(Grip::END).off / _spatium);
-    }
-    EngravingItem::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   readSegment
-//---------------------------------------------------------
-
-void SlurTieSegment::read(XmlReader& e)
-{
-    double _spatium = score()->spatium();
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "o1") {
-            ups(Grip::START).off = e.readPoint() * _spatium;
-        } else if (tag == "o2") {
-            ups(Grip::BEZIER1).off = e.readPoint() * _spatium;
-        } else if (tag == "o3") {
-            ups(Grip::BEZIER2).off = e.readPoint() * _spatium;
-        } else if (tag == "o4") {
-            ups(Grip::END).off = e.readPoint() * _spatium;
-        } else if (!readProperties(e)) {
-            e.unknown();
-        }
-    }
-}
-
-//---------------------------------------------------------
 //   drawEditMode
 //---------------------------------------------------------
 
@@ -445,56 +385,6 @@ SlurTie::SlurTie(const SlurTie& t)
 
 SlurTie::~SlurTie()
 {
-}
-
-//---------------------------------------------------------
-//   writeProperties
-//---------------------------------------------------------
-
-void SlurTie::writeProperties(XmlWriter& xml) const
-{
-    Spanner::writeProperties(xml);
-    int idx = 0;
-    for (const SpannerSegment* ss : spannerSegments()) {
-        ((SlurTieSegment*)ss)->writeSlur(xml, idx++);
-    }
-    writeProperty(xml, Pid::SLUR_DIRECTION);
-    writeProperty(xml, Pid::SLUR_STYLE_TYPE);
-}
-
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool SlurTie::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-
-    if (readProperty(tag, e, Pid::SLUR_DIRECTION)) {
-    } else if (tag == "lineType") {
-        _styleType = static_cast<SlurStyleType>(e.readInt());
-    } else if (tag == "SlurSegment" || tag == "TieSegment") {
-        const int idx = e.intAttribute("no", 0);
-        const int n = int(spannerSegments().size());
-        for (int i = n; i < idx; ++i) {
-            add(newSlurTieSegment(score()->dummy()->system()));
-        }
-        SlurTieSegment* s = newSlurTieSegment(score()->dummy()->system());
-        s->read(e);
-        add(s);
-    } else if (!Spanner::readProperties(e)) {
-        return false;
-    }
-    return true;
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void SlurTie::read(XmlReader& e)
-{
-    Spanner::read(e);
 }
 
 //---------------------------------------------------------

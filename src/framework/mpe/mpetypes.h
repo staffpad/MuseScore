@@ -34,6 +34,7 @@
 
 #include "types/sharedhashmap.h"
 #include "types/sharedmap.h"
+#include "realfn.h"
 
 #include "soundid.h"
 
@@ -118,6 +119,61 @@ struct ValuesCurve : public SharedMap<duration_percentage_t, T>
 
         return (factor + 1.f) / 2.f;
     }
+
+    void amplifyVelocity(const float requiredVelocityFraction)
+    {
+        if (RealIsEqual(requiredVelocityFraction, 0.f)) {
+            return;
+        }
+
+        ValuesCurve result;
+
+        if (RealIsEqualOrMore(requiredVelocityFraction, 0.5f)) {
+            accelerate(requiredVelocityFraction, result);
+        } else {
+            decelerate(requiredVelocityFraction, result);
+        }
+
+        *this = result;
+    }
+
+private:
+    void accelerate(const float requiredVelocityFraction, ValuesCurve& result)
+    {
+        float positionAmplifyFactor = std::pow(10.f, (requiredVelocityFraction * 2.f) - 1.f);
+
+        for (const auto& pair : *this) {
+            if (pair.first == 0 || pair.first == HUNDRED_PERCENT) {
+                result.insert({ pair.first, pair.second });
+                continue;
+            }
+
+            float newPointPositionCoef = (pair.second / static_cast<float>(pair.first)) * positionAmplifyFactor;
+            duration_percentage_t newPointPosition = static_cast<duration_percentage_t>(RealRound(pair.second / newPointPositionCoef, 0));
+
+            result.insert({ newPointPosition, pair.second });
+        }
+    }
+
+    void decelerate(const float requiredVelocityFraction, ValuesCurve& result)
+    {
+        float amplifyFactor = std::pow(10.f, (requiredVelocityFraction * 2.f) - 1.f);
+
+        auto amplitudePoint = amplitudeValuePoint();
+        T oldAmplitudeLevel = amplitudePoint.second;
+        T newAmplitudeLevel = amplitudePoint.first * amplifyFactor;
+
+        float ratio = newAmplitudeLevel / static_cast<float>(oldAmplitudeLevel);
+
+        for (const auto& pair : *this) {
+            if (pair.first == amplitudePoint.first) {
+                result.insert({ pair.first, newAmplitudeLevel });
+                continue;
+            }
+
+            result.insert({ pair.first, pair.second * ratio });
+        }
+    }
 };
 
 // Pitch
@@ -163,7 +219,7 @@ constexpr inline pitch_level_t pitchLevelDiff(const PitchClass fClass, const oct
 constexpr inline size_t pitchStepsCount(const pitch_level_t pitchRange)
 {
     size_t range = pitchRange > 0 ? pitchRange : -pitchRange;
-    return range / PITCH_LEVEL_STEP + 1;
+    return range / PITCH_LEVEL_STEP;
 }
 
 // Expression
@@ -189,6 +245,7 @@ enum class ArticulationType {
     FadeOut,
 
     Harmonic,
+    JazzTone,
     Mute,
     Open,
     Pizzicato,
@@ -302,6 +359,16 @@ inline bool isSingleNoteArticulation(const ArticulationType type)
 inline bool isMultiNoteArticulation(const ArticulationType type)
 {
     return !isSingleNoteArticulation(type);
+}
+
+inline bool isRangedArticulation(const ArticulationType type)
+{
+    if (isSingleNoteArticulation(type)) {
+        return false;
+    }
+
+    return type == ArticulationType::Legato
+           || type == ArticulationType::Pedal;
 }
 
 using dynamic_level_t = percentage_t;
@@ -806,6 +873,10 @@ private:
             for (auto& pair : m_averageDynamicOffsetMap) {
                 pair.second /= dynamicChangesCount;
             }
+        } else if (dynamicChangesCount == 0) {
+            m_averageMaxAmplitudeLevel = cbegin()->second.appliedPatternSegment.expressionPattern.maxAmplitudeLevel();
+            m_averageDynamicRange = cbegin()->second.meta.overallDynamicChangesRange;
+            m_averageDynamicOffsetMap = cbegin()->second.appliedPatternSegment.expressionPattern.dynamicOffsetMap;
         }
 
         if (pitchChangesCount > 0) {
@@ -814,6 +885,9 @@ private:
             for (auto& pair : m_averagePitchOffsetMap) {
                 pair.second /= pitchChangesCount;
             }
+        } else if (pitchChangesCount == 0) {
+            m_averagePitchRange = cbegin()->second.meta.overallPitchChangesRange;
+            m_averagePitchOffsetMap = cbegin()->second.appliedPatternSegment.pitchPattern.pitchOffsetMap;
         }
     }
 

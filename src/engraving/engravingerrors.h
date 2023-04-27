@@ -55,6 +55,8 @@ inline Ret make_ret(Err err, const io::path_t& filePath = "")
     String text;
 
     switch (err) {
+    case Err::NoError:
+        return make_ok();
     case Err::FileUnknownError:
         text = mtrc("engraving", "Unknown error");
         break;
@@ -83,7 +85,7 @@ inline Ret make_ret(Err err, const io::path_t& filePath = "")
                .arg(u"https://musescore.org");
         break;
     case Err::FileOld300Format:
-        text = mtrc("engraving", "This file was last saved with a development version of 3.0.");
+        text = mtrc("engraving", "This file was last saved in a development version of 3.0.");
         break;
     case Err::FileCorrupted:
         text = mtrc("engraving", "File \"%1\" is corrupted.").arg(filePath.toString());
@@ -92,7 +94,6 @@ inline Ret make_ret(Err err, const io::path_t& filePath = "")
         text = mtrc("engraving", "File \"%1\" is critically corrupted and cannot be processed.").arg(filePath.toString());
         break;
     case Err::Undefined:
-    case Err::NoError:
     case Err::UnknownError:
     case Err::IgnoreError:
     case Err::UserAbort:

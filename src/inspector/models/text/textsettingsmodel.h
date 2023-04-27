@@ -38,6 +38,7 @@ class TextSettingsModel : public AbstractInspectorModel
     Q_PROPERTY(PropertyItem * fontFamily READ fontFamily CONSTANT)
     Q_PROPERTY(PropertyItem * fontStyle READ fontStyle CONSTANT)
     Q_PROPERTY(PropertyItem * fontSize READ fontSize CONSTANT)
+    Q_PROPERTY(PropertyItem * textLineSpacing READ textLineSpacing CONSTANT)
     Q_PROPERTY(PropertyItem * horizontalAlignment READ horizontalAlignment CONSTANT)
     Q_PROPERTY(PropertyItem * verticalAlignment READ verticalAlignment CONSTANT)
 
@@ -52,6 +53,8 @@ class TextSettingsModel : public AbstractInspectorModel
     Q_PROPERTY(PropertyItem * textType READ textType CONSTANT)
     Q_PROPERTY(PropertyItem * textPlacement READ textPlacement CONSTANT)
     Q_PROPERTY(PropertyItem * textScriptAlignment READ textScriptAlignment CONSTANT)
+
+    Q_PROPERTY(QVariantList textStyles READ textStyles NOTIFY textStylesChanged)
 
     Q_PROPERTY(bool areStaffTextPropertiesAvailable READ areStaffTextPropertiesAvailable NOTIFY areStaffTextPropertiesAvailableChanged)
     Q_PROPERTY(
@@ -68,9 +71,13 @@ public:
     void loadProperties() override;
     void resetProperties() override;
 
+    void onNotationChanged(const mu::engraving::PropertyIdSet& changedPropertyIdSet,
+                           const mu::engraving::StyleIdSet& changedStyleIdSet) override;
+
     PropertyItem* fontFamily() const;
     PropertyItem* fontStyle() const;
     PropertyItem* fontSize() const;
+    PropertyItem* textLineSpacing() const;
     PropertyItem* horizontalAlignment() const;
     PropertyItem* verticalAlignment() const;
 
@@ -86,6 +93,8 @@ public:
     PropertyItem* textPlacement() const;
     PropertyItem* textScriptAlignment() const;
 
+    QVariantList textStyles();
+
     bool areStaffTextPropertiesAvailable() const;
 
     bool isSpecialCharactersInsertionAvailable() const;
@@ -95,6 +104,8 @@ public slots:
     void setIsSpecialCharactersInsertionAvailable(bool isSpecialCharactersInsertionAvailable);
 
 signals:
+    void textStylesChanged();
+
     void areStaffTextPropertiesAvailableChanged(bool areStaffTextPropertiesAvailable);
     void isSpecialCharactersInsertionAvailableChanged(bool isSpecialCharactersInsertionAvailable);
 
@@ -108,6 +119,7 @@ private:
     PropertyItem* m_fontFamily = nullptr;
     PropertyItem* m_fontStyle = nullptr;
     PropertyItem* m_fontSize = nullptr;
+    PropertyItem* m_textLineSpacing = nullptr;
     PropertyItem* m_horizontalAlignment = nullptr;
     PropertyItem* m_verticalAlignment = nullptr;
 
@@ -122,6 +134,8 @@ private:
     PropertyItem* m_textType = nullptr;
     PropertyItem* m_textPlacement = nullptr;
     PropertyItem* m_textScriptAlignment = nullptr;
+
+    QVariantList m_textStyles;
 
     bool m_areStaffTextPropertiesAvailable = false;
     bool m_isSpecialCharactersInsertionAvailable = false;

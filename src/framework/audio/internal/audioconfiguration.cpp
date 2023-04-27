@@ -48,7 +48,7 @@ static const Settings::Key USER_SOUNDFONTS_PATHS("midi", "application/paths/mySo
 
 static const AudioResourceId DEFAULT_SOUND_FONT_NAME = "MS Basic";     // "GeneralUser GS v1.471.sf2"; // "MS Basic.sf3";
 static const AudioResourceMeta DEFAULT_AUDIO_RESOURCE_META
-    = { DEFAULT_SOUND_FONT_NAME, AudioResourceType::FluidSoundfont, "Fluid", false /*hasNativeEditor*/ };
+    = { DEFAULT_SOUND_FONT_NAME, AudioResourceType::FluidSoundfont, "Fluid", {}, false /*hasNativeEditor*/ };
 
 void AudioConfiguration::init()
 {
@@ -139,6 +139,11 @@ void AudioConfiguration::setDriverBufferSize(unsigned int size)
 async::Notification AudioConfiguration::driverBufferSizeChanged() const
 {
     return m_driverBufferSizeChanged;
+}
+
+samples_t AudioConfiguration::renderStep() const
+{
+    return 512;
 }
 
 unsigned int AudioConfiguration::sampleRate() const
@@ -253,6 +258,11 @@ async::Notification AudioConfiguration::synthesizerStateChanged() const
 async::Notification AudioConfiguration::synthesizerStateGroupChanged(const std::string& gname) const
 {
     return m_synthesizerStateGroupChanged[gname];
+}
+
+io::path_t AudioConfiguration::knownAudioPluginsDir() const
+{
+    return globalConfiguration()->userAppDataPath() + "/audio_plugins";
 }
 
 io::path_t AudioConfiguration::stateFilePath() const

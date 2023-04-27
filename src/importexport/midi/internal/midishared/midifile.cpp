@@ -372,7 +372,7 @@ bool MidiFile::readTrack()
         LOGW("bad track len: %lld != %lld, %lld bytes too much\n", endPos, curPos, endPos - curPos);
         if (curPos < endPos) {
             LOGW("  skip %lld\n", endPos - curPos);
-            skip(endPos - curPos);
+            fp->skip(endPos - curPos);
         }
     }
     return false;
@@ -459,34 +459,6 @@ void MidiFile::writeLong(int i)
     fp->putChar(i >> 16);
     fp->putChar(i >> 8);
     fp->putChar(i);
-}
-
-/*---------------------------------------------------------
- *    skip
- *    This is meant for skipping a few bytes in a
- *    file or fifo.
- *---------------------------------------------------------*/
-
-void MidiFile::skip(qint64 len)
-{
-    // Note: if MS is updated to use Qt 5.10, this can be implemented with QIODevice::skip(), which should be more efficient
-    //       as bytes do not need to be moved around.
-    if (len <= 0) {
-        return;
-    }
-#if (!defined (_MSCVER) && !defined (_MSC_VER))
-    char tmp[len];
-    read(tmp, len);
-#else
-    const int tmp_size = 256;    // Size of fixed-length temporary buffer. MSVC does not support VLA.
-    char tmp[tmp_size];
-    while (len > tmp_size) {
-        read(tmp, len);
-        len -= tmp_size;
-    }
-    // Now len is <= tmp_size, last read fits in the buffer.
-    read(tmp, tmp_size);
-#endif
 }
 
 /*---------------------------------------------------------
@@ -924,14 +896,14 @@ void MidiFile::separateChannel()
     for (size_t i = 0; i < _tracks.size(); ++i) {
         // create a list of channels used in current track
         std::vector<int> channel;
-        MidiTrack& mt = _tracks[i];          // current track
-        for (const auto& ie : mt.events()) {
+        MidiTrack& midiTrack = _tracks[i];          // current track
+        for (const auto& ie : midiTrack.events()) {
             const MidiEvent& e = ie.second;
             if (e.isChannelEvent() && !mu::contains(channel, static_cast<int>(e.channel()))) {
                 channel.push_back(e.channel());
             }
         }
-        mt.setOutChannel(channel.empty() ? 0 : channel[0]);
+        midiTrack.setOutChannel(channel.empty() ? 0 : channel[0]);
         size_t nn = channel.size();
         if (nn <= 1) {
             continue;
@@ -944,16 +916,21 @@ void MidiFile::separateChannel()
             t.setOutChannel(channel[ii]);
             _tracks.insert(_tracks.begin() + i + ii, t);
         }
+
+        //! NOTE: Midi track memory area may be invalid after inserting new elements into tracks
+        //!       Let's get the actual track data again
+        MidiTrack& actualMidiTrack = _tracks[i];
+
         // extract all different channel events from current track to inserted tracks
-        for (auto ie = mt.events().begin(); ie != mt.events().end();) {
+        for (auto ie = actualMidiTrack.events().begin(); ie != actualMidiTrack.events().end();) {
             const MidiEvent& e = ie->second;
             if (e.isChannelEvent()) {
                 int ch  = e.channel();
                 size_t idx = mu::indexOf(channel, ch);
                 MidiTrack& t = _tracks[i + idx];
-                if (&t != &mt) {
+                if (&t != &actualMidiTrack) {
                     t.insert(ie->first, e);
-                    ie = mt.events().erase(ie);
+                    ie = actualMidiTrack.events().erase(ie);
                     continue;
                 }
             }

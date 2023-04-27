@@ -28,13 +28,17 @@
 #include "internal/encoders/flacencoder.h"
 #include "internal/encoders/wavencoder.h"
 
+#include "audioerrors.h"
+
+#include "defer.h"
+
 using namespace mu;
 using namespace mu::audio;
 using namespace mu::audio::soundtrack;
 
-static constexpr audioch_t SUPPORTED_AUDIO_CHANNELS_COUNT = 2;
-static constexpr samples_t SAMPLES_PER_CHANNEL = 1024;
-static constexpr size_t INTERNAL_BUFFER_SIZE = SUPPORTED_AUDIO_CHANNELS_COUNT * SAMPLES_PER_CHANNEL;
+static constexpr int WRITE_STEPS = 2;
+static constexpr int PREPARE_STEP = 0;
+static constexpr int ENCODE_STEP = 1;
 
 SoundTrackWriter::SoundTrackWriter(const io::path_t& destination, const SoundTrackFormat& format, const msecs_t totalDuration,
                                    IAudioSourcePtr source)
@@ -46,7 +50,7 @@ SoundTrackWriter::SoundTrackWriter(const io::path_t& destination, const SoundTra
 
     samples_t totalSamplesNumber = (totalDuration / 1000000.f) * sizeof(float) * format.sampleRate;
     m_inputBuffer.resize(totalSamplesNumber);
-    m_intermBuffer.resize(INTERNAL_BUFFER_SIZE);
+    m_intermBuffer.resize(config()->renderStep() * config()->audioChannelsCount());
 
     m_encoderPtr = createEncoder(format.type);
 
@@ -55,9 +59,12 @@ SoundTrackWriter::SoundTrackWriter(const io::path_t& destination, const SoundTra
     }
 
     m_encoderPtr->init(destination, format, totalSamplesNumber);
+    m_encoderPtr->progress().progressChanged.onReceive(this, [this](int64_t current, int64_t total, std::string) {
+        sendStepProgress(ENCODE_STEP, current, total);
+    });
 }
 
-bool SoundTrackWriter::write()
+Ret SoundTrackWriter::write()
 {
     TRACEFUNC;
 
@@ -65,27 +72,48 @@ bool SoundTrackWriter::write()
         return false;
     }
 
-    AudioEngine::instance()->setMode(AudioEngine::Mode::OfflineMode);
+    AudioEngine::instance()->setMode(RenderMode::OfflineMode);
 
     m_source->setSampleRate(m_encoderPtr->format().sampleRate);
     m_source->setIsActive(true);
 
-    if (!prepareInputBuffer()) {
-        return false;
+    DEFER {
+        m_encoderPtr->flush();
+
+        AudioEngine::instance()->setMode(RenderMode::RealTimeMode);
+
+        m_source->setSampleRate(AudioEngine::instance()->sampleRate());
+        m_source->setIsActive(false);
+
+        m_isAborted = false;
+    };
+
+    Ret ret = prepareInputBuffer();
+    if (!ret) {
+        return ret;
     }
 
-    if (m_encoderPtr->encode(m_inputBuffer.size() / sizeof(float), m_inputBuffer.data()) == 0) {
-        return false;
+    size_t bytes = m_encoderPtr->encode(m_inputBuffer.size() / sizeof(float), m_inputBuffer.data());
+
+    if (m_isAborted) {
+        return make_ret(Ret::Code::Cancel);
     }
 
-    m_encoderPtr->flush();
+    if (bytes == 0) {
+        return make_ret(Err::ErrorEncode);
+    }
 
-    m_source->setSampleRate(AudioEngine::instance()->sampleRate());
-    m_source->setIsActive(false);
+    return make_ok();
+}
 
-    AudioEngine::instance()->setMode(AudioEngine::Mode::RealTimeMode);
+void SoundTrackWriter::abort()
+{
+    m_isAborted = true;
+}
 
-    return true;
+framework::Progress SoundTrackWriter::progress()
+{
+    return m_progress;
 }
 
 encode::AbstractAudioEncoderPtr SoundTrackWriter::createEncoder(const SoundTrackType& type) const
@@ -99,27 +127,44 @@ encode::AbstractAudioEncoderPtr SoundTrackWriter::createEncoder(const SoundTrack
     }
 }
 
-bool SoundTrackWriter::prepareInputBuffer()
+Ret SoundTrackWriter::prepareInputBuffer()
 {
     size_t inputBufferOffset = 0;
     size_t inputBufferMaxOffset = m_inputBuffer.size();
 
-    while (inputBufferOffset < inputBufferMaxOffset) {
-        m_source->process(m_intermBuffer.data(), SAMPLES_PER_CHANNEL);
+    sendStepProgress(PREPARE_STEP, inputBufferOffset, inputBufferMaxOffset);
 
-        size_t samplesToCopy = std::min(INTERNAL_BUFFER_SIZE, inputBufferMaxOffset - inputBufferOffset);
+    samples_t renderStep = config()->renderStep();
+
+    while (inputBufferOffset < inputBufferMaxOffset && !m_isAborted) {
+        m_source->process(m_intermBuffer.data(), renderStep);
+
+        size_t samplesToCopy = std::min(m_intermBuffer.size(), inputBufferMaxOffset - inputBufferOffset);
 
         std::copy(m_intermBuffer.begin(),
                   m_intermBuffer.begin() + samplesToCopy,
                   m_inputBuffer.begin() + inputBufferOffset);
 
         inputBufferOffset += samplesToCopy;
+        sendStepProgress(PREPARE_STEP, inputBufferOffset, inputBufferMaxOffset);
+    }
+
+    if (m_isAborted) {
+        return make_ret(Ret::Code::Cancel);
     }
 
     if (inputBufferOffset == 0) {
         LOGI() << "No audio to export";
-        return false;
+        return make_ret(Err::NoAudioToExport);
     }
 
-    return true;
+    return make_ok();
+}
+
+void SoundTrackWriter::sendStepProgress(int step, int64_t current, int64_t total)
+{
+    int stepRange = step == PREPARE_STEP ? 80 : 20;
+    int stepProgressStart = step == PREPARE_STEP ? 0 : 80;
+    int stepCurrentProgress = stepProgressStart + ((current * 100 / total) * stepRange) / 100;
+    m_progress.progressChanged.send(stepCurrentProgress, 100, "");
 }

@@ -38,11 +38,13 @@
 #include "breath.h"
 #include "chord.h"
 #include "chordline.h"
+#include "deadslapped.h"
 #include "dynamic.h"
 #include "fermata.h"
 #include "figuredbass.h"
 #include "fingering.h"
 #include "fret.h"
+#include "fretcircle.h"
 #include "glissando.h"
 #include "gradualtempochange.h"
 #include "hairpin.h"
@@ -68,6 +70,7 @@
 #include "page.h"
 #include "palmmute.h"
 #include "pedal.h"
+#include "pickscrape.h"
 #include "playtechannotation.h"
 #include "rasgueado.h"
 #include "rehearsalmark.h"
@@ -111,7 +114,10 @@ using namespace mu::engraving;
 EngravingItem* Factory::createItem(ElementType type, EngravingItem* parent, bool isAccessibleEnabled)
 {
     EngravingItem* item = doCreateItem(type, parent);
-    item->setAccessibleEnabled(isAccessibleEnabled);
+
+    if (item) {
+        item->setAccessibleEnabled(isAccessibleEnabled);
+    }
 
     return item;
 }
@@ -132,6 +138,7 @@ EngravingItem* Factory::doCreateItem(ElementType type, EngravingItem* parent)
     case ElementType::WHAMMY_BAR:        return new WhammyBar(parent);
     case ElementType::RASGUEADO:         return new Rasgueado(parent);
     case ElementType::HARMONIC_MARK:     return new HarmonicMark(parent);
+    case ElementType::PICK_SCRAPE:       return new PickScrape(parent);
     case ElementType::PEDAL:             return new Pedal(parent);
     case ElementType::HAIRPIN:           return new Hairpin(parent->isSegment() ? toSegment(parent) : dummy->segment());
     case ElementType::CLEF:              return new Clef(parent->isSegment() ? toSegment(parent) : dummy->segment());
@@ -180,6 +187,7 @@ EngravingItem* Factory::doCreateItem(ElementType type, EngravingItem* parent)
     case ElementType::CHORD:             return new Chord(parent->isSegment() ? toSegment(parent) : dummy->segment());
     case ElementType::REST:              return new Rest(parent->isSegment() ? toSegment(parent) : dummy->segment());
     case ElementType::MMREST:            return new MMRest(parent->isSegment() ? toSegment(parent) : dummy->segment());
+    case ElementType::DEAD_SLAPPED:      return new DeadSlapped(toRest(parent));
     case ElementType::SPACER:            return new Spacer(parent->isMeasure() ? toMeasure(parent) : dummy->measure());
     case ElementType::STAFF_STATE:       return new StaffState(parent);
     case ElementType::TEMPO_TEXT:        return new TempoText(parent->isSegment() ? toSegment(parent) : dummy->segment());
@@ -206,6 +214,7 @@ EngravingItem* Factory::doCreateItem(ElementType type, EngravingItem* parent)
     case ElementType::AMBITUS:           return new Ambitus(parent->isSegment() ? toSegment(parent) : dummy->segment());
     case ElementType::STICKING:          return new Sticking(parent->isSegment() ? toSegment(parent) : dummy->segment());
     case ElementType::TRIPLET_FEEL:      return new TripletFeel(parent->isSegment() ? toSegment(parent) : dummy->segment());
+    case ElementType::FRET_CIRCLE:       return new FretCircle(parent->isChord() ? toChord(parent) : dummy->chord());
 
     case ElementType::LYRICSLINE:
     case ElementType::TEXTLINE_BASE:
@@ -216,6 +225,7 @@ EngravingItem* Factory::doCreateItem(ElementType type, EngravingItem* parent)
     case ElementType::STEM_SLASH:
     case ElementType::PAGE:
     case ElementType::BEAM:
+    case ElementType::BEAM_SEGMENT:
     case ElementType::HOOK:
     case ElementType::HAIRPIN_SEGMENT:
     case ElementType::OTTAVA_SEGMENT:
@@ -227,6 +237,7 @@ EngravingItem* Factory::doCreateItem(ElementType type, EngravingItem* parent)
     case ElementType::WHAMMY_BAR_SEGMENT:
     case ElementType::RASGUEADO_SEGMENT:
     case ElementType::HARMONIC_MARK_SEGMENT:
+    case ElementType::PICK_SCRAPE_SEGMENT:
     case ElementType::VOLTA_SEGMENT:
     case ElementType::PEDAL_SEGMENT:
     case ElementType::LYRICSLINE_SEGMENT:
@@ -254,8 +265,10 @@ EngravingItem* Factory::doCreateItem(ElementType type, EngravingItem* parent)
     case ElementType::DUMMY:
         break;
     }
-    LOGD("cannot create type %d <%s>", int(type), TConv::toXml(type));
-    return 0;
+
+    LOGD() << "Cannot create element of type " << static_cast<int>(type) << " (" << TConv::toXml(type) << ")";
+
+    return nullptr;
 }
 
 EngravingItem* Factory::createItemByName(const AsciiStringView& name, EngravingItem* parent, bool isAccessibleEnabled)
@@ -263,7 +276,7 @@ EngravingItem* Factory::createItemByName(const AsciiStringView& name, EngravingI
     ElementType type = TConv::fromXml(name, ElementType::INVALID, isAccessibleEnabled);
     if (type == ElementType::INVALID) {
         LOGE() << "Invalid type: " << name;
-        return 0;
+        return nullptr;
     }
     return createItem(type, parent, isAccessibleEnabled);
 }
@@ -366,6 +379,9 @@ MAKE_ITEM_IMPL(ChordLine, Chord)
 CREATE_ITEM_IMPL(Clef, ElementType::CLEF, Segment, isAccessibleEnabled)
 COPY_ITEM_IMPL(Clef)
 MAKE_ITEM_IMPL(Clef, Segment)
+
+CREATE_ITEM_IMPL(DeadSlapped, ElementType::DEAD_SLAPPED, Rest, isAccessibleEnabled)
+COPY_ITEM_IMPL(DeadSlapped)
 
 CREATE_ITEM_IMPL(Fermata, ElementType::FERMATA, EngravingItem, isAccessibleEnabled)
 MAKE_ITEM_IMPL(Fermata, EngravingItem)
@@ -596,6 +612,9 @@ TripletFeel* Factory::createTripletFeel(Segment * parent, TripletFeelType type, 
     return t;
 }
 
+CREATE_ITEM_IMPL(FretCircle, ElementType::FRET_CIRCLE, Chord, isAccessibleEnabled)
+COPY_ITEM_IMPL(FretCircle)
+
 CREATE_ITEM_IMPL(Vibrato, ElementType::VIBRATO, EngravingItem, isAccessibleEnabled)
 
 CREATE_ITEM_IMPL(TextLine, ElementType::TEXTLINE, EngravingItem, isAccessibleEnabled)
@@ -623,6 +642,8 @@ CREATE_ITEM_IMPL(WhammyBar, ElementType::WHAMMY_BAR, EngravingItem, isAccessible
 CREATE_ITEM_IMPL(Rasgueado, ElementType::RASGUEADO, EngravingItem, isAccessibleEnabled)
 
 CREATE_ITEM_IMPL(HarmonicMark, ElementType::HARMONIC_MARK, EngravingItem, isAccessibleEnabled)
+
+CREATE_ITEM_IMPL(PickScrape, ElementType::PICK_SCRAPE, EngravingItem, isAccessibleEnabled)
 
 CREATE_ITEM_IMPL(Volta, ElementType::VOLTA, EngravingItem, isAccessibleEnabled)
 
@@ -656,4 +677,16 @@ Image* Factory::createImage(EngravingItem * parent)
     image->setParent(parent);
 
     return image;
+}
+
+CREATE_ITEM_IMPL(Symbol, ElementType::SYMBOL, EngravingItem, isAccessibleEnabled)
+CREATE_ITEM_IMPL(FSymbol, ElementType::FSYMBOL, EngravingItem, isAccessibleEnabled)
+
+PlayTechAnnotation* Factory::createPlayTechAnnotation(Segment * parent, PlayingTechniqueType techniqueType, TextStyleType styleType,
+                                                      bool isAccessibleEnabled)
+{
+    PlayTechAnnotation* annotation = new PlayTechAnnotation(parent, techniqueType, styleType);
+    annotation->setAccessibleEnabled(isAccessibleEnabled);
+
+    return annotation;
 }

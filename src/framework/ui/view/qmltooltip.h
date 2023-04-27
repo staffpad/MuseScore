@@ -26,16 +26,25 @@
 #include <QQuickItem>
 #include <QTimer>
 
+#include "async/asyncable.h"
+
+#include "modularity/ioc.h"
+#include "ui/iinteractiveprovider.h"
+
 namespace mu::ui {
-class QmlToolTip : public QObject
+class QmlToolTip : public QObject, public async::Asyncable
 {
     Q_OBJECT
+
+    INJECT(ui, IInteractiveProvider, interactiveProvider)
 
 public:
     explicit QmlToolTip(QObject* parent = nullptr);
 
     Q_INVOKABLE void show(QQuickItem* item, const QString& title, const QString& description = "", const QString& shortcut = "");
     Q_INVOKABLE void hide(QQuickItem* item, bool force = false);
+
+    Q_INVOKABLE void init();
 
 private slots:
     void doShow();
@@ -46,6 +55,8 @@ signals:
     void hideToolTip();
 
 private:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
     QQuickItem* m_item = nullptr;
     QString m_title;
     QString m_description;

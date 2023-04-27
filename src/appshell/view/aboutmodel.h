@@ -26,6 +26,8 @@
 
 #include "modularity/ioc.h"
 #include "iappshellconfiguration.h"
+#include "update/iupdateconfiguration.h"
+#include "global/iglobalconfiguration.h"
 
 class QUrl;
 
@@ -35,6 +37,8 @@ class AboutModel : public QObject
     Q_OBJECT
 
     INJECT(appshell, IAppShellConfiguration, configuration)
+    INJECT(appshell, update::IUpdateConfiguration, updateConfiguration)
+    INJECT(appshell, framework::IGlobalConfiguration, globalConfiguration)
 
 public:
     explicit AboutModel(QObject* parent = nullptr);
@@ -50,6 +54,8 @@ public:
     Q_INVOKABLE QVariantMap musicXMLLicenseDeedUrl() const;
 
     Q_INVOKABLE void copyRevisionToClipboard() const;
+
+    Q_INVOKABLE void toggleDevMode();
 
 private:
     QVariantMap makeUrl(const QUrl& url, bool showPath = true) const;

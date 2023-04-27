@@ -32,6 +32,12 @@
 
 namespace mu::audio {
 class Mixer;
+
+namespace soundtrack {
+class SoundTrackWriter;
+using SoundTrackWriterPtr = std::shared_ptr<SoundTrackWriter>;
+}
+
 class AudioOutputHandler : public IAudioOutput, public async::Asyncable
 {
     INJECT(audio, fx::IFxResolver, fxResolver)
@@ -45,6 +51,7 @@ public:
 
     async::Promise<AudioOutputParams> masterOutputParams() const override;
     void setMasterOutputParams(const AudioOutputParams& params) override;
+    void clearMasterOutputParams() override;
     async::Channel<AudioOutputParams> masterOutputParamsChanged() const override;
 
     async::Promise<AudioResourceMetaList> availableOutputResources() const override;
@@ -54,6 +61,11 @@ public:
 
     async::Promise<bool> saveSoundTrack(const TrackSequenceId sequenceId, const io::path_t& destination,
                                         const SoundTrackFormat& format) override;
+    void abortSavingAllSoundTracks() override;
+
+    framework::Progress saveSoundTrackProgress(const TrackSequenceId sequenceId) override;
+
+    void clearAllFx() override;
 
 private:
     std::shared_ptr<Mixer> mixer() const;
@@ -65,6 +77,9 @@ private:
 
     mutable async::Channel<AudioOutputParams> m_masterOutputParamsChanged;
     mutable async::Channel<TrackSequenceId, TrackId, AudioOutputParams> m_outputParamsChanged;
+
+    std::unordered_map<TrackSequenceId, framework::Progress> m_saveSoundTracksProgressMap;
+    std::unordered_map<TrackSequenceId, soundtrack::SoundTrackWriterPtr> m_saveSoundTracksWritersMap;
 };
 }
 

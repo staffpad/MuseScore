@@ -80,7 +80,8 @@ IPluginsService::CategoryInfoMap PluginsService::categories() const
     static CategoryInfoMap categories {
         { "composing-arranging-tools", TranslatableString("plugins", "Composing/arranging tools") },
         { "color-notes", TranslatableString("plugins", "Color notes") },
-        { "playback", TranslatableString("plugins", "Playback") }
+        { "playback", TranslatableString("plugins", "Playback") },
+        { "lyrics", TranslatableString("plugins", "Lyrics") }
     };
 
     return categories;
@@ -107,10 +108,14 @@ PluginInfoMap PluginsService::readPlugins() const
 
     for (const io::path_t& pluginPath: pluginsPaths) {
         QUrl url = QUrl::fromLocalFile(pluginPath.toQString());
-        PluginView view(url);
+        PluginView view;
+
+        if (!view.load(url)) {
+            continue;
+        }
 
         PluginInfo info;
-        info.codeKey = io::basename(pluginPath).toQString();
+        info.codeKey = io::completeBasename(pluginPath).toQString();
         info.url = url;
         info.name = view.name();
         info.description = view.description();
@@ -249,7 +254,13 @@ mu::Ret PluginsService::run(const CodeKey& codeKey)
         return make_ret(Err::PluginNotFound);
     }
 
-    PluginView* view = new PluginView(info.url);
+    PluginView* view = new PluginView(this);
+
+    Ret ret = view->load(info.url);
+    if (!ret) {
+        return ret;
+    }
+
     view->run();
 
     QObject::connect(view, &PluginView::finished, view, &QObject::deleteLater);

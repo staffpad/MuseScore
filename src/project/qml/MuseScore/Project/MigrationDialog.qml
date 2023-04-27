@@ -26,24 +26,25 @@ import MuseScore.Ui 1.0
 import MuseScore.UiComponents 1.0
 import MuseScore.Project 1.0
 
+import "internal/Migration"
+
 StyledDialogView {
     id: dialog
 
-    title: qsTrc("project/migration", "Style improvements")
+    //! TODO: After setting title the accessibility for this dialog on VoiceOver stops working
+    //title: qsTrc("project/migration", "Style improvements")
 
     property string appVersion: ""
     property int migrationType: MigrationType.Unknown
 
     property bool isApplyLeland: true
     property bool isApplyEdwin: true
-    property bool isApplyAutoSpacing: true
     property bool isAskAgain: true
 
     contentHeight: {
         switch (dialog.migrationType) {
-        case MigrationType.Pre300: return 588
-        case MigrationType.Post300AndPre362: return 556
-        case MigrationType.Ver362: return 208
+        case MigrationType.Pre_3_6: return 556
+        case MigrationType.Ver_3_6: return 208
         case MigrationType.Unknown: return 0
         }
         return 600
@@ -51,9 +52,8 @@ StyledDialogView {
 
     contentWidth:  {
         switch (dialog.migrationType) {
-        case MigrationType.Pre300: return 600
-        case MigrationType.Post300AndPre362: return 600
-        case MigrationType.Ver362: return 480
+        case MigrationType.Pre_3_6: return 600
+        case MigrationType.Ver_3_6: return 480
         case MigrationType.Unknown: return 0
         }
         return 600
@@ -61,20 +61,15 @@ StyledDialogView {
 
     modal: true
 
-    //! NOTE Can be set three a fixed version, for each version different dialog content
+    //! NOTE Different dialogs for different migration versions
     onOpened: {
         switch(dialog.migrationType) {
-        case MigrationType.Pre300:
+        case MigrationType.Pre_3_6:
             loader.sourceComponent = migrComp
             break;
-        case MigrationType.Post300AndPre362:
-            isApplyAutoSpacing = false
-            loader.sourceComponent = migrComp
-            break;
-        case MigrationType.Ver362:
+        case MigrationType.Ver_3_6:
             isApplyLeland = false
             isApplyEdwin = false
-            isApplyAutoSpacing = false
             loader.sourceComponent = noteComp
             break;
         default:
@@ -90,7 +85,6 @@ StyledDialogView {
                 isAskAgain: dialog.isAskAgain,
                 isApplyLeland: dialog.isApplyLeland,
                 isApplyEdwin: dialog.isApplyEdwin,
-                isApplyAutoSpacing: dialog.isApplyAutoSpacing
             }
         }
 
@@ -98,82 +92,42 @@ StyledDialogView {
     }
 
     function watchVideo() {
-        var link = Qt.locale().name === "zh_CN" ? "https://www.bilibili.com/video/BV1FT4y1K7UM" : "https://youtu.be/qLR40BGNy68"
-        Qt.openUrlExternally(link)
+        Qt.openUrlExternally("https://youtu.be/U7dagae87eM")
     }
 
     Loader {
         id: loader
         anchors.fill: parent
+
+        onLoaded: {
+            item.activateNavigation()
+        }
     }
 
     //! NOTE for 3.6.2
     Component {
         id: noteComp
 
-        ColumnLayout {
-            id: content
-
+        MigrationContentFor362 {
             anchors.fill: parent
             anchors.margins: 16
-            spacing: 16
 
-            StyledTextLabel {
-                id: headerTitle
+            appVersion: dialog.appVersion
+            isAskAgain: dialog.isAskAgain
 
-                Layout.fillWidth: true
+            navigationPanel.section: dialog.navigationSection
 
-                font: ui.theme.tabBoldFont
-
-                horizontalAlignment: Text.AlignLeft
-                verticalAlignment: Text.AlignTop
-
-                text: qsTrc("project/migration", "This file was last saved in MuseScore %1").arg(dialog.appVersion)
+            onIsAskAgainChangeRequested: function(askAgain) {
+                dialog.isAskAgain = askAgain
             }
 
-            StyledTextLabel {
-                id: headerSubtitle
-
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-
-                horizontalAlignment: Text.AlignLeft
-                verticalAlignment: Text.AlignVCenter
-                wrapMode: Text.WordWrap
-                elide: Text.ElideNone
-
-                text: qsTrc("project/migration", "Please note that the appearance of your score will change due to improvements we have made to default settings for beaming, ties, slurs, system objects and horizontal spacing.")
+            onWatchVideoRequested: {
+                dialog.watchVideo()
             }
 
-            CheckBox {
-                id: askAgain
-
-                Layout.fillWidth: true
-
-                text: qsTrc("global", "Don't show this message again")
-                checked: !dialog.isAskAgain
-                onClicked: { dialog.isAskAgain = !dialog.isAskAgain }
-            }
-
-            RowLayout {
-                FlatButton {
-                    id: watchVideo
-
-                    text: qsTrc("project/migration", "Watch video about changes")
-                    onClicked: { dialog.watchVideo() }
-                }
-
-                Item { Layout.fillWidth: true } // spacer
-
-                FlatButton {
-                    id: applyBtn
-
-                    text: qsTrc("global", "OK")
-                    onClicked: {
-                        dialog.ret = dialog.makeRet(true)
-                        dialog.hide()
-                    }
-                }
+            onAccess: {
+                dialog.ret = dialog.makeRet(true)
+                dialog.hide()
             }
         }
     }
@@ -182,151 +136,36 @@ StyledDialogView {
     Component {
         id: migrComp
 
-        Item {
-            id: content
-
+        MigrationContentForPre362 {
             anchors.fill: parent
 
-            Column {
-                id: mainContent
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.margins: 16
-                height: childrenRect.height
+            appVersion: dialog.appVersion
+            isAskAgain: dialog.isAskAgain
 
-                StyledTextLabel {
-                    id: headerTitle
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: 32
+            isApplyLeland: dialog.isApplyLeland
+            isApplyEdwin: dialog.isApplyEdwin
 
-                    font: ui.theme.tabBoldFont
+            navigationSection: dialog.navigationSection
 
-                    horizontalAlignment: Qt.AlignLeft
-                    verticalAlignment: Qt.AlignVCenter
-
-                    text: qsTrc("project/migration", "This file was last saved in MuseScore %1").arg(dialog.appVersion)
-                }
-
-                StyledTextLabel {
-                    id: headerSubtitle
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: 24
-
-                    horizontalAlignment: Qt.AlignLeft
-                    verticalAlignment: Qt.AlignVCenter
-
-                    text: qsTrc("project/migration", "Select the engraving improvements you would like to apply to your score")
-                }
-
-                Item {
-                    id: imageItem
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: 264
-
-                    Image {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        height: 200
-                        fillMode: Image.PreserveAspectFit
-                        source: "migration.png"
-                    }
-                }
-
-                CheckBox {
-                    id: lelandOption
-                    anchors.left: parent.left
-                    height: 32
-                    text: qsTrc("project/migration", "Our new notation font, Leland")
-                    checked: dialog.isApplyLeland
-                    onClicked: dialog.isApplyLeland = !dialog.isApplyLeland
-                }
-
-                CheckBox {
-                    id: edwinOption
-                    anchors.left: parent.left
-                    height: 32
-                    text: qsTrc("project/migration", "Our new text font, Edwin")
-                    checked: dialog.isApplyEdwin
-                    onClicked: dialog.isApplyEdwin = !dialog.isApplyEdwin
-                }
-
-                CheckBox {
-                    id: spacingOption
-                    anchors.left: parent.left
-                    height: 32
-                    text: qsTrc("project/migration", "Automatic spacing (introduced in MuseScore 3.0)")
-                    visible: dialog.migrationType === MigrationType.Pre300
-                    checked: dialog.isApplyAutoSpacing
-                    onClicked: dialog.isApplyAutoSpacing = !dialog.isApplyAutoSpacing
-                }
-
-                Item {
-                    width: 1
-                    height: 16
-                }
-
-                StyledTextLabel {
-                    id: noteLabel
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: 32
-
-                    horizontalAlignment: Qt.AlignLeft
-                    verticalAlignment: Qt.AlignVCenter
-
-                    text: qsTrc("project/migration", "Please note: score layouts will be affected by improvements to MuseScore 4")
-                }
-
-                FlatButton {
-                    id: watchVideo
-
-                    text: qsTrc("project/migration", "Watch video")
-                    onClicked: dialog.watchVideo()
-                }
+            onIsApplyEdwinChangeRequested: function(applyEdwin) {
+                dialog.isApplyEdwin = applyEdwin
             }
 
-            Item {
-                id: footer
+            onIsApplyLelandChangeRequested: function(applyLeland) {
+                dialog.isApplyLeland = applyLeland
+            }
 
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.leftMargin: 16
-                anchors.rightMargin: 16
-                height: 56
+            onIsAskAgainChangeRequested: function(askAgain) {
+                dialog.isAskAgain = askAgain
+            }
 
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.margins: -16
-                    height: 2
-                    color: ui.theme.buttonColor
-                }
+            onWatchVideoRequested: {
+                dialog.watchVideo()
+            }
 
-                CheckBox {
-                    id: askAgain
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: qsTrc("global", "Don't ask again")
-                    checked: !dialog.isAskAgain
-                    onClicked: dialog.isAskAgain = !dialog.isAskAgain
-                }
-
-                FlatButton {
-                    id: applyBtn
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: qsTrc("global", "OK")
-                    onClicked: {
-                        dialog.ret = dialog.makeRet(true)
-                        dialog.hide()
-                    }
-                }
+            onAccess: {
+                dialog.ret = dialog.makeRet(true)
+                dialog.hide()
             }
         }
     }

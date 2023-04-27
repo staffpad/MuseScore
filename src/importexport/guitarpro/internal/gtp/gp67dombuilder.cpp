@@ -15,7 +15,7 @@ void GP67DomBuilder::buildGPDomModel(XmlDomElement* domElem)
 {
     XmlDomNode revision;
     // Score node
-    XmlDomNode scoreNode,        masterTrack,      eachTrack,
+    XmlDomNode scoreNode,        masterTrack,      audioTracks, eachTrack,
                masterBars,       bars,             voices,
                beats,            notes,            rhythms;
 
@@ -27,6 +27,7 @@ void GP67DomBuilder::buildGPDomModel(XmlDomElement* domElem)
         { u"GPRevision",    &revision },
         { u"Score",         &scoreNode },
         { u"MasterTrack",   &masterTrack },
+        { u"AudioTracks",   &audioTracks },
         { u"Tracks",        &eachTrack },
         { u"MasterBars",    &masterBars },
         { u"Bars",          &bars },
@@ -43,9 +44,6 @@ void GP67DomBuilder::buildGPDomModel(XmlDomElement* domElem)
         auto iter = nodeMap.find(node.nodeName());
         if (iter != nodeMap.end()) {
             *(iter->second) = node;
-        } else {
-            String nodeName = node.nodeName();
-            LOGW() << "unknown node " << nodeName << "\n";
         }
     };
 
@@ -62,7 +60,7 @@ void GP67DomBuilder::buildGPDomModel(XmlDomElement* domElem)
 
     buildGPScore(&scoreNode);
     buildGPMasterTracks(&masterTrack);
-    buildGPAudioTracks(&eachTrack);
+    buildGPAudioTracks(&audioTracks);
     buildGPTracks(&eachTrack);
 }
 
@@ -77,8 +75,7 @@ void GP67DomBuilder::buildGPScore(XmlDomNode* scoreNode)
     static const std::set<String> sUnusedNodes = {
         u"FirstPageFooter", u"FirstPageHeader",
         u"PageFooter", u"PageHeader",
-        u"ScoreSystemsDefaultLayout", u"ScoreSystemsLayout", u"PageSetup",
-        u"MultiVoice"
+        u"ScoreSystemsDefaultLayout", u"ScoreSystemsLayout", u"PageSetup"
     };
 
     std::unique_ptr<GPScore> score = std::make_unique<GPScore>();
@@ -103,11 +100,12 @@ void GP67DomBuilder::buildGPScore(XmlDomNode* scoreNode)
             // Currently we ignore Tabber info
         } else if (nodeName == u"Instructions" || nodeName == u"Notices") {
             // Currently we ignore score unrelated texts
+        } else if (nodeName == u"MultiVoice") {
+            score->setMultiVoice(currentNode.toElement().text().toInt());
         } else if (sUnusedNodes.find(nodeName) != sUnusedNodes.end()) {
             // Ignored nodes, which specify unused specifics (e.g. default layout, footers e.t.c.)
-        } else {
-            LOGW() << "unknown GP score info tag: " << nodeName << "\n";
         }
+
         currentNode = currentNode.nextSibling();
     }
     _gpDom->addGPScore(std::move(score));
@@ -128,9 +126,8 @@ void GP67DomBuilder::buildGPMasterTracks(XmlDomNode* masterTrack)
             String tracks = currentNode.toElement().text();
             size_t tracksCount = tracks.split(u' ').size();
             masterTracks->setTracksCount(tracksCount);
-        } else {
-            LOGW() << "unknown GP MasterTracks tag: " << nodeName << "\n";
         }
+
         currentNode = currentNode.nextSibling();
     }
 
@@ -285,6 +282,11 @@ std::vector<GPMasterTracks::Automation> GP67DomBuilder::readTempoMap(XmlDomNode*
                 tempo.bar = currentAutomation.firstChildElement("Bar").text().toInt();
                 tempo.position = currentAutomation.firstChildElement("Position").text().toFloat();
                 tempo.linear = (ln.toElement().text() == u"true");
+                XmlDomElement labelElem = currentAutomation.firstChildElement("Text");
+                if (labelElem.hasChildNodes()) {
+                    tempo.text = labelElem.toElement().text();
+                }
+
                 tempoMap.push_back(tempo);
             }
         }
@@ -373,8 +375,6 @@ std::unique_ptr<GPMasterBar> GP67DomBuilder::createGPMasterBar(XmlDomNode* maste
             masterBar->setFreeTime(true);
         } else if (sUnused.find(nodeName) != sUnused.end()) {
             // Ignored
-        } else {
-            LOGW() << "unknown GP MasterBar tag: " << nodeName << "\n";
         }
 
         innerNode = innerNode.nextSibling();
@@ -385,10 +385,6 @@ std::unique_ptr<GPMasterBar> GP67DomBuilder::createGPMasterBar(XmlDomNode* maste
 
 std::pair<int, std::unique_ptr<GPBar> > GP67DomBuilder::createGPBar(XmlDomNode* barNode)
 {
-    static const std::set<String> sUnused = {
-        u"XProperties"
-    };
-
     auto clefType = [](const String& clef) {
         if (clef == u"C4") {
             return GPBar::ClefType::C4;
@@ -456,11 +452,8 @@ std::pair<int, std::unique_ptr<GPBar> > GP67DomBuilder::createGPBar(XmlDomNode* 
                 _voices.erase(idx);
                 bar->addGPVoice(std::move(voice));
             }
-        } else if (sUnused.find(nodeName) != sUnused.end()) {
-            // Ignored
-        } else {
-            LOGW() << "unknown GP Bar tag: " << nodeName << "\n";
         }
+
         innerNode = innerNode.nextSibling();
     }
 
@@ -498,7 +491,7 @@ std::pair<int, std::shared_ptr<GPBeat> > GP67DomBuilder::createGPBeat(XmlDomNode
 {
     static const std::set<String> sUnused = {
         u"Bank",
-        u"StemOrientation", u"ConcertPitchStemOrientation", u"TransposedPitchStemOrientation",
+        u"StemOrientation", u"ConcertPitchStemOrientation",
         u"Ottavia"
     };
 
@@ -667,12 +660,16 @@ std::pair<int, std::shared_ptr<GPBeat> > GP67DomBuilder::createGPBeat(XmlDomNode
         } else if (nodeName == u"Whammy" || nodeName == u"WhammyExtend") {
             // TODO-gp: implement dives
             beat->setDive(true);
+        } else if (nodeName == u"DeadSlapped") {
+            beat->setDeadSlapped(true);
+        } else if (nodeName == u"TransposedPitchStemOrientation") {
+            beat->setStemOrientationUp(innerNode.toElement().text() == u"Upward");
+        } else if (nodeName == u"TransposedPitchStemOrientationUserDefined") {
+            beat->setStemOrientationUserDefined(true);
         } else if (nodeName == u"XProperties") {
             readBeatXProperties(innerNode, beat.get());
         } else if (sUnused.find(nodeName) != sUnused.end()) {
             // Ignored nodes
-        } else {
-            LOGW() << "unknown GP Beat Tag " << nodeName << "\n";
         }
 
         innerNode = innerNode.nextSibling();
@@ -724,6 +721,22 @@ std::pair<int, std::shared_ptr<GPNote> > GP67DomBuilder::createGPNote(XmlDomNode
     auto innerNode = noteNode->firstChild();
     while (!innerNode.isNull()) {
         String nodeName = innerNode.nodeName();
+
+        if (nodeName == u"Accidental") {
+            std::map<String, int> accidentals = {
+                { u"DoubleFlat", -2 },
+                { u"Flat", -1 },
+                { u"Natural", 0 },
+                { u"Sharp", +1 },
+                { u"DoubleSharp", +2 }
+            };
+
+            String accidentalName = innerNode.toElement().text();
+
+            if (accidentals.find(accidentalName) != accidentals.end()) {
+                note->setAccidental(accidentals[accidentalName]);
+            }
+        }
         if (nodeName == u"InstrumentArticulation") {
         }
         if (nodeName == u"Properties") {
@@ -768,8 +781,6 @@ std::pair<int, std::shared_ptr<GPNote> > GP67DomBuilder::createGPNote(XmlDomNode
             note->setTrillFret(innerNode.toElement().text().toInt());
         } else if (nodeName == "Ornament") {
             note->setOrnament(ornamentType(innerNode.toElement().text()));
-        } else {
-            //LOGD() << "unknown GP Note Tag" << nodeName << "\n";
         }
 
         innerNode = innerNode.nextSibling();
@@ -814,8 +825,6 @@ std::pair<int, std::shared_ptr<GPRhythm> > GP67DomBuilder::createGPRhythm(XmlDom
             int num = innerNode.attribute("num").toInt();
             int denom = innerNode.attribute("den").toInt();
             rhythm->setTuplet({ num, denom });
-        } else {
-            //LOGD() << "unknown GP Rhytms tag" << nodeName << "\n";
         }
 
         innerNode = innerNode.nextSibling();
@@ -879,66 +888,100 @@ void GP67DomBuilder::readNoteProperties(XmlDomNode* propertiesNode, GPNote* note
 {
     std::unordered_set<std::unique_ptr<INoteProperty> > properties;
 
-    auto propetryNode = propertiesNode->firstChild();
+    auto propertyNode = propertiesNode->firstChild();
 
-    while (!propetryNode.isNull()) {
-        auto propertyName = propetryNode.attribute("name");
+    while (!propertyNode.isNull()) {
+        auto propertyName = propertyNode.attribute("name");
 
         if (propertyName == u"Midi") {
-            int midi = propetryNode.firstChild().toElement().text().toInt();
+            int midi = propertyNode.firstChild().toElement().text().toInt();
             note->setMidi(midi);
         }
         if (propertyName == u"Variation") {
-            note->setVariation(propetryNode.firstChild().toElement().text().toInt());
+            note->setVariation(propertyNode.firstChild().toElement().text().toInt());
         }
         if (propertyName == u"Element") {
-            note->setElement(propetryNode.firstChild().toElement().text().toInt());
+            note->setElement(propertyNode.firstChild().toElement().text().toInt());
         } else if (propertyName == u"String") {
-            int string = propetryNode.firstChild().toElement().text().toInt();
+            int string = propertyNode.firstChild().toElement().text().toInt();
             note->setString(string);
         } else if (propertyName == u"Fret") {
-            int fret = propetryNode.firstChild().toElement().text().toInt();
+            int fret = propertyNode.firstChild().toElement().text().toInt();
             note->setFret(fret);
         } else if (propertyName == u"Octave") {
-            int octave = propetryNode.firstChild().toElement().text().toInt();
+            int octave = propertyNode.firstChild().toElement().text().toInt();
             note->setOctave(octave);
+        } else if (propertyName == u"ConcertPitch") {
+            auto pitchNode = propertyNode.firstChild();
+            auto innerNode = pitchNode.firstChild();
+            while (!innerNode.isNull()) {
+                String nodeName = innerNode.nodeName();
+                if (nodeName == u"Accidental") {
+                    std::map<String, int> accidentals = {
+                        { u"bb", -2 },
+                        { u"b",  -1 },
+                        { u"#",  +1 },
+                        { u"x",  +2 },
+                    };
+
+                    String accidentalName = innerNode.toElement().text();
+                    if (!accidentalName.isEmpty() && accidentals.find(accidentalName) != accidentals.end()) {
+                        note->setAccidental(accidentals[accidentalName]);
+                    } else {
+                        note->setAccidental(0);
+                    }
+                }
+
+                innerNode = innerNode.nextSibling();
+            }
         } else if (propertyName == u"Tone") {
-            int tone = propetryNode.firstChild().toElement().text().toInt();
+            int tone = propertyNode.firstChild().toElement().text().toInt();
             note->setTone(tone);
         } else if (propertyName == u"Bended") {
-            if (propetryNode.firstChild().nodeName() == "Enable") {
-                note->setBend(createBend(&propetryNode));
+            if (propertyNode.firstChild().nodeName() == "Enable") {
+                note->setBend(createBend(&propertyNode));
             }
         } else if (propertyName == u"Harmonic"
                    || propertyName == u"HarmonicFret"
                    || propertyName == u"HarmonicType") {
-            readHarmonic(&propetryNode, note);
+            readHarmonic(&propertyNode, note);
         } else if (propertyName == u"PalmMuted") {
-            if (propetryNode.firstChild().nodeName() == "Enable") {
+            if (propertyNode.firstChild().nodeName() == "Enable") {
                 note->setPalmMute(true);
             }
         } else if (propertyName == u"Muted") {
             //! property muted in GP means dead note
-            if (propetryNode.firstChild().nodeName() == "Enable") {
+            if (propertyNode.firstChild().nodeName() == "Enable") {
                 note->setMute(true);
             }
         } else if (propertyName == u"Slide") {
-            note->setSlides(propetryNode.firstChild().toElement().text().toUInt());
+            int slideInfo = propertyNode.firstChild().toElement().text().toUInt();
+            switch (slideInfo) {
+            case 64:
+                note->setPickScrape(GPNote::PickScrape::Down);
+                break;
+            case 128:
+                note->setPickScrape(GPNote::PickScrape::Up);
+                break;
+            default:
+                note->setSlides(slideInfo);
+                break;
+            }
         } else if (propertyName == u"HopoOrigin") {
             note->setHammerOn(GPNote::HammerOn::Start);
         } else if (propertyName == u"Tapped") {
-            if (propetryNode.firstChild().nodeName() == "Enable") {
+            if (propertyNode.firstChild().nodeName() == "Enable") {
                 note->setTapping(true);
             }
         } else if (propertyName == u"LeftHandTapped") {
-            if (propetryNode.firstChild().nodeName() == "Enable") {
+            if (propertyNode.firstChild().nodeName() == "Enable") {
                 note->setLeftHandTapped(true);
             }
-        } else {
-            //LOGD() << "unknown GP Note Property tag" << propertyName << "\n";
+        } else if (propertyName == "ShowStringNumber") {
+            note->setShowStringNumber(true);
         }
 
-        propetryNode = propetryNode.nextSibling();
+        propertyNode = propertyNode.nextSibling();
     }
 
     note->addProperties(std::move(properties));
@@ -949,15 +992,40 @@ void GP67DomBuilder::readBeatXProperties(const XmlDomNode& propertiesNode, GPBea
 {
     auto propertyNode = propertiesNode.firstChild();
 
+    bool brokenBeams = false;
+    bool brokenSecondaryBeams = false;
+    bool joinedBeams = false;
+
     while (!propertyNode.isNull()) {
         int propertyId = propertyNode.attribute("id").toInt();
 
         if (propertyId == 687931393 || propertyId == 687935489) {
             // arpeggio/brush ticks
             beat->setArpeggioStretch(propertyNode.firstChild().toElement().text().toDouble() / mu::engraving::Constants::division);
+        } else if (propertyId == 1124204546) {
+            int beamData = propertyNode.firstChild().toElement().text().toInt();
+
+            if (beamData == 1) {
+                joinedBeams = true;
+            } else if (beamData == 2) {
+                brokenBeams = true;
+            }
+        } else if (propertyId == 1124204552) {
+            int beamData = propertyNode.firstChild().toElement().text().toInt();
+            if (beamData == 1) {
+                brokenSecondaryBeams = true;
+            }
         }
 
         propertyNode = propertyNode.nextSibling();
+    }
+
+    if (brokenBeams) {
+        beat->setBeamMode(GPBeat::BeamMode::BROKEN);
+    } else if (brokenSecondaryBeams) {
+        beat->setBeamMode(joinedBeams ? GPBeat::BeamMode::BROKEN2_JOINED : GPBeat::BeamMode::BROKEN2);
+    } else if (joinedBeams) {
+        beat->setBeamMode(GPBeat::BeamMode::JOINED);
     }
 }
 
@@ -1108,9 +1176,17 @@ void GP67DomBuilder::readBeatProperties(const XmlDomNode& propertiesNode, GPBeat
             beat->setBarreFret(propertyNode.firstChild().toElement().text().toInt());
         } else if (propertyName == u"BarreString") {
             beat->setBarreString(propertyNode.firstChild().toElement().text().toInt());
-        } else {
-            //LOGD() << "unknown GP Beat property info tag: " << propertyName << "\n";
+        } else if (propertyName == u"WhammyBar") {
+            beat->setDive(true);
         }
+        /// TODO: implement dive
+//        else if (propertyName == u"WhammyBarDestinationOffset") {
+//        } else if (propertyName == u"WhammyBarDestinationValue") {
+//        } else if (propertyName == u"WhammyBarMiddleOffset1") {
+//        } else if (propertyName == u"WhammyBarMiddleOffset2") {
+//        } else if (propertyName == u"WhammyBarMiddleValue") {
+//        } else if (propertyName == u"WhammyBarOriginValue") {
+//        }
 
         propertyNode = propertyNode.nextSibling();
     }
@@ -1139,8 +1215,6 @@ void GP67DomBuilder::readTrackProperties(XmlDomNode* propertiesNode, GPTrack* tr
             property.tunning.swap(tunning);
         } else if (propertyName == u"DiagramCollection" || propertyName == u"DiagramWorkingSet") {
             readDiagram(propertyNode.firstChild(), track);
-        } else {
-            //LOGD() << "unknown GP trackProperty info tag: " << propertyName << "\n";
         }
 
         propertyNode = propertyNode.nextSibling();

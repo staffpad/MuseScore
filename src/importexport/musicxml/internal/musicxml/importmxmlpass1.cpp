@@ -22,8 +22,6 @@
 
 #include <QRegularExpression>
 
-#include "engraving/infrastructure/symbolfonts.h"
-
 #include "engraving/libmscore/box.h"
 #include "engraving/libmscore/factory.h"
 #include "engraving/libmscore/layoutbreak.h"
@@ -56,6 +54,11 @@ using namespace mu::engraving;
 static std::shared_ptr<mu::iex::musicxml::IMusicXmlConfiguration> configuration()
 {
     return mu::modularity::ioc()->resolve<mu::iex::musicxml::IMusicXmlConfiguration>("iex_musicxml");
+}
+
+static std::shared_ptr<mu::engraving::IEngravingFontsProvider> engravingFonts()
+{
+    return mu::modularity::ioc()->resolve<mu::engraving::IEngravingFontsProvider>("iex_musicxml");
 }
 
 static bool musicxmlImportBreaks()
@@ -1096,7 +1099,11 @@ void MusicXMLParserPass1::scorePartwise()
             staff->setBracketSpan(pg->column, stavesSpan);
         }
         if (pg->barlineSpan) {
-            staff->setBarLineSpan(pg->span);
+            // set setBarLineSpan to 1 for all staves in the part except the last staff
+            auto idx = staff->idx();
+            for (auto i = idx; i < idx + stavesSpan - 1; ++i) {
+                _score->staff(i)->setBarLineSpan(1);
+            }
         }
     }
 
@@ -1177,7 +1184,7 @@ static QString text2syms(const QString& t)
     // note that this takes about 1 msec on a Core i5,
     // caching does not gain much
 
-    SymbolFont* sf = SymbolFonts::fallbackFont();
+    IEngravingFontPtr sf = engravingFonts()->fallbackFont();
     QMap<QString, SymId> map;
     int maxStringSize = 0;          // maximum string size found
 
@@ -1446,7 +1453,7 @@ static void updateStyles(Score* score,
             continue;
         }
         const TextStyle* ts = textStyle(tid);
-        for (const StyledProperty& a :*ts) {
+        for (const auto& a :*ts) {
             if (a.pid == Pid::FONT_FACE && wordFamily != "" && !needUseDefaultFont) {
                 score->style().set(a.sid, wordFamily);
             } else if (a.pid == Pid::FONT_SIZE && dblWordSize > epsilon) {

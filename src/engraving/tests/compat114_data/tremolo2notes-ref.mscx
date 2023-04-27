@@ -5,9 +5,9 @@
     <currentLayer>0</currentLayer>
     <Division>480</Division>
     <Style>
-      <frameSystemDistance>13</frameSystemDistance>
-      <measureSpacing>1.14</measureSpacing>
+      <frameSystemDistance>7</frameSystemDistance>
       <voltaPosAbove x="0" y="-2"/>
+      <defaultsVersion>114</defaultsVersion>
       <Spatium>1.764</Spatium>
       </Style>
     <showInvisible>1</showInvisible>
@@ -25,14 +25,14 @@
     <metaTag name="translator"></metaTag>
     <metaTag name="workNumber"></metaTag>
     <metaTag name="workTitle"></metaTag>
-    <Part>
+    <Part id="1">
       <Staff id="1">
         <StaffType group="pitched">
           </StaffType>
-        <bracket type="-1" span="1" col="0"/>
+        <bracket type="-1" span="1" col="0" visible="1"/>
         </Staff>
       <trackName>Flute</trackName>
-      <Instrument>
+      <Instrument id="flute">
         <trackName>Flute</trackName>
         <minPitchP>59</minPitchP>
         <maxPitchP>98</maxPitchP>
@@ -69,6 +69,9 @@
             <concertClefType>G</concertClefType>
             <transposingClefType>G</transposingClefType>
             </Clef>
+          <KeySig>
+            <accidental>0</accidental>
+            </KeySig>
           <TimeSig>
             <sigN>4</sigN>
             <sigD>4</sigD>
@@ -82,6 +85,8 @@
               </Note>
             <Tremolo>
               <subtype>c8</subtype>
+              <l1>34</l1>
+              <l2>30</l2>
               </Tremolo>
             </Chord>
           <Chord>
@@ -107,6 +112,8 @@
               </Note>
             <Tremolo>
               <subtype>c16</subtype>
+              <l1>38</l1>
+              <l2>36</l2>
               </Tremolo>
             </Chord>
           <Chord>
@@ -132,6 +139,8 @@
               </Note>
             <Tremolo>
               <subtype>c32</subtype>
+              <l1>44</l1>
+              <l2>42</l2>
               </Tremolo>
             </Chord>
           <Chord>

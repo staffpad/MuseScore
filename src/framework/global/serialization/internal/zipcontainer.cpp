@@ -378,7 +378,7 @@ struct ZipContainer::Impl {
     uint start_of_directory = 0;
     ZipContainer::Status status = ZipContainer::NoError;
 
-    ZipContainer::CompressionPolicy compressionPolicy;
+    ZipContainer::CompressionPolicy compressionPolicy = ZipContainer::AlwaysCompress;
 
     enum EntryType {
         Directory, File, Symlink
@@ -540,7 +540,7 @@ ZipContainer::FileInfo ZipContainer::Impl::fillFileInfo(int index) const
         fileInfo.filePath = fileInfo.filePath.substr(1);
     }
     while (!fileInfo.filePath.empty() && fileInfo.filePath.back() == '/') {
-        fileInfo.filePath = fileInfo.filePath.substr(fileInfo.filePath.size() - 1);
+        fileInfo.filePath = fileInfo.filePath.substr(0, fileInfo.filePath.size() - 1);
     }
     return fileInfo;
 }
@@ -625,7 +625,11 @@ void ZipContainer::Impl::addEntry(EntryType type, const std::string& fileName, c
     writeUShort(header.h.version_made, HostUnix << 8);
     //uint8_t internal_file_attributes[2];
     //uint8_t external_file_attributes[4];
-    uint32_t mode = 0;
+    uint32_t mode = UnixFileAttributes::ReadUser
+                    | UnixFileAttributes::WriteUser
+                    | UnixFileAttributes::ExeUser
+                    | UnixFileAttributes::ReadGroup
+                    | UnixFileAttributes::ReadOther;
     switch (type) {
     case Symlink:
         mode |= UnixFileAttributes::SymLink;
@@ -683,13 +687,27 @@ int ZipContainer::count() const
     return (int)p->fileHeaders.size();
 }
 
+bool ZipContainer::fileExists(const std::string& fileName) const
+{
+    p->scanFiles();
+    ByteArray fileNameBa = ByteArray::fromRawData(fileName.c_str(), fileName.size());
+    for (size_t i = 0; i < p->fileHeaders.size(); ++i) {
+        if (p->fileHeaders.at(i).file_name == fileNameBa) {
+            return true;
+        }
+    }
+    return false;
+}
+
 ByteArray ZipContainer::fileData(const std::string& fileName) const
 {
     p->scanFiles();
 
+    ByteArray fileNameBa = ByteArray::fromRawData(fileName.c_str(), fileName.size());
+
     size_t i;
     for (i = 0; i < p->fileHeaders.size(); ++i) {
-        if (p->fileHeaders.at(i).file_name == ByteArray::fromRawData(fileName.c_str(), fileName.size())) {
+        if (p->fileHeaders.at(i).file_name == fileNameBa) {
             break;
         }
     }

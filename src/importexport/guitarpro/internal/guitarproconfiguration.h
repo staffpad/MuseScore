@@ -28,7 +28,15 @@ namespace mu::iex::guitarpro {
 class GuitarProConfiguration : public IGuitarProConfiguration
 {
 public:
-    void init();
+    bool linkedTabStaffCreated() const override;
+    void setLinkedTabStaffCreated(std::optional<bool> created) override;
+
+    bool experimental() const override;
+    void setExperimental(std::optional<bool> experimental) override;
+
+private:
+    std::optional<bool> m_linkedTabStaffCreated;
+    std::optional<bool> m_experimental;
 };
 }
 

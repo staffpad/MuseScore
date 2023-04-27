@@ -28,14 +28,17 @@
 #include "system.h"
 
 #include "style/style.h"
-#include "rw/xml.h"
+#include "style/defaultstyle.h"
+
 #include "layout/layoutcontext.h"
 #include "realfn.h"
 
 #include "barline.h"
+#include "beam.h"
 #include "box.h"
 #include "bracket.h"
 #include "bracketItem.h"
+#include "chord.h"
 #include "chordrest.h"
 #include "factory.h"
 #include "instrumentname.h"
@@ -53,6 +56,7 @@
 #include "system.h"
 #include "systemdivider.h"
 #include "textframe.h"
+#include "tremolo.h"
 
 #ifndef ENGRAVING_NO_ACCESSIBILITY
 #include "accessibility/accessibleitem.h"
@@ -328,10 +332,9 @@ double System::layoutBrackets(const LayoutContext& ctx)
 
     double totalBracketWidth = 0.0;
 
-    double bd = score()->styleMM(Sid::bracketDistance);
     if (!_brackets.empty()) {
         for (double w : bracketWidth) {
-            totalBracketWidth += w + bd;
+            totalBracketWidth += w;
         }
     }
 
@@ -342,18 +345,76 @@ double System::layoutBrackets(const LayoutContext& ctx)
 //   totalBracketOffset
 //---------------------------------------------------------
 
-double System::totalBracketOffset(const LayoutContext& ctx)
+/// Calculates the total width of all brackets together that
+/// would be visible when all staves are visible.
+/// The logic in this method is closely related to the logic in
+/// System::layoutBrackets and System::createBracket.
+double System::totalBracketOffset(LayoutContext& ctx)
 {
-    // TODO: This trick doesn't work
-    // just toggling the style setting does nothing, so this method
-    // will return the same result as a plain call to layoutBrackets.
-    bool hideEmptyStaves = score()->styleB(Sid::hideEmptyStaves);
-    score()->setStyleValue(Sid::hideEmptyStaves, false);
+    if (ctx.totalBracketsWidth >= 0) {
+        return ctx.totalBracketsWidth;
+    }
 
-    double offset = layoutBrackets(ctx);
+    size_t columns = 0;
+    for (const Staff* staff : ctx.score()->staves()) {
+        for (auto bi : staff->brackets()) {
+            columns = std::max(columns, bi->column() + 1);
+        }
+    }
 
-    score()->setStyleValue(Sid::hideEmptyStaves, hideEmptyStaves);
-    return offset;
+    size_t nstaves = ctx.score()->nstaves();
+    std::vector < double > bracketWidth(nstaves, 0.0);
+    for (staff_idx_t staffIdx = 0; staffIdx < nstaves; ++staffIdx) {
+        const Staff* staff = ctx.score()->staff(staffIdx);
+        for (auto bi : staff->brackets()) {
+            if (bi->bracketType() == BracketType::NO_BRACKET || !bi->visible()) {
+                continue;
+            }
+
+            //! This logic is partially copied from System::createBracket.
+            //! Of course, we don't need to worry about invisible staves,
+            //! but we do need to worry about brackets that span past the
+            //! last staff.
+            staff_idx_t firstStaff = staffIdx;
+            staff_idx_t lastStaff = staffIdx + bi->bracketSpan() - 1;
+            if (lastStaff >= nstaves) {
+                lastStaff = nstaves - 1;
+            }
+
+            for (; firstStaff <= lastStaff; ++firstStaff) {
+                if (ctx.score()->staff(firstStaff)->show()) {
+                    break;
+                }
+            }
+            for (; lastStaff >= firstStaff; --lastStaff) {
+                if (ctx.score()->staff(lastStaff)->show()) {
+                    break;
+                }
+            }
+
+            size_t span = lastStaff - firstStaff + 1;
+            if (span > 1
+                || (bi->bracketSpan() == span)
+                || (span == 1 && ctx.score()->styleB(Sid::alwaysShowBracketsWhenEmptyStavesAreHidden))) {
+                Bracket* dummyBr = Factory::createBracket(ctx.score()->dummy(), /*isAccessibleEnabled=*/ false);
+                dummyBr->setBracketItem(bi);
+                dummyBr->setStaffSpan(firstStaff, lastStaff);
+                dummyBr->layout();
+                for (staff_idx_t stfIdx = firstStaff; stfIdx <= lastStaff; ++stfIdx) {
+                    bracketWidth[stfIdx] += dummyBr->width();
+                }
+                delete dummyBr;
+            }
+        }
+    }
+
+    double totalBracketsWidth = 0.0;
+    for (double w : bracketWidth) {
+        totalBracketsWidth = std::max(totalBracketsWidth, w);
+    }
+    ctx.totalBracketsWidth = totalBracketsWidth;
+
+    return ctx.totalBracketsWidth;
 }
 
 //---------------------------------------------------------
@@ -361,40 +422,61 @@ double System::totalBracketOffset(const LayoutContext& ctx)
 ///   Layout the System
 //---------------------------------------------------------
 
-void System::layoutSystem(const LayoutContext& ctx, double xo1, const bool isFirstSystem, bool firstSystemIndent)
+void System::layoutSystem(LayoutContext& ctx, double xo1, const bool isFirstSystem, bool firstSystemIndent)
 {
     if (_staves.empty()) {                 // ignore vbox
         return;
     }
 
+    // Get standard instrument name distance
     double instrumentNameOffset = score()->styleMM(Sid::instrumentNameOffset);
+    // Now scale it depending on the text size (which also may not follow staff scaling)
+    double textSizeScaling = 1.0;
+    double actualSize = 0.0;
+    double defaultSize = 0.0;
+    bool followStaffSize = true;
+    if (ctx.startWithLongNames) {
+        actualSize = score()->styleD(Sid::longInstrumentFontSize);
+        defaultSize = DefaultStyle::defaultStyle().value(Sid::longInstrumentFontSize).toDouble();
+        followStaffSize = score()->styleB(Sid::longInstrumentFontSpatiumDependent);
+    } else {
+        actualSize = score()->styleD(Sid::shortInstrumentFontSize);
+        defaultSize = DefaultStyle::defaultStyle().value(Sid::shortInstrumentFontSize).toDouble();
+        followStaffSize = score()->styleB(Sid::shortInstrumentFontSpatiumDependent);
+    }
+    textSizeScaling = actualSize / defaultSize;
+    if (!followStaffSize) {
+        textSizeScaling *= DefaultStyle::defaultStyle().value(Sid::spatium).toDouble() / score()->styleD(Sid::spatium);
+    }
+    textSizeScaling = std::max(textSizeScaling, 1.0);
+    instrumentNameOffset *= textSizeScaling;
 
     size_t nstaves  = _staves.size();
 
     //---------------------------------------------------
     //  find x position of staves
     //---------------------------------------------------
+    layoutBrackets(ctx);
+    double maxBracketsWidth = totalBracketOffset(ctx);
+
     double maxNamesWidth = instrumentNamesWidth();
 
+    double indent = maxNamesWidth > 0 ? maxNamesWidth + instrumentNameOffset : 0.0;
     if (isFirstSystem && firstSystemIndent) {
-        maxNamesWidth = std::max(maxNamesWidth, styleP(Sid::firstSystemIndentationValue) * mag());
+        indent = std::max(indent, styleP(Sid::firstSystemIndentationValue) * mag() - maxBracketsWidth);
+        maxNamesWidth = indent - instrumentNameOffset;
     }
 
-    double maxBracketsWidth = totalBracketOffset(ctx);
-    double bracketsWidth = layoutBrackets(ctx);
-    double bracketWidthDifference = maxBracketsWidth - bracketsWidth;
-
-    if (RealIsNull(maxNamesWidth)) {
+    if (RealIsNull(indent)) {
         if (score()->styleB(Sid::alignSystemToMargin)) {
-            _leftMargin = bracketWidthDifference;
+            _leftMargin = 0.0;
         } else {
             _leftMargin = maxBracketsWidth;
         }
     } else {
-        _leftMargin = maxNamesWidth + instrumentNameOffset + bracketsWidth;
+        _leftMargin = indent + maxBracketsWidth;
     }
 
-    int nVisible = 0;
     for (size_t staffIdx = 0; staffIdx < nstaves; ++staffIdx) {
         SysStaff* s  = _staves[staffIdx];
         Staff* staff = score()->staff(staffIdx);
@@ -402,7 +484,7 @@ void System::layoutSystem(const LayoutContext& ctx, double xo1, const bool isFir
             s->setbbox(RectF());
             continue;
         }
-        ++nVisible;
+
         double staffMag = staff->staffMag(Fraction(0, 1));         // ??? TODO
         int staffLines = staff->lines(Fraction(0, 1));
         if (staffLines <= 1) {
@@ -442,6 +524,16 @@ void System::layoutSystem(const LayoutContext& ctx, double xo1, const bool isFir
                 t->setPosX(maxNamesWidth);
                 break;
             }
+        }
+    }
+
+    for (MeasureBase* mb : measures()) {
+        if (!mb->isMeasure()) {
+            continue;
+        }
+        Measure* m = toMeasure(mb);
+        if (m == measures().front() || (m->prev() && m->prev()->isHBox())) {
+            m->createSystemBeginBarLine();
         }
     }
 }
@@ -663,7 +755,9 @@ Bracket* System::createBracket(const LayoutContext& ctx, BracketItem* bi, size_t
     //
     if (span > 1
         || (bi->bracketSpan() == span)
-        || (span == 1 && score()->styleB(Sid::alwaysShowBracketsWhenEmptyStavesAreHidden))) {
+        || (span == 1 && score()->styleB(Sid::alwaysShowBracketsWhenEmptyStavesAreHidden) && bi->bracketType() != BracketType::SQUARE)
+        || (span == 1 && score()->styleB(Sid::alwaysShowSquareBracketsWhenEmptyStavesAreHidden)
+            && bi->bracketType() == BracketType::SQUARE)) {
         //
         // this bracket is visible
         //
@@ -712,9 +806,8 @@ Bracket* System::createBracket(const LayoutContext& ctx, BracketItem* bi, size_t
 size_t System::getBracketsColumnsCount()
 {
     size_t columns = 0;
-    size_t nstaves = _staves.size();
-    for (staff_idx_t idx = 0; idx < nstaves; ++idx) {
-        for (auto bi : score()->staff(idx)->brackets()) {
+    for (const Staff* staff : score()->staves()) {
+        for (auto bi : staff->brackets()) {
             columns = std::max(columns, bi->column() + 1);
         }
     }
@@ -723,18 +816,28 @@ size_t System::getBracketsColumnsCount()
 
 void System::setBracketsXPosition(const double xPosition)
 {
-    double bracketDistance = score()->styleMM(Sid::bracketDistance);
     for (Bracket* b1 : _brackets) {
+        BracketType bracketType = b1->bracketType();
+        // For brackets that are drawn, we must correct for half line width
+        double lineWidthCorrection = 0.0;
+        if (bracketType == BracketType::NORMAL || bracketType == BracketType::LINE) {
+            lineWidthCorrection = score()->styleMM(Sid::bracketWidth) / 2;
+        }
+        // Compute offset cause by other stacked brackets
         double xOffset = 0;
         for (const Bracket* b2 : _brackets) {
+            if (!b2->bracketItem()->visible()) {
+                continue;
+            }
             bool b1FirstStaffInB2 = (b1->firstStaff() >= b2->firstStaff() && b1->firstStaff() <= b2->lastStaff());
             bool b1LastStaffInB2 = (b1->lastStaff() >= b2->firstStaff() && b1->lastStaff() <= b2->lastStaff());
             if (b1->column() > b2->column()
                 && (b1FirstStaffInB2 || b1LastStaffInB2)) {
-                xOffset += b2->width() + bracketDistance;
+                xOffset += b2->width();
             }
         }
-        b1->setPosX(xPosition - xOffset - b1->width());
+        // Set position
+        b1->setPosX(xPosition - xOffset - b1->width() + lineWidthCorrection);
     }
 }
 
@@ -809,7 +912,6 @@ void System::layout2(const LayoutContext& ctx)
     }
 
     if (visibleStaves.empty()) {
-        LOGD() << "====no visible staves, staves: " << _staves.size() << ", score staves: " << score()->nstaves();
         return;
     }
 
@@ -968,7 +1070,7 @@ void System::setInstrumentNames(const LayoutContext& ctx, bool longName, Fractio
         return;
     }
     if (!score()->showInstrumentNames()
-        || (style()->styleB(Sid::hideInstrumentNameIfOneInstrument) && score()->parts().size() == 1)) {
+        || (style()->styleB(Sid::hideInstrumentNameIfOneInstrument) && score()->visiblePartCount() <= 1)) {
         for (SysStaff* staff : _staves) {
             for (InstrumentName* t : staff->instrumentNames) {
                 ctx.score()->removeElement(t);
@@ -980,7 +1082,18 @@ void System::setInstrumentNames(const LayoutContext& ctx, bool longName, Fractio
     int staffIdx = 0;
     for (SysStaff* staff : _staves) {
         Staff* s = score()->staff(staffIdx);
-        if (!s->isTop() || !s->show()) {
+        Part* part = s->part();
+
+        bool atLeastOneVisibleStaff = false;
+        for (Staff* partStaff : part->staves()) {
+            if (partStaff->show()) {
+                atLeastOneVisibleStaff = true;
+                break;
+            }
+        }
+
+        bool showName = part->show() && atLeastOneVisibleStaff;
+        if (!s->isTop() || !showName) {
             for (InstrumentName* t : staff->instrumentNames) {
                 ctx.score()->removeElement(t);
             }
@@ -988,7 +1101,6 @@ void System::setInstrumentNames(const LayoutContext& ctx, bool longName, Fractio
             continue;
         }
 
-        Part* part = s->part();
         const std::list<StaffName>& names = longName ? part->longNames(tick) : part->shortNames(tick);
 
         size_t idx = 0;
@@ -1148,6 +1260,7 @@ void System::add(EngravingItem* el)
     case ElementType::WHAMMY_BAR_SEGMENT:
     case ElementType::RASGUEADO_SEGMENT:
     case ElementType::HARMONIC_MARK_SEGMENT:
+    case ElementType::PICK_SCRAPE_SEGMENT:
     {
         SpannerSegment* ss = toSpannerSegment(el);
 #ifndef NDEBUG
@@ -1335,14 +1448,12 @@ void System::scanElements(void* data, void (* func)(void*, EngravingItem*), bool
         func(data, _systemDividerRight);
     }
 
-    int idx = 0;
     for (const SysStaff* st : _staves) {
         if (all || st->show()) {
             for (InstrumentName* t : st->instrumentNames) {
                 func(data, t);
             }
         }
-        ++idx;
     }
     for (SpannerSegment* ss : _spannerSegments) {
         staff_idx_t staffIdx = ss->spanner()->staffIdx();
@@ -1369,7 +1480,7 @@ void System::scanElements(void* data, void (* func)(void*, EngravingItem*), bool
             }
             v = v1 || v2;       // hide spanner if both chords are hidden
         }
-        if (all || (score()->staff(staffIdx)->show() && _staves[staffIdx]->show() && v) || spanner->isVolta()) {
+        if (all || (score()->staff(staffIdx)->show() && _staves[staffIdx]->show() && v) || spanner->isVolta() || spanner->systemFlag()) {
             ss->scanElements(data, func, all);
         }
     }
@@ -1406,40 +1517,6 @@ SysStaff* System::staff(size_t staffIdx) const
     }
 
     return nullptr;
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void System::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    if (_systemDividerLeft && _systemDividerLeft->isUserModified()) {
-        _systemDividerLeft->write(xml);
-    }
-    if (_systemDividerRight && _systemDividerRight->isUserModified()) {
-        _systemDividerRight->write(xml);
-    }
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void System::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "SystemDivider") {
-            SystemDivider* sd = new SystemDivider(this);
-            sd->read(e);
-            add(sd);
-        } else {
-            e.unknown();
-        }
-    }
 }
 
 //---------------------------------------------------------
@@ -1497,6 +1574,10 @@ double System::minDistance(System* s2) const
         return std::max(double(s2->vbox()->topGap()), minBottom());
     } else if (vbox() && s2->vbox()) {
         return double(s2->vbox()->topGap() + vbox()->bottomGap());
+    }
+
+    if (_staves.empty() || s2->staves().empty()) {
+        return 0.0;
     }
 
     double minVerticalDistance = score()->styleMM(Sid::minVerticalDistance);
@@ -1567,7 +1648,7 @@ double System::topDistance(staff_idx_t staffIdx, const SkylineLine& s) const
     // this means we cannot expect the minDistance calculation to produce meaningful results
     // so just give up on autoplace for spanners in continuous view
     // (or any other calculations that rely on this value)
-    if (score()->lineMode()) {
+    if (score()->lineMode() && !engravingConfiguration()->minDistanceForPartialSkylineCalculated()) {
         return 0.0;
     }
     return s.minDistance(staff(staffIdx)->skyline().north());
@@ -1582,7 +1663,7 @@ double System::bottomDistance(staff_idx_t staffIdx, const SkylineLine& s) const
     assert(!vbox());
     assert(s.isNorth());
     // see note on topDistance() above
-    if (score()->lineMode()) {
+    if (score()->lineMode() && !engravingConfiguration()->minDistanceForPartialSkylineCalculated()) {
         return 0.0;
     }
     return staff(staffIdx)->skyline().south().minDistance(s);
@@ -1600,7 +1681,6 @@ staff_idx_t System::firstVisibleSysStaff() const
             return i;
         }
     }
-    LOGD("no sys staff");
     return mu::nidx;
 }
 
@@ -1616,7 +1696,6 @@ staff_idx_t System::lastVisibleSysStaff() const
             return static_cast<staff_idx_t>(i);
         }
     }
-    LOGD("no sys staff");
     return mu::nidx;
 }
 
@@ -2006,5 +2085,43 @@ Fraction System::maxSysTicks() const
         }
     }
     return maxTicks;
+}
+
+bool System::hasCrossStaffOrModifiedBeams()
+{
+    for (MeasureBase* mb : measures()) {
+        if (!mb->isMeasure()) {
+            continue;
+        }
+        for (Segment& seg : toMeasure(mb)->segments()) {
+            if (!seg.isChordRestType()) {
+                continue;
+            }
+            for (EngravingItem* e : seg.elist()) {
+                if (!e || !e->isChordRest()) {
+                    continue;
+                }
+                if (toChordRest(e)->beam() && (toChordRest(e)->beam()->cross() || toChordRest(e)->beam()->userModified())) {
+                    return true;
+                }
+                Chord* c = e->isChord() ? toChord(e) : nullptr;
+                if (c && c->tremolo() && c->tremolo()->twoNotes()) {
+                    Chord* c1 = c->tremolo()->chord1();
+                    Chord* c2 = c->tremolo()->chord2();
+                    if (c->tremolo()->userModified() || c1->staffMove() != c2->staffMove()) {
+                        return true;
+                    }
+                }
+                if (e->isChord() && !toChord(e)->graceNotes().empty()) {
+                    for (Chord* grace : toChord(e)->graceNotes()) {
+                        if (grace->beam() && (grace->beam()->cross() || grace->beam()->userModified())) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return false;
 }
 }

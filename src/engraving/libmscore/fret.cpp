@@ -27,7 +27,6 @@
 #include "draw/fontmetrics.h"
 #include "draw/types/brush.h"
 #include "draw/types/pen.h"
-#include "rw/xml.h"
 
 #include "chord.h"
 #include "factory.h"
@@ -74,7 +73,7 @@ static const ElementStyle fretStyle {
 FretDiagram::FretDiagram(Segment* parent)
     : EngravingItem(ElementType::FRET_DIAGRAM, parent, ElementFlag::MOVABLE | ElementFlag::ON_STAFF)
 {
-    font.setFamily(u"FreeSans");
+    font.setFamily(u"FreeSans", draw::Font::Type::Tablature);
     font.setPointSizeF(4.0 * mag());
     initElementStyle(&fretStyle);
 }
@@ -292,7 +291,7 @@ void FretDiagram::init(StringData* stringData, Chord* chord)
 
 void FretDiagram::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     using namespace mu::draw;
     PointF translation = -PointF(stringDist * (_strings - 1), 0);
     if (_orientation == Orientation::HORIZONTAL) {
@@ -498,6 +497,7 @@ void FretDiagram::layout()
         y = tempX;
     }
 
+    // When changing how bbox is calculated, don't forget to update the centerX and rightX methods too.
     bbox().setRect(x, y, w, h);
 
     if (!explicitParent() || !explicitParent()->isSegment()) {
@@ -547,7 +547,7 @@ void FretDiagram::layout()
         staff_idx_t si = staffIdx();
 
         SysStaff* ss = m->system()->staff(si);
-        RectF r = _harmony->bbox().translated(m->pos() + s->pos() + pos() + _harmony->pos() + PointF(_harmony->xShapeOffset(), 0.0));
+        RectF r = _harmony->bbox().translated(m->pos() + s->pos() + pos() + _harmony->pos());
 
         double minDistance = _harmony->minDistance().val() * spatium();
         SkylineLine sk(false);
@@ -565,328 +565,16 @@ void FretDiagram::layout()
     }
 }
 
-//---------------------------------------------------------
-//   centerX
-///   used by harmony for layout. Keep in sync with layout, same dotd and x as above
-//    also used in EngravingItem::canvasPos().
-//---------------------------------------------------------
-
 double FretDiagram::centerX() const
 {
-    double dotd = spatium() * _userMag * .49 * score()->styleD(Sid::fretDotSize);
-    double x    = -((dotd + stringLw) * .5);
-    return bbox().right() * .5 + x;
+    // Keep in sync with how bbox is calculated in layout().
+    return (bbox().right() - markerSize * .5) * .5;
 }
 
-//---------------------------------------------------------
-//   write
-//    NOTICE: if you are looking to change how fret diagrams are
-//    written, edit the writeNew function. writeOld is purely compatibility.
-//---------------------------------------------------------
-
-static const std::array<Pid, 8> pids { {
-    Pid::MIN_DISTANCE,
-    Pid::FRET_OFFSET,
-    Pid::FRET_FRETS,
-    Pid::FRET_STRINGS,
-    Pid::FRET_NUT,
-    Pid::MAG,
-    Pid::FRET_NUM_POS,
-    Pid::ORIENTATION
-} };
-
-void FretDiagram::write(XmlWriter& xml) const
+double FretDiagram::rightX() const
 {
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    xml.startElement(this);
-
-    // Write properties first and only once
-    for (Pid p : pids) {
-        writeProperty(xml, p);
-    }
-    EngravingItem::writeProperties(xml);
-
-    if (_harmony) {
-        _harmony->write(xml);
-    }
-
-    // Lowercase f indicates new writing format
-    // TODO: in the next score format version (4) use only write new + props and discard
-    // the compatibility writing.
-    xml.startElement("fretDiagram");
-    writeNew(xml);
-    xml.endElement();
-
-    writeOld(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   writeOld
-//    This is the old method of writing. This is for backwards
-//    compatibility with < 3.1 versions.
-//---------------------------------------------------------
-
-void FretDiagram::writeOld(XmlWriter& xml) const
-{
-    int lowestDotFret = -1;
-    int furthestLeftLowestDot = -1;
-
-    // Do some checks for details needed for checking whether to add barres
-    for (int i = 0; i < _strings; ++i) {
-        std::vector<FretItem::Dot> allDots = dot(i);
-
-        bool dotExists = false;
-        for (auto const& d : allDots) {
-            if (d.exists()) {
-                dotExists = true;
-                break;
-            }
-        }
-
-        if (!dotExists) {
-            continue;
-        }
-
-        for (auto const& d : allDots) {
-            if (d.exists()) {
-                if (d.fret < lowestDotFret || lowestDotFret == -1) {
-                    lowestDotFret = d.fret;
-                    furthestLeftLowestDot = i;
-                } else if (d.fret == lowestDotFret && (i < furthestLeftLowestDot || furthestLeftLowestDot == -1)) {
-                    furthestLeftLowestDot = i;
-                }
-            }
-        }
-    }
-
-    // The old system writes a barre as a bool, which causes no problems in any way, not at all.
-    // So, only write that if the barre is on the lowest fret with a dot,
-    // and there are no other dots on its fret, and it goes all the way to the right.
-    int barreStartString = -1;
-    int barreFret = -1;
-    for (auto const& i : _barres) {
-        FretItem::Barre b = i.second;
-        if (b.exists()) {
-            int fret = i.first;
-            if (fret <= lowestDotFret && b.endString == -1 && !(fret == lowestDotFret && b.startString > furthestLeftLowestDot)) {
-                barreStartString = b.startString;
-                barreFret = fret;
-                break;
-            }
-        }
-    }
-
-    for (int i = 0; i < _strings; ++i) {
-        FretItem::Marker m = marker(i);
-        std::vector<FretItem::Dot> allDots = dot(i);
-
-        bool dotExists = false;
-        for (auto const& d : allDots) {
-            if (d.exists()) {
-                dotExists = true;
-                break;
-            }
-        }
-
-        if (!dotExists && !m.exists() && i != barreStartString) {
-            continue;
-        }
-
-        xml.startElement("string", { { "no", i } });
-
-        if (m.exists()) {
-            xml.tag("marker", FretItem::markerToChar(m.mtype).unicode());
-        }
-
-        for (auto const& d : allDots) {
-            if (d.exists() && !(i == barreStartString && d.fret == barreFret)) {
-                xml.tag("dot", d.fret);
-            }
-        }
-
-        // Add dot so barre will display in pre-3.1
-        if (barreStartString == i) {
-            xml.tag("dot", barreFret);
-        }
-
-        xml.endElement();
-    }
-
-    if (barreFret > 0) {
-        xml.tag("barre", 1);
-    }
-}
-
-//---------------------------------------------------------
-//   writeNew
-//    This is the important one for 3.1+
-//---------------------------------------------------------
-
-void FretDiagram::writeNew(XmlWriter& xml) const
-{
-    for (int i = 0; i < _strings; ++i) {
-        FretItem::Marker m = marker(i);
-        std::vector<FretItem::Dot> allDots = dot(i);
-
-        bool dotExists = false;
-        for (auto const& d : allDots) {
-            if (d.exists()) {
-                dotExists = true;
-                break;
-            }
-        }
-
-        // Only write a string if we have anything to write
-        if (!dotExists && !m.exists()) {
-            continue;
-        }
-
-        // Start the string writing
-        xml.startElement("string", { { "no", i } });
-
-        // Write marker
-        if (m.exists()) {
-            xml.tag("marker", FretItem::markerTypeToName(m.mtype));
-        }
-
-        // Write any dots
-        for (auto const& d : allDots) {
-            if (d.exists()) {
-                // TODO: write fingering
-                xml.tag("dot", { { "fret", d.fret } }, FretItem::dotTypeToName(d.dtype));
-            }
-        }
-
-        xml.endElement();
-    }
-
-    for (int f = 1; f <= _frets; ++f) {
-        FretItem::Barre b = barre(f);
-        if (!b.exists()) {
-            continue;
-        }
-
-        xml.tag("barre", { { "start", b.startString }, { "end", b.endString } }, f);
-    }
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void FretDiagram::read(XmlReader& e)
-{
-    // Read the old format first
-    bool hasBarre = false;
-    bool haveReadNew = false;
-
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-
-        // Check for new format fret diagram
-        if (haveReadNew) {
-            e.skipCurrentElement();
-            continue;
-        }
-        if (tag == "fretDiagram") {
-            readNew(e);
-            haveReadNew = true;
-        }
-        // Check for new properties
-        else if (tag == "showNut") {
-            readProperty(e, Pid::FRET_NUT);
-        } else if (tag == "orientation") {
-            readProperty(e, Pid::ORIENTATION);
-        }
-        // Then read the rest if there is no new format diagram (compatibility read)
-        else if (tag == "strings") {
-            readProperty(e, Pid::FRET_STRINGS);
-        } else if (tag == "frets") {
-            readProperty(e, Pid::FRET_FRETS);
-        } else if (tag == "fretOffset") {
-            readProperty(e, Pid::FRET_OFFSET);
-        } else if (tag == "string") {
-            int no = e.intAttribute("no");
-            while (e.readNextStartElement()) {
-                const AsciiStringView t(e.name());
-                if (t == "dot") {
-                    setDot(no, e.readInt());
-                } else if (t == "marker") {
-                    setMarker(no, Char(e.readInt()) == u'X' ? FretMarkerType::CROSS : FretMarkerType::CIRCLE);
-                }
-                /*else if (t == "fingering")
-                      setFingering(no, e.readInt());*/
-                else {
-                    e.unknown();
-                }
-            }
-        } else if (tag == "barre") {
-            hasBarre = e.readBool();
-        } else if (tag == "mag") {
-            readProperty(e, Pid::MAG);
-        } else if (tag == "Harmony") {
-            Harmony* h = new Harmony(this->score()->dummy()->segment());
-            h->read(e);
-            add(h);
-        } else if (!EngravingItem::readProperties(e)) {
-            e.unknown();
-        }
-    }
-
-    // Old handling of barres
-    if (hasBarre) {
-        for (int s = 0; s < _strings; ++s) {
-            for (auto& d : dot(s)) {
-                if (d.exists()) {
-                    setBarre(s, -1, d.fret);
-                    return;
-                }
-            }
-        }
-    }
-}
-
-//---------------------------------------------------------
-//   readNew
-//    read the new 'fretDiagram' tag
-//---------------------------------------------------------
-
-void FretDiagram::readNew(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-
-        if (tag == "string") {
-            int no = e.intAttribute("no");
-            while (e.readNextStartElement()) {
-                const AsciiStringView t(e.name());
-                if (t == "dot") {
-                    int fret = e.intAttribute("fret", 0);
-                    FretDotType dtype = FretItem::nameToDotType(e.readText());
-                    setDot(no, fret, true, dtype);
-                } else if (t == "marker") {
-                    FretMarkerType mtype = FretItem::nameToMarkerType(e.readText());
-                    setMarker(no, mtype);
-                } else if (t == "fingering") {
-                    e.readText();
-                    /*setFingering(no, e.readInt()); NOTE:JT todo */
-                } else {
-                    e.unknown();
-                }
-            }
-        } else if (tag == "barre") {
-            int start = e.intAttribute("start", -1);
-            int end = e.intAttribute("end", -1);
-            int fret = e.readInt();
-
-            setBarre(start, end, fret);
-        } else if (!EngravingItem::readProperties(e)) {
-            e.unknown();
-        }
-    }
+    // Keep in sync with how bbox is calculated in layout().
+    return bbox().right() - markerSize * .5;
 }
 
 //---------------------------------------------------------
@@ -1271,89 +959,6 @@ void FretDiagram::scanElements(void* data, void (* func)(void*, EngravingItem*),
     if (_harmony && !score()->isPaletteScore()) {
         func(data, _harmony);
     }
-}
-
-//---------------------------------------------------------
-//   Write MusicXML
-//---------------------------------------------------------
-
-void FretDiagram::writeMusicXML(XmlWriter& xml) const
-{
-    LOGD("FretDiagram::writeMusicXML() this %p harmony %p", this, _harmony);
-    xml.startElement("frame");
-    xml.tag("frame-strings", _strings);
-    xml.tag("frame-frets", frets());
-    if (fretOffset() > 0) {
-        xml.tag("first-fret", fretOffset() + 1);
-    }
-
-    for (int i = 0; i < _strings; ++i) {
-        int mxmlString = _strings - i;
-
-        std::vector<int> bStarts;
-        std::vector<int> bEnds;
-        for (auto const& j : _barres) {
-            FretItem::Barre b = j.second;
-            int fret = j.first;
-            if (!b.exists()) {
-                continue;
-            }
-
-            if (b.startString == i) {
-                bStarts.push_back(fret);
-            } else if (b.endString == i || (b.endString == -1 && mxmlString == 1)) {
-                bEnds.push_back(fret);
-            }
-        }
-
-        if (marker(i).exists() && marker(i).mtype == FretMarkerType::CIRCLE) {
-            xml.startElement("frame-note");
-            xml.tag("string", mxmlString);
-            xml.tag("fret", "0");
-            xml.endElement();
-        }
-        // Markers may exists alongside with dots
-        // Write dots
-        for (auto const& d : dot(i)) {
-            if (!d.exists()) {
-                continue;
-            }
-            xml.startElement("frame-note");
-            xml.tag("string", mxmlString);
-            xml.tag("fret", d.fret + fretOffset());
-            // TODO: write fingerings
-
-            // Also write barre if it starts at this dot
-            if (std::find(bStarts.begin(), bStarts.end(), d.fret) != bStarts.end()) {
-                xml.tag("barre", { { "type", "start" } });
-                bStarts.erase(std::remove(bStarts.begin(), bStarts.end(), d.fret), bStarts.end());
-            }
-            if (std::find(bEnds.begin(), bEnds.end(), d.fret) != bEnds.end()) {
-                xml.tag("barre", { { "type", "stop" } });
-                bEnds.erase(std::remove(bEnds.begin(), bEnds.end(), d.fret), bEnds.end());
-            }
-            xml.endElement();
-        }
-
-        // Write unwritten barres
-        for (int j : bStarts) {
-            xml.startElement("frame-note");
-            xml.tag("string", mxmlString);
-            xml.tag("fret", j);
-            xml.tag("barre", { { "type", "start" } });
-            xml.endElement();
-        }
-
-        for (int j : bEnds) {
-            xml.startElement("frame-note");
-            xml.tag("string", mxmlString);
-            xml.tag("fret", j);
-            xml.tag("barre", { { "type", "stop" } });
-            xml.endElement();
-        }
-    }
-
-    xml.endElement();
 }
 
 //---------------------------------------------------------

@@ -39,13 +39,6 @@ struct mu::midi::AlsaMidiInPort::Alsa {
 
 using namespace mu::midi;
 
-AlsaMidiInPort::~AlsaMidiInPort()
-{
-    if (isConnected()) {
-        disconnect();
-    }
-}
-
 void AlsaMidiInPort::init()
 {
     m_alsa = std::make_shared<Alsa>();
@@ -68,8 +61,13 @@ void AlsaMidiInPort::init()
 
         m_availableDevicesChanged.notify();
     });
+}
 
-    AbstractMidiInPort::init();
+void AlsaMidiInPort::deinit()
+{
+    if (isConnected()) {
+        disconnect();
+    }
 }
 
 MidiDeviceList AlsaMidiInPort::availableDevices() const
@@ -227,6 +225,11 @@ mu::async::Notification AlsaMidiInPort::deviceChanged() const
     return m_deviceChanged;
 }
 
+mu::async::Channel<tick_t, Event> AlsaMidiInPort::eventReceived() const
+{
+    return m_eventReceived;
+}
+
 mu::Ret AlsaMidiInPort::run()
 {
     if (!isConnected()) {
@@ -335,7 +338,7 @@ void AlsaMidiInPort::doProcess()
 
         e = e.toMIDI20();
         if (e) {
-            doEventsRecived({ { static_cast<tick_t>(ev->time.tick), e } });
+            m_eventReceived.send(static_cast<tick_t>(ev->time.tick), e);
         }
 
         sleep();

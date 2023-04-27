@@ -32,7 +32,7 @@
 
 #include "mocks/navigationmocks.h"
 #include "global/tests/mocks/applicationmock.h"
-#include "ui/tests/mocks/mainwindowprovidermock.h"
+#include "ui/tests/mocks/mainwindowmock.h"
 
 #include "ui/view/navigationcontrol.h"
 #include "ui/view/navigationpanel.h"
@@ -60,7 +60,7 @@ public:
         m_dispatcher = std::make_shared<actions::ActionsDispatcher>();
         m_controller->setdispatcher(m_dispatcher);
 
-        m_mainWindow = std::make_shared<ui::MainWindowProviderMock>();
+        m_mainWindow = std::make_shared<ui::MainWindowMock>();
         ON_CALL(*m_mainWindow, qWindow()).WillByDefault(Return(&m_window));
         m_controller->setmainWindow(m_mainWindow);
 
@@ -230,7 +230,7 @@ public:
 
     std::shared_ptr<NavigationController> m_controller;
     std::shared_ptr<actions::IActionsDispatcher> m_dispatcher;
-    std::shared_ptr<MainWindowProviderMock> m_mainWindow;
+    std::shared_ptr<MainWindowMock> m_mainWindow;
     std::shared_ptr<framework::ApplicationMock> m_applicationMock;
 
     QQuickWindow m_window;
@@ -489,18 +489,19 @@ TEST_F(Ui_NavigationControllerTests, UserClickedOnControlOnNonMainWindow)
     Section* sect1 = make_section(1, 2, 3);
     Section* sect2 = make_section(2, 2, 3);
 
+    //! [GIVEN] Second section on non main window
+    sect2->section->setType(NavigationSection::QmlType::Exclusive);
+    QQuickWindow* controlWindow = new QQuickWindow();
+    setComponentWindow(sect2->panels[1]->controls[1]->control, controlWindow);
+
     m_controller->reg(sect1->section);
     m_controller->reg(sect2->section);
 
-    //! [GIVEN] Control not on main window
-    QQuickWindow* controlWindow = new QQuickWindow();
-    setComponentWindow(sect1->panels[1]->controls[1]->control, controlWindow);
-
-    //! [WHEN] The user has clicked on control
-    sect1->panels[1]->controls[1]->control->requestActiveByInteraction();
+    //! [WHEN] The user has clicked on control of second section
+    sect2->panels[1]->controls[1]->control->requestActiveByInteraction();
 
     //! [THEN] The control is activated
-    EXPECT_EQ(m_controller->activeControl(), sect1->panels[1]->controls[1]->control);
+    EXPECT_EQ(m_controller->activeControl(), sect2->panels[1]->controls[1]->control);
     EXPECT_FALSE(m_controller->isHighlight());
 
     delete sect1;

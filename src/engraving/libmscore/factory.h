@@ -126,6 +126,9 @@ public:
     static Rest* copyRest(const Rest& src, bool link = false);
     static MMRest* createMMRest(EngravingItem* parent, bool isAccessibleEnabled = true);
 
+    static DeadSlapped* createDeadSlapped(Rest* parent, bool isAccessibleEnabled = true);
+    static DeadSlapped* copyDeadSlapped(const DeadSlapped& src);
+
     static Segment* createSegment(Measure* parent, bool isAccessibleEnabled = true);
     static Segment* createSegment(Measure* parent, SegmentType type, const Fraction& t, bool isAccessibleEnabled = true);
 
@@ -190,6 +193,9 @@ public:
 
     static TripletFeel* createTripletFeel(Segment* parent, TripletFeelType type = TripletFeelType::NONE, bool isAccessibleEnabled = true);
 
+    static FretCircle* createFretCircle(Chord* parent, bool isAccessibleEnabled = true);
+    static FretCircle* copyFretCircle(const FretCircle& src);
+
     static Tuplet* createTuplet(Measure* parent, bool isAccessibleEnabled = true);
     static Tuplet* copyTuplet(const Tuplet& src);
 
@@ -225,6 +231,8 @@ public:
 
     static HarmonicMark* createHarmonicMark(EngravingItem* parent, bool isAccessibleEnabled = true);
 
+    static PickScrape* createPickScrape(EngravingItem* parent, bool isAccessibleEnabled = true);
+
     static Volta* createVolta(EngravingItem* parent, bool isAccessibleEnabled = true);
 
     static Pedal* createPedal(EngravingItem* parent, bool isAccessibleEnabled = true);
@@ -244,6 +252,12 @@ public:
     static FBox* createFBox(System* parent, bool isAccessibleEnabled = true);
 
     static Image* createImage(EngravingItem* parent);
+
+    static Symbol* createSymbol(EngravingItem* parent, bool isAccessibleEnabled = true);
+    static FSymbol* createFSymbol(EngravingItem* parent, bool isAccessibleEnabled = true);
+
+    static PlayTechAnnotation* createPlayTechAnnotation(Segment* parent, PlayingTechniqueType techniqueType, TextStyleType styleType,
+                                                        bool isAccessibleEnabled = true);
 
 private:
     static EngravingItem* doCreateItem(ElementType type, EngravingItem* parent);

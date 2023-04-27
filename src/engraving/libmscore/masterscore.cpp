@@ -26,8 +26,12 @@
 
 #include "compat/writescorehook.h"
 #include "infrastructure/mscwriter.h"
-#include "rw/scorereader.h"
-#include "rw/xml.h"
+
+#include "rw/mscloader.h"
+#include "rw/xmlwriter.h"
+#include "rw/xmlreader.h"
+#include "rw/400/writecontext.h"
+
 #include "style/defaultstyle.h"
 
 #include "engravingproject.h"
@@ -58,8 +62,8 @@ MasterScore::MasterScore(std::weak_ptr<engraving::EngravingProject> project)
     _undoStack   = new UndoStack();
     _tempomap    = new TempoMap;
     _sigmap      = new TimeSigMap();
-    _repeatList  = new RepeatList(this);
-    _repeatList2 = new RepeatList(this);
+    _expandedRepeatList  = new RepeatList(this);
+    _nonExpandedRepeatList = new RepeatList(this);
     setMasterScore(this);
 
     _pos[int(POS::CURRENT)] = Fraction(0, 1);
@@ -101,8 +105,8 @@ MasterScore::~MasterScore()
         m_project.lock()->m_masterScore = nullptr;
     }
 
-    delete _repeatList;
-    delete _repeatList2;
+    delete _expandedRepeatList;
+    delete _nonExpandedRepeatList;
     delete _sigmap;
     delete _tempomap;
     delete _undoStack;
@@ -165,8 +169,8 @@ String MasterScore::name() const
 void MasterScore::setPlaylistDirty()
 {
     _playlistDirty = true;
-    _repeatList->setScoreChanged();
-    _repeatList2->setScoreChanged();
+    _expandedRepeatList->setScoreChanged();
+    _nonExpandedRepeatList->setScoreChanged();
 }
 
 //---------------------------------------------------------
@@ -189,8 +193,14 @@ void MasterScore::setExpandRepeats(bool expand)
 
 void MasterScore::updateRepeatListTempo()
 {
-    _repeatList->updateTempo();
-    _repeatList2->updateTempo();
+    _expandedRepeatList->updateTempo();
+    _nonExpandedRepeatList->updateTempo();
+}
+
+void MasterScore::updateRepeatList()
+{
+    _expandedRepeatList->update(true);
+    _nonExpandedRepeatList->update(false);
 }
 
 //---------------------------------------------------------
@@ -199,18 +209,24 @@ void MasterScore::updateRepeatListTempo()
 
 const RepeatList& MasterScore::repeatList() const
 {
-    _repeatList->update(MScore::playRepeats);
-    return *_repeatList;
+    if (_expandRepeats) {
+        _expandedRepeatList->update(true);
+        return *_expandedRepeatList;
+    }
+
+    _nonExpandedRepeatList->update(false);
+    return *_nonExpandedRepeatList;
 }
 
-//---------------------------------------------------------
-//   repeatList2
-//---------------------------------------------------------
-
-const RepeatList& MasterScore::repeatList2() const
+const RepeatList& MasterScore::repeatList(bool expandRepeats) const
 {
-    _repeatList2->update(false);
-    return *_repeatList2;
+    if (expandRepeats) {
+        _expandedRepeatList->update(true);
+        return *_expandedRepeatList;
+    }
+
+    _nonExpandedRepeatList->update(false);
+    return *_nonExpandedRepeatList;
 }
 
 bool MasterScore::writeMscz(MscWriter& mscWriter, bool onlySelection, bool doCreateThumbnail)
@@ -415,13 +431,8 @@ MasterScore* MasterScore::clone()
     ByteArray scoreData = buffer.data();
     MasterScore* score = new MasterScore(style(), m_project);
 
-    ReadContext readCtx(score);
-    readCtx.setIgnoreVersionError(true);
-
     XmlReader r(scoreData);
-    r.setContext(&readCtx);
-
-    ScoreReader().read(score, r, readCtx);
+    MscLoader().read(score, r, true);
 
     score->addLayoutFlags(LayoutFlag::FIX_PITCH_VELO);
     score->doLayout();
@@ -458,28 +469,6 @@ void MasterScore::setPos(POS pos, Fraction tick)
     // however, we must be careful not to call setPos() again while handling posChanged, or recursion results
     for (Score* s : scoreList()) {
         s->notifyPosChanged(pos, unsigned(tick.ticks()));
-    }
-}
-
-//---------------------------------------------------------
-//   setSoloMute
-//   called once at opening file, adds soloMute marks
-//---------------------------------------------------------
-
-void MasterScore::setSoloMute()
-{
-    for (unsigned i = 0; i < _midiMapping.size(); i++) {
-        InstrChannel* b = _midiMapping[i].articulation();
-        if (b->solo()) {
-            b->setSoloMute(false);
-            for (unsigned j = 0; j < _midiMapping.size(); j++) {
-                InstrChannel* a = _midiMapping[j].articulation();
-                bool sameMidiMapping = _midiMapping[i].port() == _midiMapping[j].port()
-                                       && _midiMapping[i].channel() == _midiMapping[j].channel();
-                a->setSoloMute((i != j && !a->solo() && !sameMidiMapping));
-                a->setSolo(i == j || a->solo() || sameMidiMapping);
-            }
-        }
     }
 }
 
@@ -564,9 +553,6 @@ void MasterScore::setPlaybackScore(Score* score)
         return;
     }
 
-    for (MidiMapping& mm : _midiMapping) {
-        mm.articulation()->setSoloMute(true);
-    }
     for (Part* part : score->parts()) {
         for (const auto& pair : part->instruments()) {
             Instrument* instr = pair.second;

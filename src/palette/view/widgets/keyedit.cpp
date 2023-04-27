@@ -31,7 +31,7 @@
 #include "commonscene/commonscenetypes.h"
 #include "translation.h"
 
-#include "engraving/rw/xml.h"
+#include "engraving/rw/400/tread.h"
 #include "engraving/libmscore/accidental.h"
 #include "engraving/libmscore/clef.h"
 #include "engraving/libmscore/keysig.h"
@@ -128,7 +128,7 @@ void KeyCanvas::paintEvent(QPaintEvent*)
     QRectF r = imatrix.mapRect(QRectF(x, y, w, wh));
 
     RectF background = RectF::fromQRectF(imatrix.mapRect(QRectF(0, 0, ww, wh)));
-    painter.fillRect(background, mu::draw::Color::white);
+    painter.fillRect(background, mu::draw::Color::WHITE);
 
     draw::Pen pen(engravingConfiguration()->defaultColor());
     pen.setWidthF(engraving::DefaultStyle::defaultStyle().styleS(Sid::staffLineWidth).val() * gpaletteScore->spatium());
@@ -226,7 +226,8 @@ void KeyCanvas::dragEnterEvent(QDragEnterEvent* event)
         event->acceptProposedAction();
         dragElement = static_cast<Accidental*>(Factory::createItem(type, gpaletteScore->dummy()));
         dragElement->resetExplicitParent();
-        dragElement->read(e);
+        rw400::TRead::readItem(dragElement, e, *e.context());
+
         dragElement->layout();
     } else {
         if (MScore::debugMode) {
@@ -302,6 +303,8 @@ KeyEditor::KeyEditor(QWidget* parent)
 {
     setupUi(this);
     setWindowTitle(mu::qtrc("palette", "Key signatures"));
+
+    setWindowFlags(this->windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
     QSizePolicy policy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 

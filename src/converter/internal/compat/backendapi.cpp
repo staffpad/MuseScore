@@ -39,6 +39,7 @@
 #include "backendjsonwriter.h"
 #include "notationmeta.h"
 
+#include "muversion.h"
 #include "log.h"
 
 using namespace mu;
@@ -54,8 +55,10 @@ static const std::string SEGMENTS_POSITIONS_WRITER_NAME = "sposXML";
 static const std::string MEASURES_POSITIONS_WRITER_NAME = "mposXML";
 static const std::string PDF_WRITER_NAME = "pdf";
 static const std::string MIDI_WRITER_NAME = "midi";
-static const std::string MUSICXML_WRITER_NAME = "mxml";
+static const std::string MUSICXML_WRITER_NAME = "mxl";
+static const std::string MUSICXML_JSON_NAME = "mxml";
 static const std::string META_DATA_NAME = "metadata";
+static const std::string DEV_INFO_NAME = "devinfo";
 
 static constexpr bool ADD_SEPARATOR = true;
 static constexpr auto NO_STYLE = "";
@@ -87,7 +90,8 @@ Ret BackendApi::exportScoreMedia(const io::path_t& in, const io::path_t& out, co
     result &= exportScorePdf(notation, jsonWriter, ADD_SEPARATOR);
     result &= exportScoreMidi(notation, jsonWriter, ADD_SEPARATOR);
     result &= exportScoreMusicXML(notation, jsonWriter, ADD_SEPARATOR);
-    result &= exportScoreMetaData(notation, jsonWriter);
+    result &= exportScoreMetaData(notation, jsonWriter, ADD_SEPARATOR);
+    result &= devInfo(notation, jsonWriter);
 
     return result ? make_ret(Ret::Code::Ok) : make_ret(Ret::Code::InternalError);
 }
@@ -219,6 +223,9 @@ RetVal<project::INotationProjectPtr> BackendApi::openProject(const io::path_t& p
     }
 
     notation->setViewMode(ViewMode::PAGE);
+    for (IExcerptNotationPtr excerpt : notationProject->masterNotation()->excerpts().val) {
+        excerpt->notation()->setViewMode(ViewMode::PAGE);
+    }
 
     return RetVal<INotationProjectPtr>::make_ok(notationProject);
 }
@@ -421,7 +428,7 @@ Ret BackendApi::exportScoreMusicXML(const INotationPtr notation, BackendJsonWrit
         return writerRetVal.ret;
     }
 
-    jsonWriter.addKey(MUSICXML_WRITER_NAME.c_str());
+    jsonWriter.addKey(MUSICXML_JSON_NAME.c_str());
     jsonWriter.addValue(writerRetVal.val, addSeparator);
 
     return make_ret(Ret::Code::Ok);
@@ -439,6 +446,22 @@ Ret BackendApi::exportScoreMetaData(const INotationPtr notation, BackendJsonWrit
 
     jsonWriter.addKey(META_DATA_NAME.c_str());
     jsonWriter.addValue(QString::fromStdString(meta.val).toUtf8(), addSeparator, true);
+
+    return make_ret(Ret::Code::Ok);
+}
+
+Ret BackendApi::devInfo(const notation::INotationPtr notation, BackendJsonWriter& jsonWriter, bool addSeparator)
+{
+    UNUSED(notation);
+
+    TRACEFUNC
+
+    QJsonObject infoObj;
+    infoObj["version"] = QString::fromStdString(String("%1(%2)").arg(framework::MUVersion::fullVersion(),
+                                                                     framework::MUVersion::revision()).toStdString());
+
+    jsonWriter.addKey(DEV_INFO_NAME.c_str());
+    jsonWriter.addValue(QJsonDocument(infoObj).toJson(), addSeparator, true);
 
     return make_ret(Ret::Code::Ok);
 }
@@ -546,6 +569,7 @@ Ret BackendApi::doExportScorePartsPdfs(const IMasterNotationPtr masterNotation, 
     jsonForPdfs["scoreBin"] = QString::fromLatin1(scoreBin);
 
     INotationPtrList notations;
+    notations.push_back(masterNotation->notation());
 
     QJsonArray partsArray;
     QJsonArray partsNamesArray;

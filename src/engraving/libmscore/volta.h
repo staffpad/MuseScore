@@ -27,7 +27,7 @@
 
 namespace mu::engraving {
 class Score;
-class XmlWriter;
+
 class Volta;
 class Measure;
 
@@ -57,14 +57,16 @@ public:
 class Volta final : public TextLineBase
 {
     OBJECT_ALLOCATOR(engraving, Volta)
+    DECLARE_CLASSOF(ElementType::VOLTA)
 
     std::vector<int> _endings;
-    static constexpr Anchor VOLTA_ANCHOR = Anchor::MEASURE;
 
 public:
     enum class Type : char {
         OPEN, CLOSED
     };
+
+    static constexpr Anchor VOLTA_ANCHOR = Anchor::MEASURE;
 
     Volta(EngravingItem* parent);
 
@@ -72,10 +74,6 @@ public:
 
     LineSegment* createLineSegment(System* parent) override;
 
-    void write(XmlWriter&) const override;
-    void read(XmlReader& e) override;
-
-    bool readProperties(XmlReader&) override;
     SpannerSegment* layoutSystem(System* system) override;
 
     void setVelocity() const;

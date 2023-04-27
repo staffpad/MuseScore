@@ -32,7 +32,9 @@
 #include "mimedatautils.h"
 
 #include "draw/types/geometry.h"
-#include "engraving/rw/xml.h"
+
+#include "engraving/rw/400/writecontext.h"
+
 #include "engraving/libmscore/actionicon.h"
 #include "engraving/libmscore/articulation.h"
 #include "engraving/libmscore/bracket.h"
@@ -153,7 +155,7 @@ PaletteCellPtr Palette::appendElement(ElementPtr element, const TranslatableStri
 PaletteCellPtr Palette::appendActionIcon(ActionIconType type, actions::ActionCode code)
 {
     const ui::UiAction& action = actionsRegister()->action(code);
-    QString name = !action.description.isEmpty() ? action.description.qTranslated() : action.title.qTranslated();
+    QString name = !action.description.isEmpty() ? action.description.qTranslated() : action.title.qTranslatedWithoutMnemonic();
     auto icon = std::make_shared<ActionIcon>(gpaletteScore->dummy());
     icon->setActionType(type);
     icon->setAction(code, static_cast<char16_t>(action.iconCode));

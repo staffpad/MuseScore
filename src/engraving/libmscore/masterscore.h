@@ -31,7 +31,10 @@ namespace mu::engraving {
 class EngravingProject;
 class MscReader;
 class MscWriter;
-class ScoreReader;
+class MscLoader;
+}
+
+namespace mu::engraving::rw400 {
 class Read400;
 }
 
@@ -81,13 +84,14 @@ class MasterScore : public Score
     UndoStack* _undoStack = nullptr;
     TimeSigMap* _sigmap;
     TempoMap* _tempomap;
-    RepeatList* _repeatList;
-    RepeatList* _repeatList2;
-    bool _expandRepeats = MScore::playRepeats;
+    RepeatList* _expandedRepeatList;
+    RepeatList* _nonExpandedRepeatList;
+    bool _expandRepeats = true;
     bool _playlistDirty = true;
     std::vector<Excerpt*> _excerpts;
     std::vector<PartChannelSettingsLink> _playbackSettingsLinks;
     Score* _playbackScore = nullptr;
+    async::Channel<ScoreChangesRange> m_changesRangeChannel;
 
     bool _readOnly = false;
 
@@ -101,9 +105,6 @@ class MasterScore : public Score
     std::vector<MidiMapping> _midiMapping;
     bool isSimpleMidiMapping = false;                 // midi mapping is simple if all ports and channels
                                                       // don't decrease and don't have gaps
-    std::set<int> occupiedMidiChannels;               // each entry is port*16+channel, port range: 0-inf, channel: 0-15
-    unsigned int searchMidiMappingFrom = 0;           // makes getting next free MIDI mapping faster
-
     double m_widthOfSegmentCell = 3;
 
     std::weak_ptr<EngravingProject> m_project;
@@ -125,7 +126,7 @@ class MasterScore : public Score
     friend class compat::Read114;
     friend class compat::Read206;
     friend class compat::Read302;
-    friend class Read400;
+    friend class rw400::Read400;
 
     MasterScore(std::weak_ptr<EngravingProject> project  = std::weak_ptr<EngravingProject>());
     MasterScore(const MStyle&, std::weak_ptr<EngravingProject> project  = std::weak_ptr<EngravingProject>());
@@ -151,16 +152,21 @@ public:
     UndoStack* undoStack() const override { return _undoStack; }
     TimeSigMap* sigmap() const override { return _sigmap; }
     TempoMap* tempomap() const override { return _tempomap; }
+    async::Channel<ScoreChangesRange> changesChannel() const override { return m_changesRangeChannel; }
 
     bool playlistDirty() const override { return _playlistDirty; }
     void setPlaylistDirty() override;
     void setPlaylistClean() { _playlistDirty = false; }
 
+    /// Always call this before calling `repeatList()`
+    /// No need to set it back after use, because everyone always calls it before using `repeatList()`
     void setExpandRepeats(bool expandRepeats);
     bool expandRepeats() const { return _expandRepeats; }
+
     void updateRepeatListTempo();
+    void updateRepeatList();
     const RepeatList& repeatList() const override;
-    const RepeatList& repeatList2() const override;
+    const RepeatList& repeatList(bool expandRepeats) const override;
 
     std::vector<Excerpt*>& excerpts() { return _excerpts; }
     const std::vector<Excerpt*>& excerpts() const { return _excerpts; }
@@ -195,13 +201,12 @@ public:
     void rebuildMidiMapping();
     void checkMidiMapping();
     bool exportMidiMapping() { return !isSimpleMidiMapping; }
-    int getNextFreeMidiMapping(int p = -1, int ch = -1);
-    int getNextFreeDrumMidiMapping();
+    int getNextFreeMidiMapping(std::set<int>& occupiedMidiChannels, unsigned int& searchMidiMappingFrom, int p = -1, int ch = -1);
+    int getNextFreeDrumMidiMapping(std::set<int>& occupiedMidiChannels);
 //    void enqueueMidiEvent(MidiInputEvent ev) { _midiInputQueue.enqueue(ev); }
     void rebuildAndUpdateExpressive(Synthesizer* synth);
     void updateExpressive(Synthesizer* synth);
     void updateExpressive(Synthesizer* synth, bool expressive, bool force = false);
-    void setSoloMute();
 
     using Score::pos;
     Fraction pos(POS pos) const { return _pos[int(pos)]; }
@@ -233,6 +238,8 @@ public:
     void setAutosaveDirty(bool v);
 
     String name() const override;
+
+    Ret sanityCheck();
 
     void setWidthOfSegmentCell(double val) { m_widthOfSegmentCell = val; }
     double widthOfSegmentCell() const { return m_widthOfSegmentCell; }

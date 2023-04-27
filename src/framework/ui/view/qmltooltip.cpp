@@ -34,6 +34,8 @@ QmlToolTip::QmlToolTip(QObject* parent)
 
     m_closeTimer.setSingleShot(true);
     connect(&m_closeTimer, &QTimer::timeout, this, &QmlToolTip::doHide);
+
+    qApp->installEventFilter(this);
 }
 
 void QmlToolTip::show(QQuickItem* item, const QString& title, const QString& description, const QString& shortcut)
@@ -49,17 +51,17 @@ void QmlToolTip::show(QQuickItem* item, const QString& title, const QString& des
 
     bool toolTipNotOpened = m_item == nullptr;
     bool openTimerStarted = m_openTimer.isActive();
+
+    m_item = item;
+    m_shouldBeClosed = false;
+
     if (toolTipNotOpened || openTimerStarted) {
-        m_item = item;
         connect(m_item, &QObject::destroyed, this, &QmlToolTip::doHide);
 
         m_openTimer.start(INTERVAL);
     } else {
-        m_item = item;
         doShow();
     }
-
-    m_shouldBeClosed = false;
 }
 
 void QmlToolTip::hide(QQuickItem* item, bool force)
@@ -78,11 +80,26 @@ void QmlToolTip::hide(QQuickItem* item, bool force)
     m_closeTimer.start(INTERVAL);
 }
 
+void QmlToolTip::init()
+{
+    interactiveProvider()->currentUriAboutToBeChanged().onNotify(this, [this]() {
+        m_shouldBeClosed = true;
+        doHide();
+    });
+}
+
 void QmlToolTip::doShow()
 {
     m_openTimer.stop();
+    m_closeTimer.stop();
 
     if (!m_item) {
+        return;
+    }
+
+    if (m_shouldBeClosed) {
+        m_item = nullptr;
+        m_shouldBeClosed = false;
         return;
     }
 
@@ -95,13 +112,27 @@ void QmlToolTip::doHide()
         return;
     }
 
-    disconnect(m_item, &QObject::destroyed, this, &QmlToolTip::doHide);
+    if (m_item) {
+        disconnect(m_item, &QObject::destroyed, this, &QmlToolTip::doHide);
+    }
 
     m_openTimer.stop();
+    m_closeTimer.stop();
+
     m_item = nullptr;
     m_title = QString();
     m_description = QString();
     m_shortcut = QString();
 
     emit hideToolTip();
+}
+
+bool QmlToolTip::eventFilter(QObject*, QEvent* event)
+{
+    if (event->type() == QEvent::Wheel) {
+        m_shouldBeClosed = true;
+        doHide();
+    }
+
+    return false;
 }

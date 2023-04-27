@@ -22,10 +22,10 @@
 
 #include "mmrestrange.h"
 
-#include "rw/xml.h"
-
 #include "measure.h"
 #include "score.h"
+
+#include "log.h"
 
 using namespace mu;
 using namespace mu::engraving;
@@ -92,15 +92,6 @@ PropertyValue MMRestRange::propertyDefault(Pid id) const
         return score()->styleV(Sid::mmRestRangeHPlacement);
     default:
         return MeasureNumberBase::propertyDefault(id);
-    }
-}
-
-bool MMRestRange::readProperties(XmlReader& xml)
-{
-    if (readProperty(xml.name(), xml, Pid::MMREST_RANGE_BRACKET_TYPE)) {
-        return true;
-    } else {
-        return MeasureNumberBase::readProperties(xml);
     }
 }
 

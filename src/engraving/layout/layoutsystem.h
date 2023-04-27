@@ -47,6 +47,10 @@ private:
     static void layoutTies(Chord* ch, System* system, const Fraction& stick);
     static void doLayoutTies(System* system, std::vector<Segment*> sl, const Fraction& stick, const Fraction& etick);
     static void justifySystem(System* system, double curSysWidth, double targetSystemWidth);
+    static void updateCrossBeams(System* system, const LayoutContext& ctx);
+    static void restoreTies(System* system);
+    static void manageNarrowSpacing(System* system, double& curSysWidth, double targetSysWidth, const Fraction minTicks,
+                                    const Fraction maxTicks);
 };
 }
 

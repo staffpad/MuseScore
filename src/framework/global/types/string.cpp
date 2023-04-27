@@ -46,11 +46,19 @@ static long int toInt_helper(const char* str, bool* ok, int base)
     }
     const char* currentLoc = setlocale(LC_NUMERIC, "C");
     char* end = nullptr;
-    long int v = static_cast<int>(std::strtol(str, &end, base));
+    long v = std::strtol(str, &end, base);
     setlocale(LC_NUMERIC, currentLoc);
     bool myOk = std::strlen(end) == 0;
     if (!myOk) {
-        v = 0;
+        end++;
+        if (std::strlen(end) != 0) {
+            char* frEnd = nullptr;
+            std::strtol(end, &frEnd, base);
+            myOk = std::strlen(frEnd) == 0;
+            if (!myOk) {
+                v = 0;
+            }
+        }
     }
 
     if (ok) {
@@ -180,22 +188,38 @@ char16_t Char::toUpper(char16_t ch)
 // ============================
 void UtfCodec::utf8to16(std::string_view src, std::u16string& dst)
 {
-    utf8::utf8to16(src.begin(), src.end(), std::back_inserter(dst));
+    try {
+        utf8::utf8to16(src.begin(), src.end(), std::back_inserter(dst));
+    } catch (const std::exception& e) {
+        LOGE() << e.what();
+    }
 }
 
 void UtfCodec::utf16to8(std::u16string_view src, std::string& dst)
 {
-    utf8::utf16to8(src.begin(), src.end(), std::back_inserter(dst));
+    try {
+        utf8::utf16to8(src.begin(), src.end(), std::back_inserter(dst));
+    } catch (const std::exception& e) {
+        LOGE() << e.what();
+    }
 }
 
 void UtfCodec::utf8to32(std::string_view src, std::u32string& dst)
 {
-    utf8::utf8to32(src.begin(), src.end(), std::back_inserter(dst));
+    try {
+        utf8::utf8to32(src.begin(), src.end(), std::back_inserter(dst));
+    } catch (const std::exception& e) {
+        LOGE() << e.what();
+    }
 }
 
 void UtfCodec::utf32to8(std::u32string_view src, std::string& dst)
 {
-    utf8::utf32to8(src.begin(), src.end(), std::back_inserter(dst));
+    try {
+        utf8::utf32to8(src.begin(), src.end(), std::back_inserter(dst));
+    } catch (const std::exception& e) {
+        LOGE() << e.what();
+    }
 }
 
 // ============================
@@ -260,6 +284,39 @@ const std::u16string& String::constStr() const
 {
     return *m_data.get();
 }
+
+struct String::Mutator {
+    std::u16string& s;
+    String* self = nullptr;
+
+    Mutator(std::u16string& s, String* self)
+        : s(s), self(self) {}
+    ~Mutator()
+    {
+#ifdef STRING_DEBUG_HACK
+        self->updateDebugView();
+#endif
+    }
+
+    operator std::u16string& () {
+        return s;
+    }
+
+    void reserve(size_t n) { s.reserve(n); }
+    void resize(size_t n) { s.resize(n); }
+    void clear() { s.clear(); }
+    void insert(size_t p, const std::u16string& v) { s.insert(p, v); }
+    void erase(size_t p, size_t n) { s.erase(p, n); }
+
+    std::u16string& operator=(const std::u16string& v) { return s.operator=(v); }
+    std::u16string& operator=(const char16_t* v) { return s.operator=(v); }
+    std::u16string& operator=(const char16_t v) { return s.operator=(v); }
+
+    std::u16string& operator+=(const std::u16string& v) { return s.operator+=(v); }
+    std::u16string& operator+=(const char16_t* v) { return s.operator+=(v); }
+    std::u16string& operator+=(const char16_t v) { return s.operator+=(v); }
+    char16_t& operator[](size_t i) { return s.operator[](i); }
+};
 
 String::Mutator String::mutStr(bool do_detach)
 {
@@ -382,12 +439,20 @@ ByteArray String::toUtf8() const
 {
     ByteArray ba;
     std::u16string_view v(constStr());
-    utf8::utf16to8(v.begin(), v.end(), std::back_inserter(ba));
+    try {
+        utf8::utf16to8(v.begin(), v.end(), std::back_inserter(ba));
+    } catch (const std::exception& e) {
+        LOGE() << e.what();
+    }
     return ba;
 }
 
 String String::fromAscii(const char* str, size_t size)
 {
+    if (!str) {
+        return String();
+    }
+
     size = (size == mu::nidx) ? std::strlen(str) : size;
     String s;
     std::u16string& data = s.mutStr();
@@ -452,6 +517,11 @@ String String::fromUcs4(const char32_t* str, size_t size)
     String s;
     UtfCodec::utf8to16(s8, s.mutStr());
     return s;
+}
+
+String String::fromUcs4(char32_t chr)
+{
+    return fromUcs4(&chr, 1);
 }
 
 std::u32string String::toStdU32String() const
@@ -722,6 +792,9 @@ StringList String::split(const std::regex& re, SplitBehavior behavior) const
 
 String& String::replace(const String& before, const String& after)
 {
+    if (before == after) {
+        return *this;
+    }
     Mutator h = mutStr();
     std::u16string& str = h.s;
     size_t start_pos = 0;
@@ -807,46 +880,46 @@ static constexpr bool is1To9(char16_t chr)
 
 void String::doArgs(std::u16string& out, const std::vector<std::u16string_view>& args) const
 {
+    struct Part {
+        std::u16string_view substr;
+        size_t argIdxToInsertAfter = mu::nidx;
+    };
+
     const std::u16string& str = constStr();
     const std::u16string_view view(str);
-    std::vector<std::u16string_view> parts;
+    std::vector<Part> parts;
 
     {
-        std::size_t current = view.find(u'%'), previousCut = 0, previousPercent = 0;
+        std::size_t currentPercentIdx = view.find(u'%'), partStartIdx = 0;
 
-        while (current != std::string::npos) {
-            std::u16string_view sub = view.substr(previousCut, current - previousCut);
-            std::size_t next = current + 1;
-            if (next < view.size() && is1To9(view.at(next))) {
-                parts.push_back(std::move(sub));
-                previousCut = next;
+        while (currentPercentIdx != std::string::npos) {
+            std::u16string_view sub = view.substr(partStartIdx, currentPercentIdx - partStartIdx);
+            std::size_t nextCharIdx = currentPercentIdx + 1;
+            if (nextCharIdx < view.size() && is1To9(view.at(nextCharIdx))) {
+                size_t argIdx = view.at(nextCharIdx) - u'1';
+                parts.push_back({ std::move(sub), argIdx });
+                partStartIdx = nextCharIdx + 1;
             }
-            previousPercent = next;
-            current = view.find(u'%', previousPercent);
+            currentPercentIdx = view.find(u'%', nextCharIdx);
         }
 
-        std::u16string_view sub = view.substr(previousCut);
-        parts.push_back(std::move(sub));
+        std::u16string_view sub = view.substr(partStartIdx);
+        parts.push_back({ std::move(sub) });
     }
 
     {
-        for (const std::u16string_view& p : parts) {
-            if (p.empty()) {
-                continue;
+        for (const auto& [substr, argIdxToInsertAfter] : parts) {
+            if (!substr.empty()) {
+                out += substr;
             }
 
-            char16_t first = p.at(0);
-            if (!is1To9(first)) {
-                out += p;
-            } else {
-                size_t idx = first - u'1';
-                if (idx < args.size()) {
-                    out += args.at(idx);
-                    out.append(p.cbegin() + 1, p.cend());
+            if (argIdxToInsertAfter != mu::nidx) {
+                if (argIdxToInsertAfter < args.size()) {
+                    out += args.at(argIdxToInsertAfter);
                 } else {
+                    // When there are 5 args, %6 becomes %1
                     out.push_back(u'%');
-                    out.push_back(first - 1);
-                    out.append(p.cbegin() + 1, p.cend());
+                    out.push_back(u'1' + static_cast<char16_t>(argIdxToInsertAfter - args.size()));
                 }
             }
         }

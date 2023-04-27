@@ -54,11 +54,12 @@ void Shape::addHorizontalSpacing(EngravingItem* item, double leftEdge, double ri
 //   translate
 //---------------------------------------------------------
 
-void Shape::translate(const PointF& pt)
+Shape& Shape::translate(const PointF& pt)
 {
     for (RectF& r : *this) {
         r.translate(pt);
     }
+    return *this;
 }
 
 void Shape::translateX(double xo)
@@ -97,10 +98,11 @@ Shape Shape::translated(const PointF& pt) const
 //    so they don’t touch.
 //-------------------------------------------------------------------
 
-double Shape::minHorizontalDistance(const Shape& a, Score* score) const
+double Shape::minHorizontalDistance(const Shape& a) const
 {
     double dist = -1000000.0;        // min real
-    double verticalClearance = 0.2 * score->spatium();
+    double absoluteMinPadding = 0.1 * _spatium * _squeezeFactor;
+    double verticalClearance = 0.2 * _spatium * _squeezeFactor;
     for (const ShapeElement& r2 : a) {
         const EngravingItem* item2 = r2.toItem;
         double by1 = r2.top();
@@ -114,9 +116,11 @@ double Shape::minHorizontalDistance(const Shape& a, Score* score) const
             KerningType kerningType = KerningType::NON_KERNING;
             if (item1 && item2) {
                 padding = item1->computePadding(item2);
+                padding *= _squeezeFactor;
+                padding = std::max(padding, absoluteMinPadding);
                 kerningType = item1->computeKerningType(item2);
             }
-            if (intersection
+            if ((intersection && kerningType != KerningType::ALLOW_COLLISION)
                 || (r1.width() == 0 || r2.width() == 0) // Temporary hack: shapes of zero-width are assumed to collide with everyghin
                 || (!item1 && item2 && item2->isLyrics()) // Temporary hack: avoids collision with melisma line
                 || kerningType == KerningType::NON_KERNING) {
@@ -164,6 +168,41 @@ double Shape::minVerticalDistance(const Shape& a) const
     return dist;
 }
 
+//-------------------------------------------------------------------
+//   verticalClearance
+//    a is located below this shape.
+//    Claculates the amount of clearance between the two shapes.
+//    If there is an overlap, returns a negative value corresponging
+//    to the amount of overlap.
+//-------------------------------------------------------------------
+
+double Shape::verticalClearance(const Shape& a) const
+{
+    if (empty() || a.empty()) {
+        return 0.0;
+    }
+
+    double dist = 1000000.0; // max real
+    for (const RectF& r2 : a) {
+        if (r2.height() <= 0.0) {
+            continue;
+        }
+        double bx1 = r2.left();
+        double bx2 = r2.right();
+        for (const RectF& r1 : *this) {
+            if (r1.height() <= 0.0) {
+                continue;
+            }
+            double ax1 = r1.left();
+            double ax2 = r1.right();
+            if (mu::engraving::intersects(ax1, ax2, bx1, bx2, 0.0)) {
+                dist = std::min(dist, r2.top() - r1.bottom());
+            }
+        }
+    }
+    return dist;
+}
+
 //----------------------------------------------------------------
 // clearsVertically()
 // a is located below this shape
@@ -172,8 +211,8 @@ double Shape::minVerticalDistance(const Shape& a) const
 //----------------------------------------------------------------
 bool Shape::clearsVertically(const Shape& a) const
 {
-    for (const RectF r1 : a) {
-        for (const RectF r2 : *this) {
+    for (const RectF& r1 : a) {
+        for (const RectF& r2 : *this) {
             if (mu::engraving::intersects(r1.left(), r1.right(), r2.left(), r2.right(), 0.0)) {
                 if (std::min(r1.top(), r1.bottom()) <= std::max(r2.top(), r2.bottom())) {
                     return false;
@@ -284,6 +323,26 @@ double Shape::bottomDistance(const PointF& p) const
         }
     }
     return dist;
+}
+
+//---------------------------------------------------------
+//   add
+//---------------------------------------------------------
+
+void Shape::add(const Shape& s)
+{
+    insert(end(), s.begin(), s.end());
+    if (!_spatium) {
+        _spatium = s._spatium;
+    }
+}
+
+void Shape::add(const RectF& r, const EngravingItem* p)
+{
+    push_back(ShapeElement(r, p));
+    if (!_spatium && p) {
+        _spatium = p->spatium();
+    }
 }
 
 //---------------------------------------------------------

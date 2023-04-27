@@ -31,8 +31,10 @@
 #include "libmscore/chordrest.h"
 #include "libmscore/durationelement.h"
 #include "libmscore/factory.h"
+#include "libmscore/fingering.h"
 #include "libmscore/measure.h"
 #include "libmscore/measurebase.h"
+#include "libmscore/note.h"
 #include "libmscore/page.h"
 #include "libmscore/score.h"
 #include "libmscore/segment.h"
@@ -134,7 +136,7 @@ void LayoutPage::collectPage(const LayoutOptions& options, LayoutContext& ctx)
         y += cs->height();
     }
 
-    for (int k = 0;; ++k) {
+    for (;;) {
         //
         // calculate distance to previous system
         //
@@ -307,6 +309,22 @@ void LayoutPage::collectPage(const LayoutOptions& options, LayoutContext& ctx)
                                     t->layout();
                                 }
                             }
+                            // Fingering and articulations on top of cross-staff beams must be laid out here
+                            if (c->beam() && (c->beam()->cross() || c->staffMove() != 0)) {
+                                c->layoutArticulations();
+                                c->layoutArticulations2(true);
+                                for (Note* note : c->notes()) {
+                                    for (EngravingItem* e : note->el()) {
+                                        if (!e || !e->isFingering()) {
+                                            continue;
+                                        }
+                                        Fingering* fingering = toFingering(e);
+                                        if (fingering->isOnCrossBeamSide()) {
+                                            fingering->layout();
+                                        }
+                                    }
+                                }
+                            }
                         }
                     } else if (e->isBarLine()) {
                         toBarLine(e)->layout2();
@@ -361,7 +379,7 @@ void LayoutPage::collectPage(const LayoutOptions& options, LayoutContext& ctx)
 void LayoutPage::layoutPage(const LayoutContext& ctx, Page* page, double restHeight, double footerPadding)
 {
     if (restHeight < 0.0) {
-        LOGD("restHeight < 0.0: %f\n", restHeight);
+        LOGN("restHeight < 0.0: %f\n", restHeight);
         restHeight = 0;
     }
 

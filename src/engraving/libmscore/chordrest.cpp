@@ -24,8 +24,6 @@
 
 #include "translation.h"
 
-#include "rw/writecontext.h"
-#include "rw/xml.h"
 #include "style/style.h"
 #include "types/typesconv.h"
 
@@ -34,8 +32,11 @@
 #include "barline.h"
 #include "beam.h"
 #include "breath.h"
+
 #include "chord.h"
 #include "clef.h"
+#include "connector.h"
+
 #include "factory.h"
 #include "figuredbass.h"
 #include "harmony.h"
@@ -62,7 +63,6 @@
 
 using namespace mu;
 using namespace mu::engraving;
-using namespace mu::engraving::rw;
 
 namespace mu::engraving {
 //---------------------------------------------------------
@@ -131,225 +131,6 @@ ChordRest::~ChordRest()
     delete _tabDur;
     if (_beam && _beam->contains(this)) {
         delete _beam;     // Beam destructor removes references to the deleted object
-    }
-}
-
-//---------------------------------------------------------
-//   writeProperties
-//---------------------------------------------------------
-
-void ChordRest::writeProperties(XmlWriter& xml) const
-{
-    DurationElement::writeProperties(xml);
-
-    //
-    // BeamMode default:
-    //    REST  - BeamMode::NONE
-    //    CHORD - BeamMode::AUTO
-    //
-    if ((isRest() && _beamMode != BeamMode::NONE) || (isChord() && _beamMode != BeamMode::AUTO)) {
-        xml.tag("BeamMode", TConv::toXml(_beamMode));
-    }
-    writeProperty(xml, Pid::SMALL);
-    if (actualDurationType().dots()) {
-        xml.tag("dots", actualDurationType().dots());
-    }
-    writeProperty(xml, Pid::STAFF_MOVE);
-
-    if (actualDurationType().isValid()) {
-        xml.tag("durationType", TConv::toXml(actualDurationType().type()));
-    }
-
-    if (!ticks().isZero() && (!actualDurationType().fraction().isValid()
-                              || (actualDurationType().fraction() != ticks()))) {
-        xml.tagFraction("duration", ticks());
-        //xml.tagE("duration z=\"%d\" n=\"%d\"", ticks().numerator(), ticks().denominator());
-    }
-
-    for (Lyrics* lyrics : _lyrics) {
-        lyrics->write(xml);
-    }
-
-    const int curTick = xml.context()->curTick().ticks();
-
-    if (!isGrace()) {
-        Fraction t(globalTicks());
-        if (staff()) {
-            t /= staff()->timeStretch(xml.context()->curTick());
-        }
-        xml.context()->incCurTick(t);
-    }
-
-    for (auto i : score()->spannerMap().findOverlapping(curTick - 1, curTick + 1)) {
-        Spanner* s = i.value;
-        if (s->generated() || !s->isSlur() || toSlur(s)->broken() || !xml.context()->canWrite(s)) {
-            continue;
-        }
-
-        if (s->startElement() == this) {
-            s->writeSpannerStart(xml, this, track());
-        } else if (s->endElement() == this) {
-            s->writeSpannerEnd(xml, this, track());
-        }
-    }
-}
-
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool ChordRest::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-
-    if (tag == "durationType") {
-        setDurationType(TConv::fromXml(e.readAsciiText(), DurationType::V_QUARTER));
-        if (actualDurationType().type() != DurationType::V_MEASURE) {
-            if (score()->mscVersion() < 112 && (type() == ElementType::REST)
-                &&            // for backward compatibility, convert V_WHOLE rests to V_MEASURE
-                              // if long enough to fill a measure.
-                              // OTOH, freshly created (un-initialized) rests have numerator == 0 (< 4/4)
-                              // (see Fraction() constructor in fraction.h; this happens for instance
-                              // when pasting selection from clipboard): they should not be converted
-                ticks().numerator() != 0
-                &&            // rest durations are initialized to full measure duration when
-                              // created upon reading the <Rest> tag (see Measure::read() )
-                              // so a V_WHOLE rest in a measure of 4/4 or less => V_MEASURE
-                (actualDurationType() == DurationType::V_WHOLE && ticks() <= Fraction(4, 4))) {
-                // old pre 2.0 scores: convert
-                setDurationType(DurationType::V_MEASURE);
-            } else {    // not from old score: set duration fraction from duration type
-                setTicks(actualDurationType().fraction());
-            }
-        } else {
-            if (score()->mscVersion() <= 114) {
-                SigEvent event = score()->sigmap()->timesig(e.context()->tick());
-                setTicks(event.timesig());
-            }
-        }
-    } else if (tag == "BeamMode") {
-        _beamMode = TConv::fromXml(e.readAsciiText(), BeamMode::AUTO);
-    } else if (tag == "Articulation") {
-        Articulation* atr = Factory::createArticulation(this);
-        atr->setTrack(track());
-        atr->read(e);
-        add(atr);
-    } else if (tag == "leadingSpace" || tag == "trailingSpace") {
-        LOGD("ChordRest: %s obsolete", tag.ascii());
-        e.skipCurrentElement();
-    } else if (tag == "small") {
-        m_isSmall = e.readInt();
-    } else if (tag == "duration") {
-        setTicks(e.readFraction());
-    } else if (tag == "ticklen") {      // obsolete (version < 1.12)
-        int mticks = score()->sigmap()->timesig(e.context()->tick()).timesig().ticks();
-        int i = e.readInt();
-        if (i == 0) {
-            i = mticks;
-        }
-        if ((type() == ElementType::REST) && (mticks == i)) {
-            setDurationType(DurationType::V_MEASURE);
-            setTicks(Fraction::fromTicks(i));
-        } else {
-            Fraction f = Fraction::fromTicks(i);
-            setTicks(f);
-            setDurationType(TDuration(f));
-        }
-    } else if (tag == "dots") {
-        setDots(e.readInt());
-    } else if (tag == "staffMove") {
-        _staffMove = e.readInt();
-        if (vStaffIdx() < part()->staves().front()->idx() || vStaffIdx() > part()->staves().back()->idx()) {
-            _staffMove = 0;
-        }
-    } else if (tag == "Spanner") {
-        Spanner::readSpanner(e, this, track());
-    } else if (tag == "Lyrics") {
-        EngravingItem* element = Factory::createLyrics(this);
-        element->setTrack(e.context()->track());
-        element->read(e);
-        add(element);
-    } else if (tag == "pos") {
-        PointF pt = e.readPoint();
-        setOffset(pt * spatium());
-    }
-//      else if (tag == "offset")
-//            DurationElement::readProperties(e);
-    else if (!DurationElement::readProperties(e)) {
-        return false;
-    }
-    return true;
-}
-
-//---------------------------------------------------------
-//   ChordRest::readAddConnector
-//---------------------------------------------------------
-
-void ChordRest::readAddConnector(ConnectorInfoReader* info, bool pasteMode)
-{
-    const ElementType type = info->type();
-    switch (type) {
-    case ElementType::SLUR:
-    {
-        Spanner* spanner = toSpanner(info->connector());
-        const Location& l = info->location();
-
-        if (info->isStart()) {
-            spanner->setTrack(l.track());
-            spanner->setTick(tick());
-            spanner->setStartElement(this);
-            if (pasteMode) {
-                score()->undoAddElement(spanner);
-                for (EngravingObject* ee : spanner->linkList()) {
-                    if (ee == spanner) {
-                        continue;
-                    }
-                    Spanner* ls = toSpanner(ee);
-                    ls->setTick(spanner->tick());
-                    for (EngravingObject* eee : linkList()) {
-                        ChordRest* cr = toChordRest(eee);
-                        if (cr->score() == eee->score() && cr->staffIdx() == ls->staffIdx()) {
-                            ls->setTrack(cr->track());
-                            if (ls->isSlur()) {
-                                ls->setStartElement(cr);
-                            }
-                            break;
-                        }
-                    }
-                }
-            } else {
-                score()->addSpanner(spanner);
-            }
-        } else if (info->isEnd()) {
-            spanner->setTrack2(l.track());
-            spanner->setTick2(tick());
-            spanner->setEndElement(this);
-            if (pasteMode) {
-                for (EngravingObject* ee : spanner->linkList()) {
-                    if (ee == spanner) {
-                        continue;
-                    }
-                    Spanner* ls = static_cast<Spanner*>(ee);
-                    ls->setTick2(spanner->tick2());
-                    for (EngravingObject* eee : linkList()) {
-                        ChordRest* cr = toChordRest(eee);
-                        if (cr->score() == eee->score() && cr->staffIdx() == ls->staffIdx()) {
-                            ls->setTrack2(cr->track());
-                            if (ls->type() == ElementType::SLUR) {
-                                ls->setEndElement(cr);
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-        } else {
-            LOGD("ChordRest::readAddConnector(): Slur end is neither start nor end");
-        }
-    }
-    break;
-    default:
-        break;
     }
 }
 
@@ -523,16 +304,19 @@ EngravingItem* ChordRest::drop(EditData& data)
         if (part()->instruments().find(tick().ticks()) != part()->instruments().end()) {
             LOGD() << "InstrumentChange already exists at tick = " << tick().ticks();
             delete e;
-            return 0;
+            return nullptr;
         } else {
             InstrumentChange* ic = toInstrumentChange(e);
             ic->setParent(segment());
             ic->setTrack(trackZeroVoice(track()));
-            Instrument* instr = ic->instrument();
-            Instrument* prevInstr = part()->instrument(tick());
-            if (instr && instr->isDifferentInstrument(*prevInstr)) {
-                ic->setupInstrument(instr);
+
+            const Instrument* instr = part()->instrument(tick());
+            IF_ASSERT_FAILED(instr) {
+                delete e;
+                return nullptr;
             }
+
+            ic->setInstrument(*instr);
             score()->undoAddElement(ic);
             return e;
         }
@@ -599,8 +383,13 @@ EngravingItem* ChordRest::drop(EditData& data)
         if (e->isSpanner()) {
             Spanner* spanner = toSpanner(e);
             spanner->setTick(tick());
-            spanner->setTrack(track());
-            spanner->setTrack2(track());
+            if (spanner->systemFlag()) {
+                spanner->setTrack(0);
+                spanner->setTrack2(0);
+            } else {
+                spanner->setTrack(track());
+                spanner->setTrack2(track());
+            }
             score()->undoAddElement(spanner);
             return e;
         }
@@ -627,6 +416,12 @@ Beam* ChordRest::beam() const
 void ChordRest::setBeam(Beam* b)
 {
     _beam = b;
+}
+
+void ChordRest::setBeamlet(BeamSegment* b)
+{
+    _beamlet = b;
+    segment()->createShape(vStaffIdx());
 }
 
 //---------------------------------------------------------
@@ -951,18 +746,6 @@ Breath* ChordRest::hasBreathMark() const
 }
 
 //---------------------------------------------------------
-//   writeBeam
-//---------------------------------------------------------
-
-void ChordRest::writeBeam(XmlWriter& xml) const
-{
-    Beam* b = beam();
-    if (b && b->elements().front() == this && (MScore::testMode || !b->generated())) {
-        b->write(xml);
-    }
-}
-
-//---------------------------------------------------------
 //   nextSegmentAfterCR
 //    returns first segment at tick CR->tick + CR->actualTicks
 //    of given types
@@ -1029,6 +812,9 @@ void ChordRest::processSiblings(std::function<void(EngravingItem*)> func)
     }
     if (tuplet()) {
         func(tuplet());
+    }
+    for (EngravingItem* e : _el) {
+        func(e);
     }
 }
 
@@ -1305,8 +1091,8 @@ Shape ChordRest::shape() const
             }
             double lmargin = score()->styleS(Sid::lyricsMinDistance).val() * spatium() * 0.5;
             double rmargin = lmargin;
-            Lyrics::Syllabic syl = l->syllabic();
-            if ((syl == Lyrics::Syllabic::BEGIN || syl == Lyrics::Syllabic::MIDDLE) && score()->styleB(Sid::lyricsDashForce)) {
+            LyricsSyllabic syl = l->syllabic();
+            if ((syl == LyricsSyllabic::BEGIN || syl == LyricsSyllabic::MIDDLE) && score()->styleB(Sid::lyricsDashForce)) {
                 rmargin = std::max(rmargin, styleP(Sid::lyricsDashMinLength));
             }
             // for horizontal spacing we only need the lyrics width:
@@ -1316,25 +1102,6 @@ Shape ChordRest::shape() const
                 x2 += spatium();
             }
             shape.addHorizontalSpacing(l, x1, x2);
-        }
-    }
-
-    {
-        double x1 = 1000000.0;
-        double x2 = -1000000.0;
-        for (EngravingItem* e : segment()->annotations()) {
-            if (!e || !e->addToSkyline()) {
-                continue;
-            }
-            if (e->isHarmony() && e->staffIdx() == staffIdx()) {
-                Harmony* h = toHarmony(e);
-                // calculate bbox only (do not reset position)
-                h->layout1();
-                const double margin = styleP(Sid::minHarmonyDistance) * 0.5;
-                x1 = std::min(x1, e->bbox().x() - margin + e->pos().x());
-                x2 = std::max(x2, e->bbox().x() + e->bbox().width() + margin + e->pos().x());
-                shape.addHorizontalSpacing(e, x1, x2);
-            }
         }
     }
 
@@ -1349,6 +1116,16 @@ Shape ChordRest::shape() const
 //---------------------------------------------------------
 //   lyrics
 //---------------------------------------------------------
+
+Lyrics* ChordRest::lyrics(int no) const
+{
+    for (Lyrics* l : _lyrics) {
+        if (l->no() == no) {
+            return l;
+        }
+    }
+    return 0;
+}
 
 Lyrics* ChordRest::lyrics(int no, PlacementV p) const
 {
@@ -1441,5 +1218,35 @@ void ChordRest::undoAddAnnotation(EngravingItem* a)
     a->setTrack(/*a->systemFlag() ? 0 : */ track());
     a->setParent(seg);
     score()->undoAddElement(a);
+}
+
+void ChordRest::checkStaffMoveValidity()
+{
+    if (!staff()) {
+        return;
+    }
+    staff_idx_t idx = _staffMove ? vStaffIdx() : staffIdx() + _storedStaffMove;
+    const Staff* baseStaff = staff();
+    const StaffType* baseStaffType = baseStaff->staffTypeForElement(this);
+    const Staff* targetStaff  = score()->staff(idx);
+    const StaffType* targetStaffType = targetStaff ? targetStaff->staffTypeForElement(this) : nullptr;
+    // check that destination staff makes sense
+    staff_idx_t minStaff = part()->startTrack() / VOICES;
+    staff_idx_t maxStaff = part()->endTrack() / VOICES;
+    bool isDestinationValid = targetStaff && targetStaff->visible() && idx >= minStaff && idx < maxStaff
+                              && targetStaffType->group() == baseStaffType->group();
+    if (!isDestinationValid) {
+        LOGD("staffMove out of scope %zu + %d min %zu max %zu",
+             staffIdx(), _staffMove, minStaff, maxStaff);
+        // If destination staff is invalid, reset to base staff
+        if (_staffMove) {
+            // Remember the intended staff move, so it can be re-applied if
+            // destination staff becomes valid (e.g. unihidden)
+            _storedStaffMove = _staffMove;
+        }
+        undoChangeProperty(Pid::STAFF_MOVE, 0);
+    } else if (!_staffMove && _storedStaffMove) {
+        undoChangeProperty(Pid::STAFF_MOVE, _storedStaffMove);
+    }
 }
 }

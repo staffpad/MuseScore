@@ -58,21 +58,40 @@ class System;
 //   @P tick            int               midi tick position (read only)
 //------------------------------------------------------------------------
 
-struct CrossStaffContent
+struct CrossBeamType
 {
-    bool movedUp = false;
-    bool movedDown = false;
+    bool upDown = false; // This chord is stem-up, next chord is stem-down
+    bool downUp = false; // This chord is stem-down, next chord is stem-up
+    bool canBeAdjusted = true;
+    void reset()
+    {
+        upDown = false;
+        downUp = false;
+        canBeAdjusted = true;
+    }
+};
+
+struct Spring
+{
+    double springConst = 0.0;
+    double width = 0.0;
+    double preTension = 0.0;
+    Segment* segment = nullptr;
+    Spring(double sc, double w, double pt, Segment* s)
+        : springConst(sc), width(w), preTension(pt),  segment(s) {}
 };
 
 class Segment final : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, Segment)
+    DECLARE_CLASSOF(ElementType::SEGMENT)
 
     SegmentType _segmentType { SegmentType::Invalid };
     Fraction _tick;    // { Fraction(0, 1) };
     Fraction _ticks;   // { Fraction(0, 1) };
     Spatium _extraLeadingSpace;
     double _stretch;
+    double _widthOffset = 0.0; // part of the segment width that will not be stretched during system justification
 
     Segment* _next = nullptr;                       // linked list of segments inside a measure
     Segment* _prev = nullptr;
@@ -81,8 +100,9 @@ class Segment final : public EngravingItem
     std::vector<EngravingItem*> _elist;         // EngravingItem storage, size = staves * VOICES.
     std::vector<EngravingItem*> _preAppendedItems; // Container for items appended to the left of this segment (example: grace notes), size = staves * VOICES.
     std::vector<Shape> _shapes;           // size = staves
-    std::vector<double> _dotPosX;          // size = staves
     double m_spacing{ 0 };
+
+    CrossBeamType _crossBeamType; // Will affect segment-to-segment horizontal spacing
 
     friend class Factory;
     Segment(Measure* m = 0);
@@ -186,6 +206,7 @@ public:
 
     double stretch() const { return _stretch; }
     void setStretch(double v) { _stretch = v; }
+    double computeDurationStretch(Segment* prevSeg, Fraction minTicks, Fraction maxTicks);
 
     Fraction rtick() const override { return _tick; }
     void setRtick(const Fraction& v) { assert(v >= Fraction(0, 1)); _tick = v; }
@@ -209,14 +230,8 @@ public:
     bool hasElements(track_idx_t minTrack, track_idx_t maxTrack) const;
     bool allElementsInvisible() const;
 
-    double dotPosX(staff_idx_t staffIdx) const { return _dotPosX[staffIdx]; }
-    void setDotPosX(staff_idx_t staffIdx, double val) { _dotPosX[staffIdx] = val; }
-
     Spatium extraLeadingSpace() const { return _extraLeadingSpace; }
     void setExtraLeadingSpace(Spatium v) { _extraLeadingSpace = v; }
-
-    void write(XmlWriter&) const override;
-    void read(XmlReader&) override;
 
     PropertyValue getProperty(Pid propertyId) const override;
     bool setProperty(Pid propertyId, const PropertyValue&) override;
@@ -263,6 +278,11 @@ public:
     double minHorizontalDistance(Segment*, bool isSystemGap) const;
     double minHorizontalCollidingDistance(Segment* ns) const;
 
+    double widthOffset() const { return _widthOffset; }
+    void setWidthOffset(double w) { _widthOffset = w; }
+
+    static void stretchSegmentsToWidth(std::vector<Spring>& springs, double width);
+
     double elementsTopOffsetFromSkyline(staff_idx_t staffIndex) const;
     double elementsBottomOffsetFromSkyline(staff_idx_t staffIndex) const;
 
@@ -296,17 +316,18 @@ public:
     bool isEndBarLineType() const { return _segmentType == SegmentType::EndBarLine; }
     bool isKeySigAnnounceType() const { return _segmentType == SegmentType::KeySigAnnounce; }
     bool isTimeSigAnnounceType() const { return _segmentType == SegmentType::TimeSigAnnounce; }
-    bool isMMRestSegment() const;
+    bool isRightAligned() const { return isClefType() || isBreathType(); }
 
     Fraction shortestChordRest() const;
-    CrossStaffContent crossStaffContent() const;
+    void computeCrossBeamType(Segment* nextSeg);
+    CrossBeamType crossBeamType() const { return _crossBeamType; }
 
     bool hasAccidentals() const;
 
     EngravingItem* preAppendedItem(int track) { return _preAppendedItems[track]; }
     void preAppend(EngravingItem* item, int track) { _preAppendedItems[track] = item; }
     void clearPreAppended(int track) { _preAppendedItems[track] = nullptr; }
-    void addPreAppendedToShape(int staffIdx, Shape& s);
+    void addPreAppendedToShape();
 
     static constexpr SegmentType durationSegmentsMask = SegmentType::ChordRest;   // segment types which may have non-zero tick length
 };

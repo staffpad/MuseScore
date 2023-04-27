@@ -27,6 +27,7 @@
 
 #include "modularity/ioc.h"
 #include "async/asyncable.h"
+#include "iinteractive.h"
 
 #include "inotationinteraction.h"
 #include "inotationconfiguration.h"
@@ -50,6 +51,7 @@ class NotationInteraction : public INotationInteraction, public async::Asyncable
 {
     INJECT(notation, INotationConfiguration, configuration)
     INJECT(notation, ISelectInstrumentsScenario, selectInstrumentScenario)
+    INJECT(notation, framework::IInteractive, interactive)
 
 public:
     NotationInteraction(Notation* notation, INotationUndoStackPtr undoStack);
@@ -138,10 +140,11 @@ public:
     void editText(QInputMethodEvent* event) override;
     void endEditText() override;
     void changeTextCursorPosition(const PointF& newCursorPos) override;
+    void selectText(mu::engraving::SelectTextType type) override;
     const TextBase* editedText() const override;
     async::Notification textEditingStarted() const override;
     async::Notification textEditingChanged() const override;
-    async::Notification textEditingEnded() const override;
+    async::Channel<TextBase*> textEditingEnded() const override;
 
     // Grip edit
     bool isGripEditStarted() const override;
@@ -179,7 +182,7 @@ public:
     void addHairpinsToSelection(HairpinType type) override;
     void addAccidentalToSelection(AccidentalType type) override;
     void putRestToSelection() override;
-    void putRest(DurationType duration) override;
+    void putRest(Duration duration) override;
     void addBracketsToSelection(BracketsType type) override;
     void changeSelectedNotesArticulation(SymbolId articulationSymbolId) override;
     void addGraceNotesToSelectedNotes(GraceNoteType type) override;
@@ -236,10 +239,10 @@ public:
     void resetShapesAndPosition() override;
 
     ScoreConfig scoreConfig() const override;
-    void setScoreConfig(ScoreConfig config) override;
+    void setScoreConfig(const ScoreConfig& config) override;
     async::Channel<ScoreConfigType> scoreConfigChanged() const override;
 
-    void navigateToLyrics(MoveDirection direction) override;
+    void navigateToLyrics(MoveDirection direction, bool moveOnly = true) override;
     void navigateToLyricsVerse(MoveDirection direction) override;
 
     void navigateToNextSyllable() override;
@@ -268,7 +271,6 @@ public:
     void changeAccidental(mu::engraving::AccidentalType) override;
     void transposeSemitone(int) override;
     void transposeDiatonicAlterations(mu::engraving::TransposeDirection) override;
-    void toggleGlobalOrLocalInsert() override;
     void getLocation() override;
     void execute(void (mu::engraving::Score::*)()) override;
 
@@ -284,6 +286,8 @@ private:
     void startEdit();
     void apply();
     void rollback();
+
+    void checkAndShowMScoreError() const;
 
     bool needStartEditGrip(QKeyEvent* event) const;
     bool handleKeyPress(QKeyEvent* event);
@@ -302,7 +306,7 @@ private:
     void notifyAboutNotationChanged();
     void notifyAboutTextEditingStarted();
     void notifyAboutTextEditingChanged();
-    void notifyAboutTextEditingEnded();
+    void notifyAboutTextEditingEnded(TextBase* text);
     void notifyAboutNoteInputStateChanged();
     void doDragLasso(const PointF& p);
     void endLasso();
@@ -358,6 +362,7 @@ private:
     bool notesHaveActiculation(const std::vector<Note*>& notes, SymbolId articulationSymbolId) const;
 
     bool needEndTextEditing(const std::vector<EngravingItem*>& newSelectedElements) const;
+    bool needEndElementEditing(const std::vector<EngravingItem*>& newSelectedElements) const;
 
     void resetGripEdit();
     void resetHitElementContext();
@@ -382,7 +387,6 @@ private:
         mu::engraving::EditData ed;
         std::vector<EngravingItem*> elements;
         std::vector<std::unique_ptr<mu::engraving::ElementGroup> > dragGroups;
-        DragMode mode { DragMode::BothXY };
         void reset();
     };
 
@@ -412,7 +416,7 @@ private:
 
     async::Notification m_textEditingStarted;
     async::Notification m_textEditingChanged;
-    async::Notification m_textEditingEnded;
+    async::Channel<TextBase*> m_textEditingEnded;
 
     DropData m_dropData;
     async::Notification m_dropChanged;

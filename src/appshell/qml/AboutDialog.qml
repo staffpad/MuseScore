@@ -57,8 +57,22 @@ StyledDialogView {
                 id: logo
                 Layout.alignment: Qt.AlignHCenter
 
-                source: "qrc:/qml/resources/mu_logo.png"
+                source: "qrc:/qml/resources/mu_logo.svg"
                 sourceSize: Qt.size(100, 100)
+
+                MouseArea {
+                    anchors.fill: parent
+
+                    property int clickCount: 0
+
+                    onClicked: {
+                        clickCount++
+
+                        if (clickCount % 3 == 0) {
+                            aboutModel.toggleDevMode()
+                        }
+                    }
+                }
             }
 
             Column {
@@ -122,7 +136,7 @@ StyledDialogView {
 
             StyledTextLabel {
                 Layout.fillWidth: true
-                text: qsTrc("appshell/about", "Copyright © 1999-2022 MuseScore BVBA and others.\nPublished under the <a href=\"%1\">GNU General Public License version 3</a>.")
+                text: qsTrc("appshell/about", "Copyright © 1999-2023 MuseScore BVBA and others.\nPublished under the <a href=\"%1\">GNU General Public License version 3</a>.")
                       .arg("https://www.gnu.org/licenses/gpl-3.0.html")
                       .replace("\n", "<br>")
 

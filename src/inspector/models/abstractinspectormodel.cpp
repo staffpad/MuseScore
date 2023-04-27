@@ -89,7 +89,9 @@ static const QMap<mu::engraving::ElementType, InspectorModelType> NOTATION_ELEME
     { mu::engraving::ElementType::TEXTLINE_SEGMENT, InspectorModelType::TYPE_TEXT_LINE },
     { mu::engraving::ElementType::GRADUAL_TEMPO_CHANGE, InspectorModelType::TYPE_GRADUAL_TEMPO_CHANGE },
     { mu::engraving::ElementType::GRADUAL_TEMPO_CHANGE_SEGMENT, InspectorModelType::TYPE_GRADUAL_TEMPO_CHANGE },
-    { mu::engraving::ElementType::INSTRUMENT_NAME, InspectorModelType::TYPE_INSTRUMENT_NAME }
+    { mu::engraving::ElementType::INSTRUMENT_NAME, InspectorModelType::TYPE_INSTRUMENT_NAME },
+    { mu::engraving::ElementType::LYRICS, InspectorModelType::TYPE_LYRICS },
+    { mu::engraving::ElementType::REST, InspectorModelType::TYPE_REST }
 };
 
 static QMap<mu::engraving::HairpinType, InspectorModelType> HAIRPIN_ELEMENT_MODEL_TYPES = {
@@ -122,38 +124,35 @@ AbstractInspectorModel::AbstractInspectorModel(QObject* parent, IElementReposito
 
 void AbstractInspectorModel::setupCurrentNotationChangedConnection()
 {
-    auto listenNotationChanged = [this]() {
-        INotationPtr notation = currentNotation();
-        if (!notation) {
-            return;
-        }
-
-        notation->notationChanged().onNotify(this, [this]() {
-            if (m_updatePropertiesAllowed && !isEmpty()) {
-                updatePropertiesOnNotationChanged();
-            }
-
-            m_updatePropertiesAllowed = true;
-        });
-
-        onStyleChanged();
-        notation->style()->styleChanged().onNotify(this, [this]() {
-            onStyleChanged();
-        });
-    };
-
-    listenNotationChanged();
-
-    currentNotationChanged().onNotify(this, [listenNotationChanged]() {
-        listenNotationChanged();
+    onCurrentNotationChanged();
+    currentNotationChanged().onNotify(this, [this]() {
+        onCurrentNotationChanged();
     });
 }
 
-void AbstractInspectorModel::updatePropertiesOnNotationChanged()
+void AbstractInspectorModel::onCurrentNotationChanged()
 {
+    INotationPtr notation = currentNotation();
+    if (!notation) {
+        return;
+    }
+
+    notation->undoStack()->changesChannel().onReceive(this, [this](const ChangesRange& range) {
+        if (range.changedPropertyIdSet.empty() && range.changedStyleIdSet.empty()) {
+            return;
+        }
+
+        if (m_updatePropertiesAllowed && !isEmpty()) {
+            PropertyIdSet expandedPropertyIdSet = propertyIdSetFromStyleIdSet(range.changedStyleIdSet);
+            expandedPropertyIdSet.insert(range.changedPropertyIdSet.cbegin(), range.changedPropertyIdSet.cend());
+            onNotationChanged(expandedPropertyIdSet, range.changedStyleIdSet);
+        }
+
+        m_updatePropertiesAllowed = true;
+    });
 }
 
-void AbstractInspectorModel::onStyleChanged()
+void AbstractInspectorModel::onNotationChanged(const PropertyIdSet&, const StyleIdSet&)
 {
 }
 
@@ -272,25 +271,31 @@ void AbstractInspectorModel::setModelType(InspectorModelType modelType)
 
 void AbstractInspectorModel::onPropertyValueChanged(const mu::engraving::Pid pid, const QVariant& newValue)
 {
-    if (isEmpty()) {
+    setPropertyValue(m_elementList, pid, newValue);
+}
+
+void AbstractInspectorModel::setPropertyValue(const QList<engraving::EngravingItem*>& items, const mu::engraving::Pid pid,
+                                              const QVariant& newValue)
+{
+    if (items.empty()) {
         return;
     }
 
     beginCommand();
 
-    for (mu::engraving::EngravingItem* element : m_elementList) {
-        IF_ASSERT_FAILED(element) {
+    for (mu::engraving::EngravingItem* item : items) {
+        IF_ASSERT_FAILED(item) {
             continue;
         }
 
-        mu::engraving::PropertyFlags ps = element->propertyFlags(pid);
+        mu::engraving::PropertyFlags ps = item->propertyFlags(pid);
 
         if (ps == mu::engraving::PropertyFlags::STYLED) {
             ps = mu::engraving::PropertyFlags::UNSTYLED;
         }
 
-        PropertyValue propValue = valueToElementUnits(pid, newValue, element);
-        element->undoChangeProperty(pid, propValue, ps);
+        PropertyValue propValue = valueToElementUnits(pid, newValue, item);
+        item->undoChangeProperty(pid, propValue, ps);
     }
 
     updateNotation();
@@ -330,14 +335,41 @@ mu::engraving::Sid AbstractInspectorModel::styleIdByPropertyId(const mu::engravi
     return result;
 }
 
-void AbstractInspectorModel::updateStyleValue(const mu::engraving::Sid& sid, const QVariant& newValue)
+mu::engraving::PropertyIdSet AbstractInspectorModel::propertyIdSetFromStyleIdSet(const StyleIdSet& styleIdSet) const
+{
+    if (styleIdSet.empty()) {
+        return PropertyIdSet();
+    }
+
+    PropertyIdSet result;
+
+    for (const mu::engraving::EngravingItem* element : m_elementList) {
+        const mu::engraving::ElementStyle* style = element->styledProperties();
+        if (!style) {
+            continue;
+        }
+
+        for (const StyledProperty& property : *style) {
+            if (mu::contains(styleIdSet, property.sid)) {
+                result.insert(property.pid);
+            }
+        }
+    }
+
+    return result;
+}
+
+bool AbstractInspectorModel::updateStyleValue(const mu::engraving::Sid& sid, const QVariant& newValue)
 {
     PropertyValue newVal = PropertyValue::fromQVariant(newValue, mu::engraving::MStyle::valueType(sid));
     if (style() && style()->styleValue(sid) != newVal) {
         beginCommand();
         style()->setStyleValue(sid, newVal);
         endCommand();
+        return true;
     }
+
+    return false;
 }
 
 QVariant AbstractInspectorModel::styleValue(const mu::engraving::Sid& sid) const
@@ -376,8 +408,16 @@ PropertyValue AbstractInspectorModel::valueToElementUnits(const mu::engraving::P
         return BeatsPerSecond::fromBPM(BeatsPerMinute(value.toReal()));
 
     case P_TYPE::INT_VEC: {
-        QList<int> l = value.value<QList<int> >();
-        return std::vector<int>(l.begin(), l.end());
+        bool ok = true;
+        std::vector<int> res;
+
+        for (const QString& str : value.toString().split(',', Qt::SkipEmptyParts)) {
+            if (int i = str.simplified().toInt(&ok); ok) {
+                res.push_back(i);
+            }
+        }
+
+        return res;
     } break;
 
     case P_TYPE::COLOR:
@@ -439,33 +479,63 @@ void AbstractInspectorModel::setElementType(mu::engraving::ElementType type)
 
 PropertyItem* AbstractInspectorModel::buildPropertyItem(const mu::engraving::Pid& propertyId,
                                                         std::function<void(const mu::engraving::Pid propertyId,
-                                                                           const QVariant& newValue)> onPropertyChangedCallBack)
+                                                                           const QVariant& newValue)> onPropertyChangedCallBack,
+                                                        std::function<void(const mu::engraving::Sid styleId,
+                                                                           const QVariant& newValue)> onStyleChangedCallBack)
 {
     PropertyItem* newPropertyItem = new PropertyItem(propertyId, this);
 
-    auto callback = onPropertyChangedCallBack;
-
-    if (!callback) {
-        callback = [this](const mu::engraving::Pid propertyId, const QVariant& newValue) {
-            onPropertyValueChanged(propertyId, newValue);
-        };
-    }
-
-    connect(newPropertyItem, &PropertyItem::propertyModified, this, callback);
-    connect(newPropertyItem, &PropertyItem::applyToStyleRequested, this, [this](const mu::engraving::Sid sid, const QVariant& newStyleValue) {
-        updateStyleValue(sid,
-                         newStyleValue);
-
-        emit requestReloadPropertyItems();
-    });
+    initPropertyItem(newPropertyItem, onPropertyChangedCallBack, onStyleChangedCallBack);
 
     return newPropertyItem;
 }
 
-void AbstractInspectorModel::loadPropertyItem(PropertyItem* propertyItem,
-                                              std::function<QVariant(const QVariant&)> convertElementPropertyValueFunc)
+PointFPropertyItem* AbstractInspectorModel::buildPointFPropertyItem(const mu::engraving::Pid& propertyId,
+                                                                    std::function<void(const mu::engraving::Pid propertyId,
+                                                                                       const QVariant& newValue)> onPropertyChangedCallBack)
 {
-    if (!propertyItem || m_elementList.isEmpty()) {
+    PointFPropertyItem* newPropertyItem = new PointFPropertyItem(propertyId, this);
+
+    initPropertyItem(newPropertyItem, onPropertyChangedCallBack);
+
+    return newPropertyItem;
+}
+
+void AbstractInspectorModel::initPropertyItem(PropertyItem* propertyItem,
+                                              std::function<void(const mu::engraving::Pid propertyId,
+                                                                 const QVariant& newValue)> onPropertyChangedCallBack,
+                                              std::function<void(const mu::engraving::Sid styleId,
+                                                                 const QVariant& newValue)> onStyleChangedCallBack)
+{
+    auto propertyCallback = onPropertyChangedCallBack;
+    if (!propertyCallback) {
+        propertyCallback = [this](const mu::engraving::Pid propertyId, const QVariant& newValue) {
+            onPropertyValueChanged(propertyId, newValue);
+        };
+    }
+
+    auto styleCallback = onStyleChangedCallBack;
+    if (!styleCallback) {
+        styleCallback = [this](const mu::engraving::Sid styleId, const QVariant& newValue) {
+            updateStyleValue(styleId, newValue);
+
+            emit requestReloadPropertyItems();
+        };
+    }
+
+    connect(propertyItem, &PropertyItem::propertyModified, this, propertyCallback);
+    connect(propertyItem, &PropertyItem::applyToStyleRequested, this, styleCallback);
+}
+
+void AbstractInspectorModel::loadPropertyItem(PropertyItem* propertyItem, ConvertPropertyValueFunc convertElementPropertyValueFunc)
+{
+    loadPropertyItem(propertyItem, m_elementList, convertElementPropertyValueFunc);
+}
+
+void AbstractInspectorModel::loadPropertyItem(PropertyItem* propertyItem, const QList<EngravingItem*>& elements,
+                                              ConvertPropertyValueFunc convertElementPropertyValueFunc)
+{
+    if (!propertyItem || elements.isEmpty()) {
         return;
     }
 
@@ -479,7 +549,7 @@ void AbstractInspectorModel::loadPropertyItem(PropertyItem* propertyItem,
 
     bool isUndefined = false;
 
-    for (const mu::engraving::EngravingItem* element : m_elementList) {
+    for (const mu::engraving::EngravingItem* element : elements) {
         IF_ASSERT_FAILED(element) {
             continue;
         }
@@ -562,6 +632,16 @@ INotationPtr AbstractInspectorModel::currentNotation() const
 mu::async::Notification AbstractInspectorModel::currentNotationChanged() const
 {
     return context()->currentNotationChanged();
+}
+
+bool AbstractInspectorModel::isMasterNotation() const
+{
+    INotationPtr notation = currentNotation();
+    if (!notation) {
+        return false;
+    }
+
+    return notation == context()->currentMasterNotation()->notation();
 }
 
 INotationSelectionPtr AbstractInspectorModel::selection() const

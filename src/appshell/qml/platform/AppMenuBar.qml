@@ -39,12 +39,20 @@ ListView {
 
     model: appMenuModel
 
+    function openedArea(menuLoader) {
+        if (menuLoader.isMenuOpened) {
+            if (menuLoader.menu.subMenuLoader && menuLoader.menu.subMenuLoader.isMenuOpened)
+                return openedArea(menuLoader.menu.subMenuLoader)
+            return Qt.rect(menuLoader.menu.x, menuLoader.menu.y, menuLoader.menu.width, menuLoader.menu.height)
+        }
+        return Qt.rect(0, 0, 0, 0)
+    } 
+
     AppMenuModel {
         id: appMenuModel
 
         appMenuAreaRect: Qt.rect(root.x, root.y, root.width, root.height)
-        openedMenuAreaRect: Boolean(menuLoader.isMenuOpened) ? Qt.rect(menuLoader.menu.x, menuLoader.menu.y, menuLoader.menu.width, menuLoader.menu.height)
-                                                             : Qt.rect(0, 0, 0, 0)
+        openedMenuAreaRect: openedArea(menuLoader)
 
         onOpenMenuRequested: {
             prv.openMenu(menuId)
@@ -53,6 +61,14 @@ ListView {
         onCloseOpenedMenuRequested: {
             menuLoader.close()
         }
+    }
+
+    AccessibleItem {
+        id: panelAccessibleInfo
+
+        visualItem: root
+        role: MUAccessible.Panel
+        name: qsTrc("appshell", "Application menu")
     }
 
     Component.onCompleted: {
@@ -100,6 +116,7 @@ ListView {
         property var item: model ? model.itemRole : null
         property string menuId: Boolean(item) ? item.id : ""
         property string title: Boolean(item) ? item.title : ""
+        property string titleWithMnemonicUnderline: Boolean(item) ? item.titleWithMnemonicUnderline : ""
 
         property bool isMenuOpened: menuLoader.isMenuOpened && menuLoader.parent === this
 
@@ -107,6 +124,9 @@ ListView {
         onHighlightChanged: {
             if (highlight) {
                 forceActiveFocus()
+                accessibleInfo.readInfo()
+            } else {
+                accessibleInfo.resetFocus()
             }
         }
 
@@ -120,12 +140,33 @@ ListView {
         transparent: !isMenuOpened
         accentButton: isMenuOpened
 
+        navigation.accessible.ignored: true
+
+        AccessibleItem {
+            id: accessibleInfo
+
+            accessibleParent: panelAccessibleInfo
+            visualItem: radioButtonDelegate
+            role: MUAccessible.Button
+            name: radioButtonDelegate.title
+
+            function readInfo() {
+                accessibleInfo.ignored = false
+                accessibleInfo.focused = true
+            }
+
+            function resetFocus() {
+                accessibleInfo.ignored = true
+                accessibleInfo.focused = false
+            }
+        }
+
         contentItem: StyledTextLabel {
             id: textLabel
 
             width: textMetrics.width
 
-            text: correctText(radioButtonDelegate.title)
+            text: appMenuModel.isNavigationStarted ? radioButtonDelegate.titleWithMnemonicUnderline : radioButtonDelegate.title
             textFormat: Text.RichText
             font: ui.theme.defaultFont
 
@@ -133,23 +174,7 @@ ListView {
                 id: textMetrics
 
                 font: textLabel.font
-                text: textLabel.removeAmpersands(radioButtonDelegate.title)
-            }
-
-            function correctText(text) {
-                if (!appMenuModel.isNavigationStarted) {
-                    return removeAmpersands(text)
-                }
-
-                return makeMnemonicText(text)
-            }
-
-            function removeAmpersands(text) {
-                return Utils.removeAmpersands(text)
-            }
-
-            function makeMnemonicText(text) {
-                return Utils.makeMnemonicText(text)
+                text: radioButtonDelegate.title
             }
         }
 
@@ -160,9 +185,6 @@ ListView {
 
             color: radioButtonDelegate.normalColor
         }
-
-        Accessible.role: Accessible.Button
-        Accessible.name: Utils.removeAmpersands(title)
 
         mouseArea.onHoveredChanged: {
             if (!mouseArea.containsMouse) {

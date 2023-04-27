@@ -92,6 +92,14 @@ void TrackList::appendTuplet(Tuplet* srcTuplet, Tuplet* dstTuplet)
             Tuplet* st = toTuplet(de);
             Tuplet* dt = toTuplet(e);
             appendTuplet(st, dt);
+        } else if (de->explicitParent() && de->explicitParent()->isSegment()) {
+            Segment* seg = toSegment(de->explicitParent());
+            for (EngravingItem* ee : seg->annotations()) {
+                bool addSysObject = ee->systemFlag() && !ee->isLinked() && ee->track() == 0 && e->track() == 0;
+                if (addSysObject || (!ee->systemFlag() && ee->track() == e->track())) {
+                    _range->annotations.push_back({ e->tick(), ee->clone() });
+                }
+            }
         }
     }
 }
@@ -177,7 +185,8 @@ void TrackList::append(EngravingItem* e)
                 ChordRest* src = toChordRest(e);
                 Segment* s1 = src->segment();
                 for (EngravingItem* ee : s1->annotations()) {
-                    if (ee->track() == e->track()) {
+                    bool addSysObject = ee->systemFlag() && !ee->isLinked() && ee->track() == 0 && e->track() == 0;
+                    if (addSysObject || (!ee->systemFlag() && ee->track() == e->track())) {
                         _range->annotations.push_back({ s1->tick(), ee->clone() });
                     }
                 }

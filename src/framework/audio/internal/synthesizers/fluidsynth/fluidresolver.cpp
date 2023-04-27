@@ -76,6 +76,7 @@ AudioResourceMetaList FluidResolver::resolveResources() const
         meta.id = pair.first;
         meta.type = AudioResourceType::FluidSoundfont;
         meta.vendor = FLUID_VENDOR_NAME;
+        meta.attributes = { { u"playbackSetupData", mpe::GENERIC_SETUP_DATA_STRING } };
         meta.hasNativeEditorSupport = false;
 
         result.push_back(std::move(meta));
@@ -91,6 +92,10 @@ void FluidResolver::refresh()
     m_resourcesCache.clear();
 
     for (const SoundFontPath& path : soundFontRepository()->soundFontPaths()) {
-        m_resourcesCache.emplace(io::basename(path).toStdString(), path);
+        m_resourcesCache.emplace(io::completeBasename(path).toStdString(), path);
     }
+}
+
+void FluidResolver::clearSources()
+{
 }

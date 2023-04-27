@@ -22,8 +22,6 @@
 
 #include "ottava.h"
 
-#include "rw/xml.h"
-
 #include "score.h"
 #include "staff.h"
 #include "system.h"
@@ -62,6 +60,7 @@ static const ElementStyle ottavaStyle {
     { Sid::ottavaDashLineLen,                  Pid::DASH_LINE_LEN },
     { Sid::ottavaDashGapLen,                   Pid::DASH_GAP_LEN },
     { Sid::ottavaPosAbove,                     Pid::OFFSET },
+    { Sid::ottavaFontSpatiumDependent,         Pid::TEXT_SIZE_SPATIUM_DEPENDENT },
 };
 
 OttavaSegment::OttavaSegment(Ottava* sp, System* parent)
@@ -279,82 +278,6 @@ LineSegment* Ottava::createLineSegment(System* parent)
     os->setTrack(track());
     os->initElementStyle(&ottavaSegmentStyle);
     return os;
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Ottava::write(XmlWriter& xml) const
-{
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    xml.startElement(this);
-    writeProperty(xml, Pid::OTTAVA_TYPE);
-    writeProperty(xml, Pid::PLACEMENT);
-    writeProperty(xml, Pid::NUMBERS_ONLY);
-//      for (const StyledProperty& spp : *styledProperties())
-//            writeProperty(xml, spp.pid);
-    TextLineBase::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Ottava::read(XmlReader& e)
-{
-    eraseSpannerSegments();
-    if (score()->mscVersion() < 301) {
-        e.context()->addSpanner(e.intAttribute("id", -1), this);
-    }
-    while (e.readNextStartElement()) {
-        readProperties(e);
-    }
-    if (_ottavaType != OttavaType::OTTAVA_8VA || _numbersOnly != propertyDefault(Pid::NUMBERS_ONLY).toBool()) {
-        styleChanged();
-    }
-}
-
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool Ottava::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-    if (tag == "subtype") {
-        String s = e.readText();
-        bool ok;
-        int idx = s.toInt(&ok);
-        if (!ok) {
-            _ottavaType = OttavaType::OTTAVA_8VA;
-            for (OttavaDefault d : ottavaDefault) {
-                if (s == d.name) {
-                    _ottavaType = d.type;
-                    break;
-                }
-            }
-        } else if (score()->mscVersion() <= 114) {
-            //subtype are now in a different order...
-            if (idx == 1) {
-                idx = 2;
-            } else if (idx == 2) {
-                idx = 1;
-            }
-            _ottavaType = OttavaType(idx);
-        } else {
-            _ottavaType = OttavaType(idx);
-        }
-    } else if (readStyledProperty(e, tag)) {
-        return true;
-    } else if (!TextLineBase::readProperties(e)) {
-        e.unknown();
-        return false;
-    }
-    return true;
 }
 
 //---------------------------------------------------------

@@ -22,11 +22,14 @@
 
 #include "palmmute.h"
 
-#include "rw/xml.h"
-
+#include "chordrest.h"
+#include "part.h"
 #include "score.h"
+#include "staff.h"
 #include "stafftype.h"
 #include "system.h"
+
+#include "log.h"
 
 using namespace mu;
 using namespace mu::engraving;
@@ -51,6 +54,7 @@ static const ElementStyle palmMuteStyle {
     { Sid::palmMuteLineStyle,                     Pid::LINE_STYLE },
     { Sid::palmMuteDashLineLen,                   Pid::DASH_LINE_LEN },
     { Sid::palmMuteDashGapLen,                    Pid::DASH_GAP_LEN },
+    { Sid::palmMuteFontSpatiumDependent,          Pid::TEXT_SIZE_SPATIUM_DEPENDENT },
     { Sid::palmMuteEndHookType,                   Pid::END_HOOK_TYPE },
     { Sid::palmMuteLineWidth,                     Pid::LINE_WIDTH },
     { Sid::palmMutePlacement,                     Pid::PLACEMENT },
@@ -116,24 +120,6 @@ PalmMute::PalmMute(EngravingItem* parent)
     resetProperty(Pid::CONTINUE_TEXT);
     resetProperty(Pid::END_TEXT_PLACE);
     resetProperty(Pid::END_TEXT);
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void PalmMute::read(XmlReader& e)
-{
-    if (score()->mscVersion() < 301) {
-        e.context()->addSpanner(e.intAttribute("id", -1), this);
-    }
-    while (e.readNextStartElement()) {
-        if (readProperty(e.name(), e, Pid::LINE_WIDTH)) {
-            setPropertyFlags(Pid::LINE_WIDTH, PropertyFlags::UNSTYLED);
-        } else if (!TextLineBase::readProperties(e)) {
-            e.unknown();
-        }
-    }
 }
 
 //---------------------------------------------------------
@@ -207,8 +193,8 @@ PropertyValue PalmMute::propertyDefault(Pid propertyId) const
 //                  return score()->styleV(Sid::palmMuteFontItalic);
 
     case Pid::BEGIN_TEXT:
-        return score()->styleV(Sid::palmMuteText);
     case Pid::CONTINUE_TEXT:
+        return score()->styleV(Sid::palmMuteText);
     case Pid::END_TEXT:
         return "";
 
@@ -222,6 +208,31 @@ PropertyValue PalmMute::propertyDefault(Pid propertyId) const
 
     default:
         return TextLineBase::propertyDefault(propertyId);
+    }
+}
+
+void PalmMute::setChannel()
+{
+    EngravingItem* startEl = startElement();
+    EngravingItem* endEl = endElement();
+
+    if (!startEl || !endEl) {
+        return;
+    }
+
+    if (!startEl->isChordRest() || !endEl->isChordRest()) {
+        return;
+    }
+
+    ChordRest* startCR = toChordRest(startEl);
+    ChordRest* endCR = toChordRest(endEl);
+
+    Instrument* instrument = part()->instrument(startCR->tick());
+    part()->instrument(startCR->tick())->channelIdx(String::fromUtf8(InstrChannel::PALM_MUTE_NAME));
+    int idx = instrument->channelIdx(String::fromUtf8(InstrChannel::PALM_MUTE_NAME));
+    if (idx > 0) {
+        staff()->insertIntoChannelList(voice(), startCR->tick(), idx);
+        staff()->insertIntoChannelList(voice(), endCR->tick() + endCR->ticks(), 0);
     }
 }
 }

@@ -41,6 +41,30 @@
           <string>59</string>
           <string>62</string>
           </StringData>
+        <Articulation name="staccatissimo">
+          <velocity>100</velocity>
+          <gateTime>30</gateTime>
+          </Articulation>
+        <Articulation name="staccato">
+          <velocity>100</velocity>
+          <gateTime>50</gateTime>
+          </Articulation>
+        <Articulation name="portato">
+          <velocity>100</velocity>
+          <gateTime>67</gateTime>
+          </Articulation>
+        <Articulation name="tenuto">
+          <velocity>100</velocity>
+          <gateTime>100</gateTime>
+          </Articulation>
+        <Articulation name="marcato">
+          <velocity>120</velocity>
+          <gateTime>67</gateTime>
+          </Articulation>
+        <Articulation name="sforzato">
+          <velocity>120</velocity>
+          <gateTime>100</gateTime>
+          </Articulation>
         <Channel>
           <program value="25"/>
           <controller ctrl="7" value="103"/>
@@ -65,6 +89,10 @@
             <sigN>4</sigN>
             <sigD>4</sigD>
             </TimeSig>
+          <Tempo>
+            <tempo>1.166667</tempo>
+            <text><sym>metNoteQuarterUp</sym> = 70</text>
+            </Tempo>
           <StaffText>
             <text>Capo. fret 1</text>
             </StaffText>
@@ -72,10 +100,6 @@
             <subtype>f</subtype>
             <velocity>96</velocity>
             </Dynamic>
-          <Tempo>
-            <tempo>1.166667</tempo>
-            <text><sym>metNoteQuarterUp</sym> = 70</text>
-            </Tempo>
           <Chord>
             <durationType>half</durationType>
             <Note>

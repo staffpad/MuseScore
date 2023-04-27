@@ -62,6 +62,7 @@ public:
 class Glissando final : public SLine
 {
     OBJECT_ALLOCATOR(engraving, Glissando)
+    DECLARE_CLASSOF(ElementType::GLISSANDO)
 
     M_PROPERTY(String, text, setText)
     M_PROPERTY(GlissandoType, glissandoType, setGlissandoType)
@@ -89,14 +90,14 @@ public:
     LineSegment* createLineSegment(System* parent) override;
 
     void layout() override;
-    void write(XmlWriter&) const override;
-    void read(XmlReader&) override;
 
     // property/style methods
     PropertyValue getProperty(Pid propertyId) const override;
     bool setProperty(Pid propertyId, const PropertyValue&) override;
     PropertyValue propertyDefault(Pid) const override;
     void addLineAttachPoints();
+
+    static bool pitchSteps(const Spanner* spanner, std::vector<int>& pitchOffsets);
 };
 } // namespace mu::engraving
 

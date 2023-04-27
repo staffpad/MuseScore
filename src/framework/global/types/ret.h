@@ -88,8 +88,20 @@ public:
         LearnFirst      = 1600,
         LearnLast       = 1699,
 
+        UpdateFirst  = 1700,
+        UpdateLast   = 1799,
+
+        CloudFirst   = 1800,
+        CloudLast    = 1899,
+
         EngravingFirst  = 2000,
         EngravingLast   = 2999,
+
+        ProjectFirst  = 3000,
+        ProjectLast   = 3999,
+
+        DiagnosticsFirst = 4000,
+        DiagnosticsLast = 4999
     };
 
     Ret() = default;

@@ -60,16 +60,6 @@ void LearnPageModel::load()
     });
 }
 
-void LearnPageModel::openVideo(const QString& videoId) const
-{
-    learnService()->openVideo(videoId);
-}
-
-void LearnPageModel::openUrl(const QString& url) const
-{
-    interactive()->openUrl(QUrl(url));
-}
-
 void LearnPageModel::setSearchText(const QString& text)
 {
     if (m_searchText == text) {
@@ -131,19 +121,28 @@ QVariantList LearnPageModel::playlistToVariantList(const Playlist& playlist) con
 {
     QVariantList result;
 
+    // h:mm:ss for anything over an hour
+    //    m:ss for anything under an hour
+    //    0:ss for anything under a minute
     auto formatDuration = [](int durationSecs) {
         int seconds = durationSecs;
         int minutes = seconds / 60;
+        seconds -= minutes * 60;
         int hours = minutes / 60;
+        minutes -= hours * 60;
 
-        return (hours > 0 ? QString::number(hours) + ":" : "") + QString::number(minutes % 60) + ":" + QString::number(seconds % 60);
+        return ((hours > 0)
+                ? (QString::number(hours) + ":" + QString::number(minutes).rightJustified(2, '0'))
+                : QString::number(minutes)
+                ) + ":"
+               + QString::number(seconds).rightJustified(2, '0');
     };
 
     for (const PlaylistItem& item : playlist) {
         QVariantMap itemObj;
-        itemObj["videoId"] = item.videoId;
         itemObj["title"] = item.title;
         itemObj["author"] = item.author;
+        itemObj["url"] = item.url;
         itemObj["thumbnailUrl"] = item.thumbnailUrl;
         itemObj["duration"] = formatDuration(item.durationSecs);
 

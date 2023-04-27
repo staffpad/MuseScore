@@ -25,7 +25,6 @@
 
 #include "internal/languagesconfiguration.h"
 #include "internal/languagesservice.h"
-#include "internal/languageunpacker.h"
 
 #include "diagnostics/idiagnosticspathsregister.h"
 
@@ -44,15 +43,14 @@ void LanguagesModule::registerExports()
 {
     ioc()->registerExport<ILanguagesConfiguration>(moduleName(), s_languagesConfiguration);
     ioc()->registerExport<ILanguagesService>(moduleName(), s_languagesService);
-    ioc()->registerExport<ILanguageUnpacker>(moduleName(), std::make_shared<LanguageUnpacker>());
 }
 
-void LanguagesModule::onInit(const framework::IApplication::RunMode& mode)
+void LanguagesModule::onPreInit(const framework::IApplication::RunMode& mode)
 {
     //! NOTE: configurator must be initialized before any service that uses it
     s_languagesConfiguration->init();
 
-    if (framework::IApplication::RunMode::Converter == mode) {
+    if (mode != framework::IApplication::RunMode::GuiApp) {
         return;
     }
 
@@ -63,9 +61,4 @@ void LanguagesModule::onInit(const framework::IApplication::RunMode& mode)
         pr->reg("languagesAppDataPath", s_languagesConfiguration->languagesAppDataPath());
         pr->reg("languagesUserAppDataPath", s_languagesConfiguration->languagesUserAppDataPath());
     }
-}
-
-void LanguagesModule::onDelayedInit()
-{
-    s_languagesService->refreshLanguages();
 }

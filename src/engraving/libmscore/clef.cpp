@@ -29,7 +29,6 @@
 
 #include "translation.h"
 
-#include "rw/xml.h"
 #include "types/typesconv.h"
 
 #include "ambitus.h"
@@ -68,8 +67,8 @@ const ClefInfo ClefInfo::clefTable[] = {
     { ClefType::C1_F18C, 1, 43, { 5, 1, 4, 0, 3, -1, 2, 2, 6, 3, 7, 4, 8, 5 }, SymId::cClefFrench,      StaffGroup::STANDARD },
     { ClefType::C3_F18C, 3, 39, { 1, 4, 0, 3, 6, 2, 5, 5, 2, 6, 3, 7, 4, 8 },  SymId::cClefFrench,      StaffGroup::STANDARD },
     { ClefType::C4_F18C, 4, 37, { 6, 2, 5, 1, 4, 0, 3, 3, 0, 4, 1, 5, 2, 6 },  SymId::cClefFrench,      StaffGroup::STANDARD },
-    { ClefType::C3_F20C, 1, 43, { 5, 1, 4, 0, 3, -1, 2, 2, 6, 3, 7, 4, 8, 5 }, SymId::cClefFrench20C,   StaffGroup::STANDARD },
-    { ClefType::C1_F20C, 3, 39, { 1, 4, 0, 3, 6, 2, 5, 5, 2, 6, 3, 7, 4, 8 },  SymId::cClefFrench20C,   StaffGroup::STANDARD },
+    { ClefType::C1_F20C, 1, 43, { 5, 1, 4, 0, 3, -1, 2, 2, 6, 3, 7, 4, 8, 5 }, SymId::cClefFrench20C,   StaffGroup::STANDARD },
+    { ClefType::C3_F20C, 3, 39, { 1, 4, 0, 3, 6, 2, 5, 5, 2, 6, 3, 7, 4, 8 },  SymId::cClefFrench20C,   StaffGroup::STANDARD },
     { ClefType::C4_F20C, 4, 37, { 6, 2, 5, 1, 4, 0, 3, 3, 0, 4, 1, 5, 2, 6 },  SymId::cClefFrench20C,   StaffGroup::STANDARD },
 
     { ClefType::F,       4, 33, { 2, 5, 1, 4, 7, 3, 6, 6, 3, 7, 4, 8, 5, 9 },  SymId::fClef,            StaffGroup::STANDARD },
@@ -227,7 +226,7 @@ void Clef::layout()
 
 void Clef::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     if (symId == SymId::noSym || (staff() && !const_cast<const Staff*>(staff())->staffType(tick())->genClef())) {
         return;
     }
@@ -287,50 +286,6 @@ void Clef::setSmall(bool val)
     if (val != m_isSmall) {
         m_isSmall = val;
     }
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Clef::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "concertClefType") {
-            _clefTypes._concertClef = TConv::fromXml(e.readAsciiText(), ClefType::G);
-        } else if (tag == "transposingClefType") {
-            _clefTypes._transposingClef = TConv::fromXml(e.readAsciiText(), ClefType::G);
-        } else if (tag == "showCourtesyClef") {
-            _showCourtesy = e.readInt();
-        } else if (tag == "forInstrumentChange") {
-            _forInstrumentChange = e.readBool();
-        } else if (!EngravingItem::readProperties(e)) {
-            e.unknown();
-        }
-    }
-    if (clefType() == ClefType::INVALID) {
-        setClefType(ClefType::G);
-    }
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Clef::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    writeProperty(xml, Pid::CLEF_TYPE_CONCERT);
-    writeProperty(xml, Pid::CLEF_TYPE_TRANSPOSING);
-    if (!_showCourtesy) {
-        xml.tag("showCourtesyClef", _showCourtesy);
-    }
-    if (_forInstrumentChange) {
-        xml.tag("forInstrumentChange", _forInstrumentChange);
-    }
-    EngravingItem::writeProperties(xml);
-    xml.endElement();
 }
 
 //---------------------------------------------------------

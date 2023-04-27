@@ -37,17 +37,18 @@ NICE-TO-HAVE TODO:
 #include "draw/fontmetrics.h"
 #include "draw/types/pen.h"
 #include "style/style.h"
-#include "rw/xml.h"
+
 #include "types/typesconv.h"
+#include "iengravingfont.h"
 
 #include "chord.h"
 #include "measure.h"
 #include "note.h"
 #include "score.h"
-#include "symbolfont.h"
 #include "segment.h"
 #include "staff.h"
 #include "system.h"
+#include "utils.h"
 
 #include "log.h"
 
@@ -71,7 +72,7 @@ static constexpr double GLISS_PALETTE_HEIGHT = 4.0;
 //=========================================================
 
 GlissandoSegment::GlissandoSegment(Glissando* sp, System* parent)
-    : LineSegment(ElementType::GLISSANDO_SEGMENT, sp, parent)
+    : LineSegment(ElementType::GLISSANDO_SEGMENT, sp, parent, ElementFlag::MOVABLE)
 {
 }
 
@@ -81,6 +82,11 @@ GlissandoSegment::GlissandoSegment(Glissando* sp, System* parent)
 
 void GlissandoSegment::layout()
 {
+    if (pos2().x() <= 0) {
+        setbbox(RectF());
+        return;
+    }
+
     if (staff()) {
         setMag(staff()->staffMag(tick()));
     }
@@ -95,8 +101,13 @@ void GlissandoSegment::layout()
 
 void GlissandoSegment::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     using namespace mu::draw;
+
+    if (pos2().x() <= 0) {
+        return;
+    }
+
     painter->save();
     double _spatium = spatium();
 
@@ -124,11 +135,11 @@ void GlissandoSegment::draw(mu::draw::Painter* painter) const
             ids.push_back(SymId::wiggleTrill);
         }
 
-        score()->symbolFont()->draw(ids, painter, magS(), PointF(x, -(b.y() + b.height() * 0.5)));
+        score()->engravingFont()->draw(ids, painter, magS(), PointF(x, -(b.y() + b.height() * 0.5)));
     }
 
     if (glissando()->showText()) {
-        mu::draw::Font f(glissando()->fontFace());
+        mu::draw::Font f(glissando()->fontFace(), draw::Font::Type::Unknown);
         f.setPointSizeF(glissando()->fontSize() * _spatium / SPATIUM20);
         f.setBold(glissando()->fontStyle() & FontStyle::Bold);
         f.setItalic(glissando()->fontStyle() & FontStyle::Italic);
@@ -328,6 +339,7 @@ void Glissando::layout()
     }
     double y0   = segm1->ipos().y();
     double yTot = segm2->ipos().y() + segm2->ipos2().y() - y0;
+    yTot -= yStaffDifference(segm2->system(), segm2->staffIdx(), segm1->system(), segm1->staffIdx());
     double ratio = yTot / xTot;
     // interpolate y-coord of intermediate points across total width and height
     double xCurr = 0.0;
@@ -337,8 +349,10 @@ void Glissando::layout()
         xCurr += segm->ipos2().x();
         yCurr = y0 + ratio * xCurr;
         segm->rypos2() = yCurr - segm->ipos().y();           // position segm. end point at yCurr
-        // next segment shall start where this segment stopped
-        segm = segmentAt(i + 1);
+        // next segment shall start where this segment stopped, corrected for the staff y-difference
+        SpannerSegment* nextSeg = segmentAt(i + 1);
+        yCurr += yStaffDifference(nextSeg->system(), nextSeg->staffIdx(), segm->system(), segm->staffIdx());
+        segm = nextSeg;
         segm->rypos2() += segm->ipos().y() - yCurr;          // adjust next segm. vertical length
         segm->setPosY(yCurr);                                // position next segm. start point at yCurr
     }
@@ -347,8 +361,16 @@ void Glissando::layout()
     // Remove offset already applied
     offs1 *= -1.0;
     offs2 *= -1.0;
-    // Look at chord shapes
-    offs1.rx() += cr1->shape().right() - anchor1->pos().x();
+    // Look at chord shapes (but don't consider lyrics)
+    Shape cr1shape = cr1->shape();
+    mu::remove_if(cr1shape, [](ShapeElement& s) {
+        if (!s.toItem || s.toItem->isLyrics()) {
+            return true;
+        } else {
+            return false;
+        }
+    });
+    offs1.rx() += cr1shape.right() - anchor1->pos().x();
     if (!cr2->staff()->isTabStaff(cr2->tick())) {
         offs2.rx() -= cr2->shape().left() + anchor2->pos().x();
     }
@@ -408,64 +430,57 @@ void Glissando::addLineAttachPoints()
     endNote->addLineAttachPoint(PointF(endX, 0.0), this);
 }
 
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Glissando::write(XmlWriter& xml) const
+bool Glissando::pitchSteps(const Spanner* spanner, std::vector<int>& pitchOffsets)
 {
-    if (!xml.context()->canWrite(this)) {
-        return;
+    if (!spanner->endElement()->isNote()) {
+        return false;
     }
-    xml.startElement(this);
-    if (_showText && !_text.isEmpty()) {
-        xml.tag("text", _text);
+    const Glissando* glissando = toGlissando(spanner);
+    if (!glissando->playGlissando()) {
+        return false;
     }
-
-    for (auto id : { Pid::GLISS_TYPE, Pid::PLAY, Pid::GLISS_STYLE, Pid::GLISS_EASEIN, Pid::GLISS_EASEOUT }) {
-        writeProperty(xml, id);
+    GlissandoStyle glissandoStyle = glissando->glissandoStyle();
+    if (glissandoStyle == GlissandoStyle::PORTAMENTO) {
+        return false;
     }
-    for (const StyledProperty& spp : *styledProperties()) {
-        writeProperty(xml, spp.pid);
+    // only consider glissando connected to NOTE.
+    const Note* noteStart = toNote(spanner->startElement());
+    const Note* noteEnd = toNote(spanner->endElement());
+    int pitchStart = noteStart->ppitch();
+    int pitchEnd = noteEnd->ppitch();
+    if (pitchEnd == pitchStart) {
+        return false;
     }
-
-    SLine::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Glissando::read(XmlReader& e)
-{
-    eraseSpannerSegments();
-
-    if (score()->mscVersion() < 301) {
-        e.context()->addSpanner(e.intAttribute("id", -1), this);
+    int direction = pitchEnd > pitchStart ? 1 : -1;
+    pitchOffsets.clear();
+    if (glissandoStyle == GlissandoStyle::DIATONIC) {
+        int lineStart = noteStart->line();
+        // scale obeying accidentals
+        for (int line = lineStart, pitch = pitchStart; (direction == 1) ? (pitch < pitchEnd) : (pitch > pitchEnd); line -= direction) {
+            int halfSteps = chromaticPitchSteps(noteStart, noteEnd, lineStart - line);
+            pitch = pitchStart + halfSteps;
+            if ((direction == 1) ? (pitch < pitchEnd) : (pitch > pitchEnd)) {
+                pitchOffsets.push_back(halfSteps);
+            }
+        }
+        return pitchOffsets.size() > 0;
     }
-
-    _showText = false;
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag = e.name();
-        if (tag == "text") {
-            _showText = true;
-            readProperty(e, Pid::GLISS_TEXT);
-        } else if (tag == "subtype") {
-            _glissandoType = TConv::fromXml(e.readAsciiText(), GlissandoType::STRAIGHT);
-        } else if (tag == "glissandoStyle") {
-            readProperty(e, Pid::GLISS_STYLE);
-        } else if (tag == "easeInSpin") {
-            _easeIn = e.readInt();
-        } else if (tag == "easeOutSpin") {
-            _easeOut = e.readInt();
-        } else if (tag == "play") {
-            setPlayGlissando(e.readBool());
-        } else if (readStyledProperty(e, tag)) {
-        } else if (!SLine::readProperties(e)) {
-            e.unknown();
+    if (glissandoStyle == GlissandoStyle::CHROMATIC) {
+        for (int pitch = pitchStart; pitch != pitchEnd; pitch += direction) {
+            pitchOffsets.push_back(pitch - pitchStart);
+        }
+        return true;
+    }
+    static std::vector<bool> whiteNotes = { true, false, true, false, true, true, false, true, false, true, false, true };
+    int Cnote = 60;   // pitch of middle C
+    bool notePick = glissandoStyle == GlissandoStyle::WHITE_KEYS;
+    for (int pitch = pitchStart; pitch != pitchEnd; pitch += direction) {
+        int idx = ((pitch - Cnote) + 1200) % 12;
+        if (whiteNotes[idx] == notePick) {
+            pitchOffsets.push_back(pitch - pitchStart);
         }
     }
+    return true;
 }
 
 //---------------------------------------------------------

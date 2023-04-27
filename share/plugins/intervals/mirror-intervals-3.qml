@@ -42,7 +42,7 @@ MuseScore {
     function applyMirrorIntervals()
     {
         var selection = getSelection()
-        if (selection === null) {
+        if (!selection) {
             error("No selection.\nThis plugin requires a current selection to run.\n")
             quit()
         }
@@ -71,7 +71,7 @@ MuseScore {
 
     function filterNotes(element)
     {
-        return element.type == Ms.CHORD
+        return element.type == Element.CHORD
     }
 
     function mirrorIntervals(mirrorType, pivotNote)
@@ -189,8 +189,7 @@ MuseScore {
         return tpcMap[pivot][tpc + 1] - 1;
     }
 
-    Rectangle {
-        color: "transparent"
+    Item {
         anchors.fill: parent
 
         GridLayout {

@@ -31,10 +31,11 @@
 #include "gtp/gp67dombuilder.h"
 #include "libmscore/score.h"
 #include "libmscore/vibrato.h"
+#include "libmscore/articulation.h"
 #include "engraving/engravingerrors.h"
 
 #include "modularity/ioc.h"
-#include "iguitarproconfiguration.h"
+#include "iengravingconfiguration.h"
 
 namespace mu::engraving {
 class Chord;
@@ -90,28 +91,25 @@ struct GPFermata {
 struct GPLyrics {
     StringList lyrics;
     std::vector<Segment*> segments;
-    int fromBeat;
-    int beatCounter;
-    int lyricTrack;
+    std::vector<size_t> lyricPos;
+    size_t fromBeat = 0;
+    size_t beatCounter = 0;
+    size_t lyricTrack = 0;
 };
 
 struct GpBar {
-    Fraction timesig;
-    bool freeTime;
-    int keysig;
+    Fraction timesig = Fraction(4, 4);
+    bool freeTime = false;
+    int keysig = GP_INVALID_KEYSIG;
     String marker;
-    BarLineType barLine;
-    Repeat repeatFlags;
-    int repeats;
+    BarLineType barLine = BarLineType::NORMAL;
+    Repeat repeatFlags = Repeat::NONE;
+    int repeats = 2;
     GPVolta volta;
     String direction;
     String directionStyle;
-
     String section[2];
-
     std::vector<String> directions;
-
-    GpBar();
 };
 
 inline Drumset* gpDrumset = nullptr;
@@ -122,7 +120,7 @@ inline Drumset* gpDrumset = nullptr;
 
 class GuitarPro
 {
-    INJECT(iex_guitarpro, mu::iex::guitarpro::IGuitarProConfiguration, configuration)
+    INJECT(importexport, mu::engraving::IEngravingConfiguration, engravingConfiguration);
 
 protected:
 
@@ -223,18 +221,20 @@ protected:
     Hairpin** hairpins = nullptr;
     MasterScore* score = nullptr;
     mu::io::IODevice* f = nullptr;
-    int curPos;
-    int previousTempo;
-    int previousDynamic;
+    int curPos = 0;
+    int previousTempo = -1;
+    std::vector<int> previousDynamicByTrack;
+    constexpr static int INVALID_DYNAMIC = -1;
+    constexpr static int DEFAULT_DYNAMIC = 0;
     std::vector<int> ottavaFound;
     std::vector<String> ottavaValue;
     std::map<int, std::pair<int, bool> > tempoMap;
-    int tempo;
+    int tempo = -1;
     std::map<int, int> slides;
 
     GPLyrics gpLyrics;
-    int slide;
-    int voltaSequence;
+    int slide = 0;
+    int voltaSequence = 0;
     Slur** slurs       { nullptr };
 
 #ifdef ENGRAVING_USE_STRETCHED_BENDS
@@ -273,6 +273,7 @@ protected:
     void createSlide(int slide, ChordRest* cr, int staffIdx, Note* note = nullptr);
     void createCrecDim(int staffIdx, int track, const Fraction& tick, bool crec);
     void addTextToNote(String text, Note* note);
+    void addTextArticulation(Note* note, ArticulationTextType type);
     void addPalmMute(Note*);
     void addLetRing(Note*);
     void addVibrato(Note*, VibratoType type = VibratoType::GUITAR_VIBRATO);
@@ -281,6 +282,7 @@ protected:
     void addPop(Note*);
     void createTuningString(int strings, int tuning[]);
     virtual std::unique_ptr<IGPDomBuilder> createGPDomBuilder() const { return nullptr; }
+    void initDynamics(size_t stavesNum);
 
     std::vector<PalmMute*> _palmMutes;
     std::vector<LetRing*> _letRings;
@@ -381,6 +383,8 @@ class GuitarPro5 : public GuitarPro
 {
     std::map<std::pair<int, int>, bool> dead_end;
     int _beat_counter{ 0 };
+    std::unordered_map<Chord*, TremoloType> m_tremolosInChords;
+
     void readInfo();
     void readPageSetup();
     int readBeatEffects(int track, Segment* segment) override;

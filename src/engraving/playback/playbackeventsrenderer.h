@@ -50,12 +50,15 @@ public:
                 const mpe::dynamic_level_t actualDynamicLevel, const mpe::ArticulationType persistentArticulationApplied,
                 const mpe::ArticulationsProfilePtr profile, mpe::PlaybackEventsMap& result) const;
 
-    void renderChordSymbol(const Harmony* chordSymbol, const int ticksPositionOffset, mpe::PlaybackEventsMap& result) const;
-    void renderChordSymbol(const Harmony* chordSymbol, const mpe::timestamp_t actualTimestamp, const mpe::duration_t actualDuration,
+    void renderChordSymbol(const Harmony* chordSymbol, const int ticksPositionOffset, const mpe::ArticulationsProfilePtr profile,
                            mpe::PlaybackEventsMap& result) const;
+    void renderChordSymbol(const Harmony* chordSymbol, const mpe::timestamp_t actualTimestamp, const mpe::duration_t actualDuration,
+                           const mpe::ArticulationsProfilePtr profile, mpe::PlaybackEventsMap& result) const;
 
     void renderMetronome(const Score* score, const int measureStartTick, const int measureEndTick, const int ticksPositionOffset,
                          mpe::PlaybackEventsMap& result) const;
+
+    void renderMetronome(const Score* score, const int tick, const mpe::timestamp_t actualTimestamp, mpe::PlaybackEventsMap& result) const;
 
 private:
     void renderNoteEvents(const Chord* chord, const int tickPositionOffset, const mpe::dynamic_level_t nominalDynamicLevel,
@@ -69,9 +72,6 @@ private:
     void renderRestEvents(const Rest* rest, const int tickPositionOffset, mpe::PlaybackEventsMap& result) const;
 
     void renderArticulations(const Chord* chord, const RenderingContext& ctx, mpe::PlaybackEventList& result) const;
-    bool renderChordArticulations(const Chord* chord, const RenderingContext& ctx, mpe::PlaybackEventList& result) const;
-    void renderNoteArticulations(const Chord* chord, const RenderingContext& ctx, mpe::PlaybackEventList& result) const;
-    mpe::duration_t lastTiedNoteDurationOffset(const Note* lastTiedNote, const RenderingContext& ctx) const;
 };
 }
 

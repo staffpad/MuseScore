@@ -31,6 +31,7 @@
 #include "libmscore/system.h"
 #include "libmscore/stafftype.h"
 #include "libmscore/mscore.h"
+#include "libmscore/tuplet.h"
 
 #include "scorecallbacks.h"
 
@@ -74,9 +75,11 @@ NoteInputState NotationNoteInput::state() const
     noteInputState.withSlur = inputState.slur() != nullptr;
     noteInputState.currentVoiceIndex = inputState.voice();
     noteInputState.currentTrack = inputState.track();
+    noteInputState.currentString = inputState.string();
     noteInputState.drumset = inputState.drumset();
     noteInputState.isRest = inputState.rest();
     noteInputState.staffGroup = inputState.staffGroup();
+    noteInputState.staff = score()->staff(mu::engraving::track2staff(inputState.track()));
     noteInputState.segment = inputState.segment();
 
     return noteInputState;
@@ -349,16 +352,18 @@ void NotationNoteInput::padNote(const Pad& pad)
     notifyAboutStateChanged();
 }
 
-void NotationNoteInput::putNote(const PointF& pos, bool replace, bool insert)
+mu::Ret NotationNoteInput::putNote(const PointF& pos, bool replace, bool insert)
 {
     TRACEFUNC;
 
     startEdit();
-    score()->putNote(pos, replace, insert);
+    Ret ret = score()->putNote(pos, replace, insert);
     apply();
 
     notifyNoteAddedChanged();
     notifyAboutStateChanged();
+
+    return ret;
 }
 
 void NotationNoteInput::removeNote(const PointF& pos)
@@ -467,8 +472,12 @@ void NotationNoteInput::addTuplet(const TupletOptions& options)
     score()->expandVoice();
     mu::engraving::ChordRest* chordRest = inputState.cr();
     if (chordRest) {
+        Fraction ratio = options.ratio;
+        if (options.autoBaseLen) {
+            ratio.setDenominator(mu::engraving::Tuplet::computeTupletDenominator(ratio.numerator(), inputState.ticks()));
+        }
         score()->changeCRlen(chordRest, inputState.duration());
-        score()->addTuplet(chordRest, options.ratio, options.numberType, options.bracketType);
+        score()->addTuplet(chordRest, ratio, options.numberType, options.bracketType);
     }
     apply();
 

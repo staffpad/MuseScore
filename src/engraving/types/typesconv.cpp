@@ -160,6 +160,7 @@ static const std::vector<Item<ElementType> > ELEMENT_TYPES = {
     { ElementType::TIMESIG,              "TimeSig",              TranslatableString("engraving", "Time signature") },
     { ElementType::REST,                 "Rest",                 TranslatableString("engraving", "Rest") },
     { ElementType::MMREST,               "MMRest",               TranslatableString("engraving", "Multimeasure rest") },
+    { ElementType::DEAD_SLAPPED,         "DeadSlapped",          TranslatableString("engraving", "Dead slapped") },
     { ElementType::BREATH,               "Breath",               TranslatableString("engraving", "Breath") },
     { ElementType::MEASURE_REPEAT,       "MeasureRepeat",        TranslatableString("engraving", "Measure repeat") },
     { ElementType::TIE,                  "Tie",                  TranslatableString("engraving", "Tie") },
@@ -168,6 +169,7 @@ static const std::vector<Item<ElementType> > ELEMENT_TYPES = {
     { ElementType::CHORDLINE,            "ChordLine",            TranslatableString("engraving", "Chord line") },
     { ElementType::DYNAMIC,              "Dynamic",              TranslatableString("engraving", "Dynamic") },
     { ElementType::BEAM,                 "Beam",                 TranslatableString("engraving", "Beam") },
+    { ElementType::BEAM_SEGMENT,         "BeamSegment",          TranslatableString("engraving", "Beam segment") },
     { ElementType::HOOK,                 "Hook",                 TranslatableString("engraving", "Flag") }, // internally called "Hook", but "Flag" in SMuFL, so here externally too
     { ElementType::LYRICS,               "Lyrics",               TranslatableString("engraving", "Lyrics") },
     { ElementType::FIGURED_BASS,         "FiguredBass",          TranslatableString("engraving", "Figured bass") },
@@ -200,6 +202,7 @@ static const std::vector<Item<ElementType> > ELEMENT_TYPES = {
     { ElementType::WHAMMY_BAR_SEGMENT,   "WhammyBarSegment",     TranslatableString("engraving", "Whammy bar segment") },
     { ElementType::RASGUEADO_SEGMENT,    "RasgueadoSegment",     TranslatableString("engraving", "Rasgueado segment") },
     { ElementType::HARMONIC_MARK_SEGMENT,    "HarmonicMarkSegment",    TranslatableString("engraving", "Harmonic mark segment") },
+    { ElementType::PICK_SCRAPE_SEGMENT,    "PickScrapeSegment",    TranslatableString("engraving", "Pick scrape segment") },
     { ElementType::TEXTLINE_SEGMENT,     "TextLineSegment",      TranslatableString("engraving", "Text line segment") },
     { ElementType::VOLTA_SEGMENT,        "VoltaSegment",         TranslatableString("engraving", "Volta segment") },
     { ElementType::PEDAL_SEGMENT,        "PedalSegment",         TranslatableString("engraving", "Pedal segment") },
@@ -230,6 +233,7 @@ static const std::vector<Item<ElementType> > ELEMENT_TYPES = {
     { ElementType::WHAMMY_BAR,           "WhammyBar",            TranslatableString("engraving", "Whammy bar") },
     { ElementType::RASGUEADO,            "Rasgueado",            TranslatableString("engraving", "Rasgueado") },
     { ElementType::HARMONIC_MARK,        "HarmonicMark",         TranslatableString("engraving", "Harmonic mark") },
+    { ElementType::PICK_SCRAPE,          "PickScrape",           TranslatableString("engraving", "Pick scrape out") },
     { ElementType::TEXTLINE,             "TextLine",             TranslatableString("engraving", "Text line") },
     { ElementType::TEXTLINE_BASE,        "TextLineBase",         TranslatableString("engraving", "Text line base") },    // remove
     { ElementType::NOTELINE,             "NoteLine",             TranslatableString("engraving", "Note line") },
@@ -249,13 +253,14 @@ static const std::vector<Item<ElementType> > ELEMENT_TYPES = {
     { ElementType::VBOX,                 "VBox",                 TranslatableString("engraving", "Vertical frame") },
     { ElementType::TBOX,                 "TBox",                 TranslatableString("engraving", "Text frame") },
     { ElementType::FBOX,                 "FBox",                 TranslatableString("engraving", "Fretboard diagram frame") },
-    { ElementType::ACTION_ICON,          "ActionIcon",           TranslatableString("engraving", "Action icon") },
+    { ElementType::ACTION_ICON,          "ActionIcon",           TranslatableString::untranslatable("Action icon") },
     { ElementType::OSSIA,                "Ossia",                TranslatableString("engraving", "Ossia") },
     { ElementType::BAGPIPE_EMBELLISHMENT, "BagpipeEmbellishment", TranslatableString("engraving", "Bagpipe embellishment") },
     { ElementType::STICKING,             "Sticking",             TranslatableString("engraving", "Sticking") },
-    { ElementType::GRACE_NOTES_GROUP,    "GraceNotesGroup",      TranslatableString("engraving", "Grace notes group") },
-    { ElementType::ROOT_ITEM,            "RootItem",             TranslatableString("engraving", "Root item") },
-    { ElementType::DUMMY,                "Dummy",                TranslatableString("engraving", "Dummy") },
+    { ElementType::GRACE_NOTES_GROUP,    "GraceNotesGroup",      TranslatableString::untranslatable("Grace notes group") },
+    { ElementType::FRET_CIRCLE,          "FretCircle",           TranslatableString::untranslatable("Fret circle") },
+    { ElementType::ROOT_ITEM,            "RootItem",             TranslatableString::untranslatable("Root item") },
+    { ElementType::DUMMY,                "Dummy",                TranslatableString::untranslatable("Dummy") },
 };
 
 const TranslatableString& TConv::userName(ElementType v)
@@ -424,6 +429,7 @@ static const std::vector<Item<NoteHeadGroup> > NOTEHEAD_GROUPS = {
     { NoteHeadGroup::HEAD_BREVIS_ALT,       "altbrevis",      TranslatableString("engraving/noteheadgroup", "Alt. brevis") },
 
     { NoteHeadGroup::HEAD_SLASH,            "slash",          TranslatableString("engraving/noteheadgroup", "Slash") },
+    { NoteHeadGroup::HEAD_LARGE_DIAMOND,    "large-diamond",  TranslatableString("engraving/noteheadgroup", "Large diamond") },
 
     { NoteHeadGroup::HEAD_HEAVY_CROSS,      "heavy-cross",    TranslatableString("engraving/noteheadgroup", "Heavy cross") },
     { NoteHeadGroup::HEAD_HEAVY_CROSS_HAT,  "heavy-cross-hat",    TranslatableString("engraving/noteheadgroup", "Heavy cross hat") },
@@ -488,6 +494,12 @@ static const std::vector<Item<NoteHeadGroup> > NOTEHEAD_GROUPS = {
     { NoteHeadGroup::HEAD_H,            "h-name",       TranslatableString("engraving/noteheadgroup",  "H (Name)") },
     { NoteHeadGroup::HEAD_H_SHARP,      "h-sharp-name", TranslatableString("engraving/noteheadgroup",  "H♯ (Name)") },
 
+    // Swiss rudiments
+    { NoteHeadGroup::HEAD_SWISS_RUDIMENTS_FLAM,   "swiss-rudiments-flam",   TranslatableString("engraving/noteheadgroup",
+                                                                                               "Swiss Rudiments Flam") },
+    { NoteHeadGroup::HEAD_SWISS_RUDIMENTS_DOUBLE, "swiss-rudiments-double", TranslatableString("engraving/noteheadgroup",
+                                                                                               "Swiss Rudiments Doublé") },
+
     { NoteHeadGroup::HEAD_CUSTOM,       "custom",       TranslatableString("engraving",  "Custom") }
 };
 
@@ -508,7 +520,22 @@ AsciiStringView TConv::toXml(NoteHeadGroup v)
 
 NoteHeadGroup TConv::fromXml(const AsciiStringView& tag, NoteHeadGroup def)
 {
-    return findTypeByXmlTag<NoteHeadGroup>(NOTEHEAD_GROUPS, tag, def);
+    auto it = std::find_if(NOTEHEAD_GROUPS.cbegin(), NOTEHEAD_GROUPS.cend(), [tag](const Item<NoteHeadGroup>& i) {
+        return i.xml == tag;
+    });
+
+    if (it != NOTEHEAD_GROUPS.cend()) {
+        return it->type;
+    }
+
+    // compatibility
+    bool ok = false;
+    int v = tag.toInt(&ok);
+    if (ok) {
+        return static_cast<NoteHeadGroup>(v);
+    }
+
+    return def;
 }
 
 static const std::vector<Item<ClefType> > CLEF_TYPES = {
@@ -906,7 +933,7 @@ static const std::vector<Item<TextStyleType> > TEXTSTYLE_TYPES = {
     { TextStyleType::TITLE,             "title",                TranslatableString("engraving", "Title") },
     { TextStyleType::SUBTITLE,          "subtitle",             TranslatableString("engraving", "Subtitle") },
     { TextStyleType::COMPOSER,          "composer",             TranslatableString("engraving", "Composer") },
-    { TextStyleType::POET,              "poet",                 TranslatableString("engraving", "Poet") },
+    { TextStyleType::POET,              "poet",                 TranslatableString("engraving", "Lyricist") },
     { TextStyleType::TRANSLATOR,        "translator",           TranslatableString("engraving", "Translator") },
     { TextStyleType::FRAME,             "frame",                TranslatableString("engraving", "Frame") },
     { TextStyleType::INSTRUMENT_EXCERPT, "instrument_excerpt",  TranslatableString("engraving", "Instrument name (Part)") },
@@ -920,6 +947,7 @@ static const std::vector<Item<TextStyleType> > TEXTSTYLE_TYPES = {
     { TextStyleType::MMREST_RANGE,      "mmrest_range",         TranslatableString("engraving", "Multimeasure rest range") },
 
     { TextStyleType::TEMPO,             "tempo",                TranslatableString("engraving", "Tempo") },
+    { TextStyleType::TEMPO_CHANGE,      "tempo change",         TranslatableString("engraving", "Gradual tempo change") },
     { TextStyleType::METRONOME,         "metronome",            TranslatableString("engraving", "Metronome") },
     { TextStyleType::REPEAT_LEFT,       "repeat_left",          TranslatableString("engraving", "Repeat text left") },
     { TextStyleType::REPEAT_RIGHT,      "repeat_right",         TranslatableString("engraving", "Repeat text right") },
@@ -1058,15 +1086,16 @@ TextStyleType TConv::fromXml(const AsciiStringView& tag, TextStyleType def)
         { "User-10", TextStyleType::USER10 },
         { "User-11", TextStyleType::USER11 },
         { "User-12", TextStyleType::USER12 },
+
+        { "Technique", TextStyleType::EXPRESSION },
+
+        { "12", TextStyleType::DYNAMICS },
+        { "26", TextStyleType::STAFF }
     };
 
     auto old = OLD_TST_TAGS.find(tag);
     if (old != OLD_TST_TAGS.cend()) {
         return old->second;
-    }
-
-    if (tag == "Technique") {
-        return TextStyleType::EXPRESSION;
     }
 
     LOGE() << "not found type for tag: " << tag;
@@ -1285,7 +1314,9 @@ static const std::vector<Item<PlayingTechniqueType> > PLAY_TECH_TYPES = {
     { PlayingTechniqueType::Vibrato,             "vibrato" },
     { PlayingTechniqueType::Legato,              "legato" },
     { PlayingTechniqueType::Distortion,          "distortion" },
-    { PlayingTechniqueType::Overdrive,           "overdrive" }
+    { PlayingTechniqueType::Overdrive,           "overdrive" },
+    { PlayingTechniqueType::Harmonics,           "harmonics" },
+    { PlayingTechniqueType::JazzTone,            "jazz_tone" },
 };
 
 AsciiStringView TConv::toXml(PlayingTechniqueType v)
@@ -2233,7 +2264,21 @@ AsciiStringView TConv::toXml(MarkerType v)
 
 MarkerType TConv::fromXml(const AsciiStringView& tag, MarkerType def)
 {
-    return findTypeByXmlTag<MarkerType>(MARKER_TYPES, tag, def);
+    auto it = std::find_if(MARKER_TYPES.cbegin(), MARKER_TYPES.cend(), [tag](const Item<MarkerType>& i) {
+        return i.xml == tag;
+    });
+
+    if (it != MARKER_TYPES.cend()) {
+        return it->type;
+    }
+
+    // compatibility
+
+    if (tag == "Repeat") {
+        return MarkerType::TOCODA;
+    }
+
+    return def;
 }
 
 static const std::array<Item<StaffGroup>, 3> STAFFGROUP_TYPES = { {
@@ -2325,6 +2370,90 @@ AsciiStringView TConv::toXml(VibratoType v)
 VibratoType TConv::fromXml(const AsciiStringView& tag, VibratoType def)
 {
     return findTypeByXmlTag<VibratoType>(VIBRATO_TYPES, tag, def);
+}
+
+// Note about "engraving/sym": they need to be in this context because PaletteCell::translationContext expects them there
+struct ArticulationTextTypeItem {
+    ArticulationTextType type;
+    AsciiStringView xml;
+    String text;
+    TranslatableString name;
+};
+
+const std::array<ArticulationTextTypeItem, 3> ARTICULATIONTEXT_TYPES = { {
+    { ArticulationTextType::TAP,    "Tap",  String(u"T"),  TranslatableString("engraving/sym", "Tap") },
+    { ArticulationTextType::SLAP,   "Slap", String(u"S"),  TranslatableString("engraving/sym", "Slap") },
+    { ArticulationTextType::POP,    "Pop",  String(u"P"),  TranslatableString("engraving/sym", "Pop") }
+} };
+
+const TranslatableString& TConv::userName(ArticulationTextType v)
+{
+    auto it = std::find_if(ARTICULATIONTEXT_TYPES.cbegin(), ARTICULATIONTEXT_TYPES.cend(), [v](const ArticulationTextTypeItem& i) {
+        return i.type == v;
+    });
+
+    IF_ASSERT_FAILED(it != ARTICULATIONTEXT_TYPES.cend()) {
+        static TranslatableString dummy;
+        return dummy;
+    }
+    return it->name;
+}
+
+String TConv::text(ArticulationTextType v)
+{
+    auto it = std::find_if(ARTICULATIONTEXT_TYPES.cbegin(), ARTICULATIONTEXT_TYPES.cend(), [v](const ArticulationTextTypeItem& i) {
+        return i.type == v;
+    });
+
+    IF_ASSERT_FAILED(it != ARTICULATIONTEXT_TYPES.cend()) {
+        static String dummy;
+        return dummy;
+    }
+    return it->text;
+}
+
+AsciiStringView TConv::toXml(ArticulationTextType v)
+{
+    auto it = std::find_if(ARTICULATIONTEXT_TYPES.cbegin(), ARTICULATIONTEXT_TYPES.cend(), [v](const ArticulationTextTypeItem& i) {
+        return i.type == v;
+    });
+
+    IF_ASSERT_FAILED(it != ARTICULATIONTEXT_TYPES.cend()) {
+        static AsciiStringView dummy;
+        return dummy;
+    }
+    return it->xml;
+}
+
+ArticulationTextType TConv::fromXml(const AsciiStringView& tag, ArticulationTextType def)
+{
+    auto it = std::find_if(ARTICULATIONTEXT_TYPES.cbegin(), ARTICULATIONTEXT_TYPES.cend(), [tag](const ArticulationTextTypeItem& i) {
+        return i.xml == tag;
+    });
+
+    if (it != ARTICULATIONTEXT_TYPES.cend()) {
+        return it->type;
+    }
+
+    // compatibility
+    return def;
+}
+
+const std::array<Item<LyricsSyllabic>, 4> LYRICSSYLLABIC_TYPES = { {
+    { LyricsSyllabic::SINGLE,   "single" },
+    { LyricsSyllabic::BEGIN,    "begin" },
+    { LyricsSyllabic::END,      "end" },
+    { LyricsSyllabic::MIDDLE,   "middle" }
+} };
+
+AsciiStringView TConv::toXml(LyricsSyllabic v)
+{
+    return findXmlTagByType<LyricsSyllabic>(LYRICSSYLLABIC_TYPES, v);
+}
+
+LyricsSyllabic TConv::fromXml(const AsciiStringView& tag, LyricsSyllabic def)
+{
+    return findTypeByXmlTag<LyricsSyllabic>(LYRICSSYLLABIC_TYPES, tag, def);
 }
 
 const std::array<const char*, 17> KEY_NAMES = { {

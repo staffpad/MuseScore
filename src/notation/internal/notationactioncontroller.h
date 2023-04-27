@@ -22,23 +22,27 @@
 #ifndef MU_NOTATION_NOTATIONACTIONCONTROLLER_H
 #define MU_NOTATION_NOTATIONACTIONCONTROLLER_H
 
-#include "modularity/ioc.h"
-#include "actions/iactionsdispatcher.h"
+#include "async/asyncable.h"
 #include "actions/actionable.h"
 #include "actions/actiontypes.h"
-#include "async/asyncable.h"
+
+#include "modularity/ioc.h"
+#include "iinteractive.h"
+#include "actions/iactionsdispatcher.h"
+#include "ui/iuiactionsregister.h"
 #include "context/iglobalcontext.h"
 #include "context/iuicontextresolver.h"
-#include "inotation.h"
-#include "iinteractive.h"
 #include "playback/iplaybackcontroller.h"
-#include "inotationconfiguration.h"
 #include "engraving/iengravingconfiguration.h"
+#include "inotationconfiguration.h"
+
+#include "inotation.h"
 
 namespace mu::notation {
 class NotationActionController : public actions::Actionable, public async::Asyncable
 {
     INJECT(notation, actions::IActionsDispatcher, dispatcher)
+    INJECT(notation, ui::IUiActionsRegister, actionRegister)
     INJECT(notation, context::IGlobalContext, globalContext)
     INJECT(notation, context::IUiContextResolver, uiContextResolver)
     INJECT(notation, framework::IInteractive, interactive)
@@ -61,14 +65,18 @@ public:
     INotationStylePtr currentNotationStyle() const;
     async::Notification currentNotationStyleChanged() const;
 
+    INotationAccessibilityPtr currentNotationAccessibility() const;
+
     using EngravingDebuggingOptions = engraving::IEngravingConfiguration::DebuggingOptions;
     static const std::unordered_map<actions::ActionCode, bool EngravingDebuggingOptions::*> engravingDebuggingActions;
 
 private:
     INotationPtr currentNotation() const;
+    IMasterNotationPtr currentMasterNotation() const;
     INotationElementsPtr currentNotationElements() const;
     INotationSelectionPtr currentNotationSelection() const;
     INotationUndoStackPtr currentNotationUndoStack() const;
+    INotationMidiInputPtr currentNotationMidiInput() const;
 
     void toggleNoteInput();
     void toggleNoteInputMethod(NoteInputMethod method);
@@ -78,6 +86,7 @@ private:
     void removeNote(const actions::ActionData& args);
     void doubleNoteInputDuration();
     void halveNoteInputDuration();
+    void realtimeAdvance();
 
     void toggleAccidental(AccidentalType type);
     void addArticulation(SymbolId articulationSymbolId);
@@ -99,6 +108,7 @@ private:
     void addTie();
     void chordTie();
     void addSlur();
+    void addFret(int num);
 
     framework::IInteractive::Result showErrorMessage(const std::string& message) const;
 
@@ -179,7 +189,8 @@ private:
     void prevTextElement();
     void nextBeatTextElement();
     void prevBeatTextElement();
-    void navigateToTextElement(MoveDirection direction, bool nearNoteOrRest = false);
+    void nextWord();
+    void navigateToTextElement(MoveDirection direction, bool nearNoteOrRest = false, bool moveOnly = true);
     void navigateToTextElementByFraction(const Fraction& fraction);
     void navigateToTextElementInNearMeasure(MoveDirection direction);
 

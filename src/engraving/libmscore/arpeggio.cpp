@@ -26,9 +26,10 @@
 
 #include "containers.h"
 
-#include "infrastructure/symbolfont.h"
-#include "rw/xml.h"
+#include "iengravingfont.h"
+
 #include "types/typesconv.h"
+#include "layout/tlayout.h"
 
 #include "accidental.h"
 #include "chord.h"
@@ -39,6 +40,8 @@
 #include "score.h"
 #include "segment.h"
 #include "staff.h"
+
+#include "log.h"
 
 using namespace mu;
 
@@ -74,58 +77,6 @@ void Arpeggio::setHeight(double h)
 }
 
 //---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Arpeggio::write(XmlWriter& xml) const
-{
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    xml.startElement(this);
-    EngravingItem::writeProperties(xml);
-    writeProperty(xml, Pid::ARPEGGIO_TYPE);
-    if (_userLen1 != 0.0) {
-        xml.tag("userLen1", _userLen1 / spatium());
-    }
-    if (_userLen2 != 0.0) {
-        xml.tag("userLen2", _userLen2 / spatium());
-    }
-    if (_span != 1) {
-        xml.tag("span", _span);
-    }
-    writeProperty(xml, Pid::PLAY);
-    writeProperty(xml, Pid::TIME_STRETCH);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Arpeggio::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "subtype") {
-            _arpeggioType = TConv::fromXml(e.readAsciiText(), ArpeggioType::NORMAL);
-        } else if (tag == "userLen1") {
-            _userLen1 = e.readDouble() * spatium();
-        } else if (tag == "userLen2") {
-            _userLen2 = e.readDouble() * spatium();
-        } else if (tag == "span") {
-            _span = e.readInt();
-        } else if (tag == "play") {
-            _playArpeggio = e.readBool();
-        } else if (tag == "timeStretch") {
-            _stretch = e.readDouble();
-        } else if (!EngravingItem::readProperties(e)) {
-            e.unknown();
-        }
-    }
-}
-
-//---------------------------------------------------------
 //   symbolLine
 //    construct a string of symbols approximating width w
 //---------------------------------------------------------
@@ -136,16 +87,16 @@ void Arpeggio::symbolLine(SymId end, SymId fill)
     double bottom = calcBottom();
     double w   = bottom - top;
     double mag = magS();
-    SymbolFont* f = score()->symbolFont();
+    IEngravingFontPtr f = score()->engravingFont();
 
-    symbols.clear();
+    m_symbols.clear();
     double w1 = f->advance(end, mag);
     double w2 = f->advance(fill, mag);
     int n    = lrint((w - w1) / w2);
     for (int i = 0; i < n; ++i) {
-        symbols.push_back(fill);
+        m_symbols.push_back(fill);
     }
-    symbols.push_back(end);
+    m_symbols.push_back(end);
 }
 
 //---------------------------------------------------------
@@ -188,6 +139,30 @@ double Arpeggio::calcTop() const
 }
 
 //---------------------------------------------------------
+//   computeHeight
+//---------------------------------------------------------
+
+void Arpeggio::computeHeight(bool includeCrossStaffHeight)
+{
+    Chord* topChord = chord();
+    if (!topChord) {
+        return;
+    }
+    double y = topChord->upNote()->pagePos().y() - topChord->upNote()->headHeight() * .5;
+
+    Note* bottomNote = topChord->downNote();
+    if (includeCrossStaffHeight) {
+        track_idx_t bottomTrack = track() + (_span - 1) * VOICES;
+        EngravingItem* element = topChord->segment()->element(bottomTrack);
+        Chord* bottomChord = (element && element->isChord()) ? toChord(element) : topChord;
+        bottomNote = bottomChord->downNote();
+    }
+
+    double h = bottomNote->pagePos().y() + bottomNote->headHeight() * .5 - y;
+    setHeight(h);
+}
+
+//---------------------------------------------------------
 //   calcBottom
 //---------------------------------------------------------
 
@@ -209,7 +184,7 @@ double Arpeggio::calcBottom() const
         return bottom;
     }
     default: {
-        return bottom + spatium() / 2;
+        return bottom - top + spatium() / 2;
     }
     }
 }
@@ -220,69 +195,8 @@ double Arpeggio::calcBottom() const
 
 void Arpeggio::layout()
 {
-    double top = calcTop();
-    double bottom = calcBottom();
-    if (score()->styleB(Sid::ArpeggioHiddenInStdIfTab)) {
-        if (staff() && staff()->isPitchedStaff(tick())) {
-            for (Staff* s : staff()->staffList()) {
-                if (s->score() == score() && s->isTabStaff(tick()) && s->visible()) {
-                    setbbox(RectF());
-                    return;
-                }
-            }
-        }
-    }
-    if (staff()) {
-        setMag(staff()->staffMag(tick()));
-    }
-    switch (arpeggioType()) {
-    case ArpeggioType::NORMAL: {
-        symbolLine(SymId::wiggleArpeggiatoUp, SymId::wiggleArpeggiatoUp);
-        // string is rotated -90 degrees
-        RectF r(symBbox(symbols));
-        setbbox(RectF(0.0, -r.x() + top, r.height(), r.width()));
-    }
-    break;
-
-    case ArpeggioType::UP: {
-        symbolLine(SymId::wiggleArpeggiatoUpArrow, SymId::wiggleArpeggiatoUp);
-        // string is rotated -90 degrees
-        RectF r(symBbox(symbols));
-        setbbox(RectF(0.0, -r.x() + top, r.height(), r.width()));
-    }
-    break;
-
-    case ArpeggioType::DOWN: {
-        symbolLine(SymId::wiggleArpeggiatoUpArrow, SymId::wiggleArpeggiatoUp);
-        // string is rotated +90 degrees (so that UpArrow turns into a DownArrow)
-        RectF r(symBbox(symbols));
-        setbbox(RectF(0.0, r.x() + top, r.height(), r.width()));
-    }
-    break;
-
-    case ArpeggioType::UP_STRAIGHT: {
-        double _spatium = spatium();
-        double x1 = _spatium * .5;
-        double w  = symBbox(SymId::arrowheadBlackUp).width();
-        setbbox(RectF(x1 - w * .5, top, w, bottom));
-    }
-    break;
-
-    case ArpeggioType::DOWN_STRAIGHT: {
-        double _spatium = spatium();
-        double x1 = _spatium * .5;
-        double w  = symBbox(SymId::arrowheadBlackDown).width();
-        setbbox(RectF(x1 - w * .5, top, w, bottom));
-    }
-    break;
-
-    case ArpeggioType::BRACKET: {
-        double _spatium = spatium();
-        double w  = score()->styleS(Sid::ArpeggioHookLen).val() * _spatium;
-        setbbox(RectF(0.0, top, w, bottom));
-        break;
-    }
-    }
+    LayoutContext ctx(score());
+    TLayout::layout(this, ctx);
 }
 
 //---------------------------------------------------------
@@ -291,7 +205,7 @@ void Arpeggio::layout()
 
 void Arpeggio::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     using namespace mu::draw;
 
     double _spatium = spatium();
@@ -308,17 +222,17 @@ void Arpeggio::draw(mu::draw::Painter* painter) const
     case ArpeggioType::NORMAL:
     case ArpeggioType::UP:
     {
-        RectF r(symBbox(symbols));
+        RectF r(symBbox(m_symbols));
         painter->rotate(-90.0);
-        score()->symbolFont()->draw(symbols, painter, magS(), PointF(-r.right() - y1, -r.bottom() + r.height()));
+        score()->engravingFont()->draw(m_symbols, painter, magS(), PointF(-r.right() - y1, -r.bottom() + r.height()));
     }
     break;
 
     case ArpeggioType::DOWN:
     {
-        RectF r(symBbox(symbols));
+        RectF r(symBbox(m_symbols));
         painter->rotate(90.0);
-        score()->symbolFont()->draw(symbols, painter, magS(), PointF(-r.left() + y1, -r.top() - r.height()));
+        score()->engravingFont()->draw(m_symbols, painter, magS(), PointF(-r.left() + y1, -r.top() - r.height()));
     }
     break;
 
@@ -362,8 +276,8 @@ void Arpeggio::draw(mu::draw::Painter* painter) const
 std::vector<PointF> Arpeggio::gripsPositions(const EditData&) const
 {
     const PointF pp(pagePos());
-    PointF p1(0.0, -_userLen1);
-    PointF p2(0.0, _height + _userLen2);
+    PointF p1(_bbox.width() / 2, _bbox.top());
+    PointF p2(_bbox.width() / 2, _bbox.bottom());
     return { p1 + pp, p2 + pp };
 }
 
@@ -480,6 +394,8 @@ bool Arpeggio::edit(EditData& ed)
     Chord* c = chord();
     setPosX(-(width() + spatium() * .5));
     c->layoutArpeggio2();
+    Fraction _tick = tick();
+    score()->setLayout(_tick, _tick, staffIdx(), staffIdx() + _span, this);
     return true;
 }
 

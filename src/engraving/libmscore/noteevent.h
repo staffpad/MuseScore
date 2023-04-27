@@ -29,38 +29,44 @@
 #include "global/allocator.h"
 
 namespace mu::engraving {
-class XmlWriter;
-class XmlReader;
-
 //---------------------------------------------------------
 //    NoteEvent
 //---------------------------------------------------------
 
 class NoteEvent
 {
-    int _pitch;     // relative pitch to note pitch
-    int _ontime;    // one unit is 1/1000 of nominal note len
-    int _len;       // one unit is 1/1000 of nominal note len
-
 public:
     constexpr static int NOTE_LENGTH = 1000;
+    constexpr static double GLISSANDO_VELOCITY_MULTIPLIER = 0.7;
+    constexpr static double GHOST_VELOCITY_MULTIPLIER = 0.6;
+    constexpr static double DEFAULT_VELOCITY_MULTIPLIER = 1.0;
+    constexpr static int SLIDE_AMOUNT = 3;
 
-    NoteEvent()
-        : _pitch(0), _ontime(0), _len(NOTE_LENGTH) {}
-    NoteEvent(int a, int b, int c)
-        : _pitch(a), _ontime(b), _len(c) {}
+    NoteEvent() {}
+    NoteEvent(int a, int b, int c, double d = 1.0, double play = true, int offset = 0)
+        : m_pitch(a), m_ontime(b), m_len(c), m_velocityMultiplier(d), m_play(play), m_offset(offset) {}
 
-    void read(XmlReader&);
-    void write(XmlWriter&) const;
+    int pitch() const { return m_pitch; }
+    int ontime() const { return m_ontime; }
+    int offtime() const { return m_ontime + m_len; }
+    int len() const { return m_len; }
+    double velocityMultiplier() const { return m_velocityMultiplier; }
+    bool play() const { return m_play; }
+    int offset() const { return m_offset; }
+    void setPitch(int v) { m_pitch = v; }
+    void setOntime(int v) { m_ontime = v; }
+    void setLen(int v) { m_len = v; }
+    void setOffset(int v) { m_offset = v; }
 
-    int  pitch() const { return _pitch; }
-    int ontime() const { return _ontime; }
-    int offtime() const { return _ontime + _len; }
-    int len() const { return _len; }
-    void setPitch(int v) { _pitch = v; }
-    void setOntime(int v) { _ontime = v; }
-    void setLen(int v) { _len = v; }
     bool operator==(const NoteEvent&) const;
+
+private:
+    int m_pitch = 0;     // relative pitch to note pitch
+    int m_ontime = 0;    // one unit is 1/1000 of nominal note len
+    int m_len = NOTE_LENGTH;       // one unit is 1/1000 of nominal note len
+    double m_velocityMultiplier = DEFAULT_VELOCITY_MULTIPLIER; // can be used to lower sound (0-1)
+    bool m_play = true; // when 'false', note event is used only for length calculation
+    int m_offset = 0;
 };
 
 //---------------------------------------------------------

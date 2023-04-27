@@ -40,8 +40,8 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/logremover.h
     ${CMAKE_CURRENT_LIST_DIR}/dataformatter.cpp
     ${CMAKE_CURRENT_LIST_DIR}/dataformatter.h
-    ${CMAKE_CURRENT_LIST_DIR}/version.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/version.h
+    ${CMAKE_CURRENT_LIST_DIR}/muversion.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/muversion.h
     ${CMAKE_CURRENT_LIST_DIR}/stringutils.cpp
     ${CMAKE_CURRENT_LIST_DIR}/stringutils.h
     ${CMAKE_CURRENT_LIST_DIR}/ptrutils.h
@@ -59,6 +59,8 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/icryptographichash.h
     ${CMAKE_CURRENT_LIST_DIR}/allocator.cpp
     ${CMAKE_CURRENT_LIST_DIR}/allocator.h
+    ${CMAKE_CURRENT_LIST_DIR}/dlib.h
+    ${CMAKE_CURRENT_LIST_DIR}/iprocess.h
 
     ${CMAKE_CURRENT_LIST_DIR}/types/bytearray.cpp
     ${CMAKE_CURRENT_LIST_DIR}/types/bytearray.h
@@ -79,6 +81,10 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/types/sharedhashmap.h
     ${CMAKE_CURRENT_LIST_DIR}/types/sharedmap.h
     ${CMAKE_CURRENT_LIST_DIR}/types/translatablestring.h
+    ${CMAKE_CURRENT_LIST_DIR}/types/mnemonicstring.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/types/mnemonicstring.h
+    ${CMAKE_CURRENT_LIST_DIR}/types/version.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/types/version.h
 
     ${CMAKE_CURRENT_LIST_DIR}/io/ioenums.h
     ${CMAKE_CURRENT_LIST_DIR}/io/path.cpp
@@ -115,6 +121,8 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/serialization/json.h
     ${CMAKE_CURRENT_LIST_DIR}/serialization/xmldom.cpp
     ${CMAKE_CURRENT_LIST_DIR}/serialization/xmldom.h
+
+    ${CMAKE_CURRENT_LIST_DIR}/concurrency/taskscheduler.h
 )
 
 if (GLOBAL_NO_INTERNAL)
@@ -136,6 +144,8 @@ else()
         ${CMAKE_CURRENT_LIST_DIR}/internal/cryptographichash.h
         ${CMAKE_CURRENT_LIST_DIR}/internal/invoker.cpp
         ${CMAKE_CURRENT_LIST_DIR}/internal/invoker.h
+        ${CMAKE_CURRENT_LIST_DIR}/internal/process.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/internal/process.h
 
         ${CMAKE_CURRENT_LIST_DIR}/io/internal/filesystem.cpp
         ${CMAKE_CURRENT_LIST_DIR}/io/internal/filesystem.h
@@ -194,5 +204,16 @@ if (OS_IS_MAC)
     set(MODULE_LINK ${MODULE_LINK} ${AppKit})
 endif()
 
+if (MUE_ENABLE_CUSTOM_ALLOCATOR)
+    set(MODULE_DEF ${MODULE_DEF} -DMUE_ENABLE_CUSTOM_ALLOCATOR)
+endif()
+
+if (MUE_ENABLE_LOGGER_DEBUGLEVEL)
+    set(MODULE_DEF ${MODULE_DEF} -DMUE_ENABLE_LOGGER_DEBUGLEVEL)
+endif()
+
 include(SetupModule)
 
+if (MUE_BUILD_UNIT_TESTS)
+    add_subdirectory(tests)
+endif()

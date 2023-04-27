@@ -29,8 +29,8 @@
 #include "importexport/musicxml/imusicxmlconfiguration.h"
 #include "importexport/musicxml/internal/musicxml/exportxml.h"
 
-#include "engraving/utests/utils/scorerw.h"
-#include "engraving/utests/utils/scorecomp.h"
+#include "engraving/tests/utils/scorerw.h"
+#include "engraving/tests/utils/scorecomp.h"
 
 #include "io/fileinfo.h"
 
@@ -376,6 +376,9 @@ TEST_F(Musicxml_Tests, arpGliss2) {
 TEST_F(Musicxml_Tests, arpGliss3) {
     mxmlIoTest("testArpGliss3");
 }
+TEST_F(Musicxml_Tests, articulationCombination) {
+    mxmlIoTest("testArticulationCombination");
+}
 TEST_F(Musicxml_Tests, barlineFermatas) {
     mxmlMscxExportTestRef("testBarlineFermatas");
 }
@@ -549,6 +552,9 @@ TEST_F(Musicxml_Tests, graceAfter3) {
 }
 TEST_F(Musicxml_Tests, DISABLED_graceAfter4) {
     mxmlIoTest("testGraceAfter4");
+}
+TEST_F(Musicxml_Tests, graceFermata) {
+    mxmlIoTest("testGraceFermata");
 }
 TEST_F(Musicxml_Tests, hairpinDynamics) {
     mxmlMscxExportTestRef("testHairpinDynamics");
@@ -787,6 +793,12 @@ TEST_F(Musicxml_Tests, systemBrackets2) {
 TEST_F(Musicxml_Tests, systemBrackets3) {
     mxmlImportTestRef("testSystemBrackets3");
 }
+TEST_F(Musicxml_Tests, systemBrackets4) {
+    mxmlIoTest("testSystemBrackets1");
+}
+TEST_F(Musicxml_Tests, systemBrackets5) {
+    mxmlIoTest("testSystemBrackets1");
+}
 TEST_F(Musicxml_Tests, tablature1) {
     mxmlIoTest("testTablature1");
 }
@@ -834,6 +846,9 @@ TEST_F(Musicxml_Tests, tempo4) {
 }
 TEST_F(Musicxml_Tests, tempo5) {
     mxmlIoTest("testTempo5");
+}
+TEST_F(Musicxml_Tests, tempo6) {
+    mxmlIoTest("testTempo6");
 }
 TEST_F(Musicxml_Tests, tempoOverlap) {
     mxmlIoTestRef("testTempoOverlap");
@@ -915,6 +930,12 @@ TEST_F(Musicxml_Tests, volta1) {
 }
 TEST_F(Musicxml_Tests, volta2) {
     mxmlIoTest("testVolta2");
+}
+TEST_F(Musicxml_Tests, voltaHiding1) {
+    mxmlImportTestRef("testVoltaHiding");
+}
+TEST_F(Musicxml_Tests, voltaHiding2) {
+    mxmlIoTestRef("testVoltaHiding");
 }
 TEST_F(Musicxml_Tests, wedge1) {
     mxmlIoTest("testWedge1");

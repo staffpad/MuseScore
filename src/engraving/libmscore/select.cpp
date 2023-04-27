@@ -27,8 +27,8 @@
 
 #include "containers.h"
 #include "io/buffer.h"
-#include "rw/xml.h"
-#include "rw/writecontext.h"
+
+#include "rw/400/twrite.h"
 
 #include "accidental.h"
 #include "arpeggio.h"
@@ -538,24 +538,31 @@ void Selection::updateSelectedElements()
     if (_state == SelState::RANGE && _plannedTick1 != Fraction(-1, 1) && _plannedTick2 != Fraction(-1, 1)) {
         const staff_idx_t staffStart = _staffStart;
         const staff_idx_t staffEnd = _staffEnd;
+
         deselectAll();
+
         Segment* s1 = _score->tick2segmentMM(_plannedTick1);
-        Segment* s2 = _score->tick2segmentMM(_plannedTick2, /* first */ true);
+        Segment* s2 = _score->tick2segmentMM(_plannedTick2, /* first */ true /* HACK */);
         if (s2 && s2->measure()->isMMRest()) {
-            s2 = s2->prev1MM();       // HACK both this and the previous "true"
+            s2 = s2->prev1MM(); // HACK
         }
-        // are needed to prevent bug #173381.
-        // This should exclude any segments belonging
-        // to MM-rest range from the selection.
+        // These hacks are needed to prevent https://musescore.org/node/173381.
+        // This should exclude any segments belonging to MM-rest range from the selection.
         if (s1 && s2 && s1->tick() + s1->ticks() > s2->tick()) {
-            // can happen with MM rests as tick2measure returns only
-            // the first segment for them.
+            // can happen with MM rests as tick2measure returns only the first segment for them.
+
+            _plannedTick1 = Fraction(-1, 1);
+            _plannedTick2 = Fraction(-1, 1);
             return;
         }
-        if (s2 && s2 == s2->measure()->first()) {
-            s2 = s2->prev1();         // we want the last segment of the previous measure
+
+        if (s2 && s2 == s2->measure()->first() && !(s2->measure()->prevMeasure() && s2->measure()->prevMeasure()->mmRest1())) {
+            // we want the last segment of the previous measure (unless it's part of a MMrest)
+            s2 = s2->prev1();
         }
+
         setRange(s1, s2, staffStart, staffEnd);
+
         _plannedTick1 = Fraction(-1, 1);
         _plannedTick2 = Fraction(-1, 1);
     }
@@ -624,7 +631,7 @@ void Selection::updateSelectedElements()
             }
         }
     }
-    Fraction stick = startSegment()->tick();
+    Fraction stick = tickStart();
     Fraction etick = tickEnd();
 
     for (auto i = _score->spanner().begin(); i != _score->spanner().end(); ++i) {
@@ -655,6 +662,7 @@ void Selection::updateSelectedElements()
         }
     }
     update();
+    _score->setSelectionChanged(true);
 }
 
 void Selection::setRange(Segment* startSegment, Segment* endSegment, staff_idx_t staffStart, staff_idx_t staffEnd)
@@ -699,7 +707,16 @@ void Selection::setRangeTicks(const Fraction& tick1, const Fraction& tick2, staf
 void Selection::update()
 {
     for (EngravingItem* e : _el) {
-        e->setSelected(true);
+        e->setSelected(true); // also tells accessibility that e has focus
+    }
+    // Only one element can have focus at a time, so currently the final
+    // element in _el has focus. That's ok for a LIST selection because it
+    // corresponds to the last element the user clicked on.
+    if (ChordRest* cr = activeCR()) {
+        // User is performing a RANGE selection. Let's focus a note/rest in the activeCR.
+        EngravingItem* e = cr->isChord() ? toChord(cr)->upNote() : toEngravingItem(cr);
+        assert(e->selected()); // was selected in loop above (e is somewhere in _el)
+        e->setSelected(true); // HACK: select it again so accessibility thinks it has focus
     }
     updateState();
 }
@@ -760,13 +777,13 @@ void Selection::setState(SelState s)
 String Selection::mimeType() const
 {
     switch (_state) {
-    default:
-    case SelState::NONE:
-        return String();
     case SelState::LIST:
         return isSingle() ? String::fromAscii(mimeSymbolFormat) : String::fromAscii(mimeSymbolListFormat);
     case SelState::RANGE:
         return String::fromAscii(mimeStaffListFormat);
+    case SelState::NONE:
+    default:
+        break;
     }
 
     return String();
@@ -831,8 +848,8 @@ ByteArray Selection::staffMimeData() const
     int staves = static_cast<int>(staffEnd() - staffStart());
 
     xml.startElement("StaffList", { { "version", (MScore::testMode ? "2.00" : MSC_VERSION) },
-                         { "tick", tickStart().ticks() },
-                         { "len", ticks.ticks() },
+                         { "tick", tickStart().toString() },
+                         { "len", ticks.toString() },
                          { "staff", staffStart() },
                          { "staves", staves } });
 
@@ -864,7 +881,7 @@ ByteArray Selection::staffMimeData() const
         }
         xml.endElement();     // </voiceOffset>
         xml.context()->setCurTrack(startTrack);
-        _score->writeSegments(xml, startTrack, endTrack, seg1, seg2, false, false);
+        rw400::TWrite::writeSegments(xml, *xml.context(), startTrack, endTrack, seg1, seg2, false, false);
         xml.endElement();
     }
 
@@ -1101,7 +1118,7 @@ ByteArray Selection::symbolListMimeData() const
             }
         }
         xml.tag("segDelta", numSegs);
-        iter->second.e->write(xml);
+        rw400::TWrite::writeItem(iter->second.e, xml, *xml.context());
     }
 
     xml.endElement();

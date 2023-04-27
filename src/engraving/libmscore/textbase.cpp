@@ -27,12 +27,13 @@
 #include "draw/types/pen.h"
 #include "draw/types/brush.h"
 
-#include "infrastructure/symbolfonts.h"
-
-#include "rw/xml.h"
+#include "iengravingfont.h"
 
 #include "style/defaultstyle.h"
 #include "style/textstyle.h"
+
+#include "rw/xmlreader.h"
+#include "rw/xmlwriter.h"
 
 #include "types/symnames.h"
 #include "types/translatablestring.h"
@@ -61,6 +62,9 @@ namespace mu::engraving {
 static constexpr double subScriptSize     = 0.6;
 static constexpr double subScriptOffset   = 0.5; // of x-height
 static constexpr double superScriptOffset = -.9; // of x-height
+
+static const char* FALLBACK_SYMBOL_FONT = "Bravura";
+static const char* FALLBACK_SYMBOLTEXT_FONT = "Bravura Text";
 
 //---------------------------------------------------------
 //   isSorted
@@ -104,7 +108,7 @@ static void sort(size_t& r1, size_t& c1, size_t& r2, size_t& c2)
 }
 
 const String TextBase::UNDEFINED_FONT_FAMILY = String(u"Undefined");
-const int TextBase::UNDEFINED_FONT_SIZE = -1;
+const double TextBase::UNDEFINED_FONT_SIZE = -1.0;
 
 //---------------------------------------------------------
 //   operator==
@@ -251,8 +255,10 @@ RectF TextCursor::cursorRect() const
 
     mu::draw::Font _font  = fragment ? fragment->font(_text) : _text->font();
     if (_font.family() == _text->score()->styleSt(Sid::MusicalSymbolFont)) {
-        _font.setFamily(_text->score()->styleSt(Sid::MusicalTextFont));
-        _font.setPointSizeF(fragment->format.fontSize());
+        _font.setFamily(_text->score()->styleSt(Sid::MusicalTextFont), draw::Font::Type::MusicSymbolText);
+        if (fragment) {
+            _font.setPointSizeF(fragment->format.fontSize());
+        }
     }
     double ascent = mu::draw::FontMetrics::ascent(_font);
     double h = ascent;
@@ -523,7 +529,7 @@ bool TextCursor::movePosition(TextCursor::MoveOperation op, TextCursor::MoveMode
 //   doubleClickSelect
 //---------------------------------------------------------
 
-void TextCursor::doubleClickSelect()
+void TextCursor::selectWord()
 {
     clearSelection();
 
@@ -788,20 +794,26 @@ mu::draw::Font TextFragment::font(const TextBase* t) const
     }
 
     String family;
+    draw::Font::Type fontType = draw::Font::Type::Unknown;
     if (format.fontFamily() == "ScoreText") {
         if (t->isDynamic() || t->textStyleType() == TextStyleType::OTTAVA) {
-            family = SymbolFonts::fontByName(t->score()->styleSt(Sid::MusicalSymbolFont))->family();
+            family
+                = String::fromStdString(engravingFonts()->fontByName(t->score()->styleSt(Sid::MusicalSymbolFont).toStdString())->family());
+            fontType = draw::Font::Type::MusicSymbol;
             // to keep desired size ratio (based on 20pt symbol size to 10pt text size)
             m *= 2;
         } else if (t->isTempoText()) {
             family = t->score()->styleSt(Sid::MusicalTextFont);
+            fontType = draw::Font::Type::MusicSymbolText;
             // to keep desired size ratio (based on 20pt symbol size to 12pt text size)
             m *= 5.0 / 3.0;
         } else {
             family = t->score()->styleSt(Sid::MusicalTextFont);
+            fontType = draw::Font::Type::MusicSymbolText;
         }
         // check if all symbols are available
-        font.setFamily(family);
+        font.setFamily(family, fontType);
+        font.setNoFontMerging(true);
         mu::draw::FontMetrics fm(font);
 
         bool fail = false;
@@ -826,17 +838,22 @@ mu::draw::Font TextFragment::font(const TextBase* t) const
             }
         }
         if (fail) {
-            family = String::fromUtf8(SymbolFonts::fallbackTextFont());
+            if (fontType == draw::Font::Type::MusicSymbol) {
+                family = String::fromUtf8(FALLBACK_SYMBOL_FONT);
+            } else {
+                family = String::fromUtf8(FALLBACK_SYMBOLTEXT_FONT);
+            }
         }
     } else {
         family = format.fontFamily();
+        fontType = draw::Font::Type::Unknown;
         font.setBold(format.bold());
         font.setItalic(format.italic());
         font.setUnderline(format.underline());
         font.setStrike(format.strike());
     }
 
-    font.setFamily(family);
+    font.setFamily(family, fontType);
     assert(m > 0.0);
 
     font.setPointSizeF(m * t->mag());
@@ -1214,8 +1231,7 @@ String TextBlock::remove(int column, TextCursor* cursor)
     int col = 0;
     String s;
     for (auto it = _fragments.begin(); it != _fragments.end(); ++it) {
-        int idx  = 0;
-        int rcol = 0;
+        size_t idx = 0;
 
         for (size_t i = 0; i < it->text.size(); ++i) {
             if (col == column) {
@@ -1238,7 +1254,6 @@ String TextBlock::remove(int column, TextCursor* cursor)
                 continue;
             }
             ++col;
-            ++rcol;
         }
     }
     insertEmptyFragmentIfNeeded(cursor);   // without this, cursorRect can't calculate the y position of the cursor correctly
@@ -1282,7 +1297,6 @@ String TextBlock::remove(int start, int n, TextCursor* cursor)
     int col = 0;
     String s;
     for (auto i = _fragments.begin(); i != _fragments.end();) {
-        int rcol = 0;
         bool inc = true;
         for (size_t idx = 0; idx < i->text.size();) {
             Char c = i->text.at(idx);
@@ -1310,7 +1324,6 @@ String TextBlock::remove(int start, int n, TextCursor* cursor)
                 continue;
             }
             ++col;
-            ++rcol;
         }
         if (inc) {
             ++i;
@@ -1477,7 +1490,9 @@ TextBlock TextBlock::split(int column, TextCursor* cursor)
 
 static String toSymbolXml(Char c)
 {
-    SymId symId = SymbolFonts::fallbackFont()->fromCode(c.unicode());
+    static std::shared_ptr<IEngravingFontsProvider> provider = modularity::ioc()->resolve<IEngravingFontsProvider>("engraving");
+
+    SymId symId = provider->fallbackFont()->fromCode(c.unicode());
     return u"<sym>" + String::fromAscii(SymNames::nameForSymId(symId).ascii()) + u"</sym>";
 }
 
@@ -1530,7 +1545,7 @@ TextBase::TextBase(const ElementType& type, EngravingItem* parent, TextStyleType
     _textLineSpacing        = 1.0;
     _textStyleType          = tid;
     _bgColor                = mu::draw::Color::transparent;
-    _frameColor             = mu::draw::Color::black;
+    _frameColor             = mu::draw::Color::BLACK;
     _align                  = { AlignH::LEFT, AlignV::TOP };
     _frameType              = FrameType::NO_FRAME;
     _frameWidth             = Spatium(0.1);
@@ -1621,12 +1636,7 @@ void TextBase::insert(TextCursor* cursor, char32_t code)
         code = ' ';
     }
 
-    String s;
-    if (Char::requiresSurrogates(code)) {
-        s = String(Char(Char::highSurrogate(code))).append(Char(Char::lowSurrogate(code)));
-    } else {
-        s = String::fromUcs4(&code, 1);
-    }
+    String s = String::fromUcs4(code);
 
     if (cursor->row() < rows()) {
         _layout[cursor->row()].insert(cursor, s);
@@ -1739,7 +1749,7 @@ void TextBase::createLayout()
                         CharFormat fmt = *cursor.format(); // save format
 
                         //char32_t code = score()->scoreFont()->symCode(id);
-                        char32_t code = id == SymId::space ? static_cast<char32_t>(' ') : SymbolFonts::fallbackFont()->symCode(id);
+                        char32_t code = id == SymId::space ? static_cast<char32_t>(' ') : engravingFonts()->fallbackFont()->symCode(id);
                         cursor.format()->setFontFamily(u"ScoreText");
                         insert(&cursor, code);
                         cursor.setFormat(fmt); // restore format
@@ -2231,149 +2241,16 @@ void TextBase::selectAll(TextCursor* cursor)
     cursor->setColumn(cursor->curLine().columns());
 }
 
-//---------------------------------------------------------
-//   multiClickSelect
-//    for double and triple clicks
-//---------------------------------------------------------
-
-void TextBase::multiClickSelect(EditData& editData, MultiClick clicks)
+void TextBase::select(EditData& editData, SelectTextType type)
 {
-    switch (clicks) {
-    case MultiClick::Double:
-        cursorFromEditData(editData)->doubleClickSelect();
+    switch (type) {
+    case SelectTextType::Word:
+        cursorFromEditData(editData)->selectWord();
         break;
-    case MultiClick::Triple:
+    case SelectTextType::All:
         selectAll(cursorFromEditData(editData));
         break;
     }
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void TextBase::write(XmlWriter& xml) const
-{
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    xml.startElement(this);
-    writeProperties(xml, true, true);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void TextBase::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        if (!readProperties(e)) {
-            e.unknown();
-        }
-    }
-}
-
-//---------------------------------------------------------
-//   writeProperties
-//---------------------------------------------------------
-
-void TextBase::writeProperties(XmlWriter& xml, bool writeText, bool /*writeStyle*/) const
-{
-    EngravingItem::writeProperties(xml);
-    writeProperty(xml, Pid::TEXT_STYLE);
-
-    for (const StyledProperty& spp : *_elementStyle) {
-        if (!isStyled(spp.pid)) {
-            writeProperty(xml, spp.pid);
-        }
-    }
-    for (const StyledProperty& spp : *textStyle(textStyleType())) {
-        if (!isStyled(spp.pid) && spp.pid != Pid::FONT_FACE && spp.pid != Pid::FONT_SIZE && spp.pid != Pid::FONT_STYLE
-            && spp.pid != Pid::TEXT_SCRIPT_ALIGN) {
-            writeProperty(xml, spp.pid);
-        }
-    }
-    if (writeText) {
-        xml.writeXml(u"text", xmlText());
-    }
-}
-
-static constexpr std::array<Pid, 18> TextBasePropertyId { {
-    Pid::TEXT_STYLE,
-    Pid::FONT_FACE,
-    Pid::FONT_SIZE,
-    Pid::TEXT_LINE_SPACING,
-    Pid::FONT_STYLE,
-    Pid::COLOR,
-    Pid::FRAME_TYPE,
-    Pid::FRAME_WIDTH,
-    Pid::FRAME_PADDING,
-    Pid::FRAME_ROUND,
-    Pid::FRAME_FG_COLOR,
-    Pid::FRAME_BG_COLOR,
-    Pid::ALIGN,
-} };
-
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool TextBase::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-    for (Pid i : TextBasePropertyId) {
-        if (readProperty(tag, e, i)) {
-            return true;
-        }
-    }
-    if (tag == "text") {
-        setXmlText(e.readXml());
-    } else if (tag == "bold") {
-        bool val = e.readInt();
-        if (val) {
-            setFontStyle(fontStyle() + FontStyle::Bold);
-        } else {
-            setFontStyle(fontStyle() - FontStyle::Bold);
-        }
-        if (isStyled(Pid::FONT_STYLE)) {
-            setPropertyFlags(Pid::FONT_STYLE, PropertyFlags::UNSTYLED);
-        }
-    } else if (tag == "italic") {
-        bool val = e.readInt();
-        if (val) {
-            setFontStyle(fontStyle() + FontStyle::Italic);
-        } else {
-            setFontStyle(fontStyle() - FontStyle::Italic);
-        }
-        if (isStyled(Pid::FONT_STYLE)) {
-            setPropertyFlags(Pid::FONT_STYLE, PropertyFlags::UNSTYLED);
-        }
-    } else if (tag == "underline") {
-        bool val = e.readInt();
-        if (val) {
-            setFontStyle(fontStyle() + FontStyle::Underline);
-        } else {
-            setFontStyle(fontStyle() - FontStyle::Underline);
-        }
-        if (isStyled(Pid::FONT_STYLE)) {
-            setPropertyFlags(Pid::FONT_STYLE, PropertyFlags::UNSTYLED);
-        }
-    } else if (tag == "strike") {
-        bool val = e.readInt();
-        if (val) {
-            setFontStyle(fontStyle() + FontStyle::Strike);
-        } else {
-            setFontStyle(fontStyle() - FontStyle::Strike);
-        }
-        if (isStyled(Pid::FONT_STYLE)) {
-            setPropertyFlags(Pid::FONT_STYLE, PropertyFlags::UNSTYLED);
-        }
-    } else if (!EngravingItem::readProperties(e)) {
-        return false;
-    }
-    return true;
 }
 
 //---------------------------------------------------------
@@ -2496,6 +2373,19 @@ void TextBase::setXmlText(const String& s)
     _text = s;
     textInvalid = false;
     layoutInvalid = true;
+}
+
+void TextBase::checkCustomFormatting(const String& s)
+{
+    if (s.contains(u"<font face")) {
+        setPropertyFlags(Pid::FONT_FACE, PropertyFlags::UNSTYLED);
+    }
+    if (s.contains(u"<font size")) {
+        setPropertyFlags(Pid::FONT_SIZE, PropertyFlags::UNSTYLED);
+    }
+    if (s.contains(u"<b>") || s.contains(u"<i>") || s.contains(u"<u>") || s.contains(u"<s>")) {
+        setPropertyFlags(Pid::FONT_STYLE, PropertyFlags::UNSTYLED);
+    }
 }
 
 void TextBase::resetFormatting()
@@ -2762,7 +2652,7 @@ mu::draw::Font TextBase::font() const
     if (sizeIsSpatiumDependent()) {
         m *= spatium() / SPATIUM20;
     }
-    mu::draw::Font f(family());
+    mu::draw::Font f(family(), draw::Font::Type::Unknown);
     f.setPointSizeF(m);
     f.setBold(bold());
     f.setItalic(italic());
@@ -2919,7 +2809,7 @@ PropertyValue TextBase::propertyDefault(Pid id) const
     case Pid::TEXT_SCRIPT_ALIGN:
         return static_cast<int>(VerticalAlignment::AlignNormal);
     default:
-        for (const StyledProperty& p : *textStyle(TextStyleType::DEFAULT)) {
+        for (const auto& p : *textStyle(TextStyleType::DEFAULT)) {
             if (p.pid == id) {
                 return styleValue(id, p.sid);
             }
@@ -2942,7 +2832,7 @@ int TextBase::getPropertyFlagsIdx(Pid id) const
         }
         ++i;
     }
-    for (const StyledProperty& p : *textStyle(textStyleType())) {
+    for (const auto& p : *textStyle(textStyleType())) {
         if (p.pid == id) {
             return i;
         }
@@ -3111,7 +3001,7 @@ Sid TextBase::getPropertyStyle(Pid id) const
             return p.sid;
         }
     }
-    for (const StyledProperty& p : *textStyle(textStyleType())) {
+    for (const auto& p : *textStyle(textStyleType())) {
         if (p.pid == id) {
             return p.sid;
         }
@@ -3137,7 +3027,7 @@ void TextBase::styleChanged()
         }
         ++i;
     }
-    for (const StyledProperty& spp : *textStyle(textStyleType())) {
+    for (const auto& spp : *textStyle(textStyleType())) {
         PropertyFlags f = _propertyFlagsList[i];
         if (f == PropertyFlags::STYLED) {
             setProperty(spp.pid, styleValue(spp.pid, getPropertyStyle(spp.pid)));
@@ -3163,7 +3053,7 @@ void TextBase::initElementStyle(const ElementStyle* ss)
     for (const StyledProperty& p : *_elementStyle) {
         setProperty(p.pid, styleValue(p.pid, p.sid));
     }
-    for (const StyledProperty& p : *textStyle(textStyleType())) {
+    for (const auto& p : *textStyle(textStyleType())) {
         setProperty(p.pid, styleValue(p.pid, p.sid));
     }
 }
@@ -3178,7 +3068,7 @@ void TextBase::initTextStyleType(TextStyleType tid, bool preserveDifferent)
         initTextStyleType(tid);
     } else {
         setTextStyleType(tid);
-        for (const StyledProperty& p : *textStyle(tid)) {
+        for (const auto& p : *textStyle(tid)) {
             if (getProperty(p.pid) == propertyDefault(p.pid)) {
                 setProperty(p.pid, styleValue(p.pid, p.sid));
             }
@@ -3189,7 +3079,7 @@ void TextBase::initTextStyleType(TextStyleType tid, bool preserveDifferent)
 void TextBase::initTextStyleType(TextStyleType tid)
 {
     setTextStyleType(tid);
-    for (const StyledProperty& p : *textStyle(tid)) {
+    for (const auto& p : *textStyle(tid)) {
         setProperty(p.pid, styleValue(p.pid, p.sid));
     }
 }
@@ -3244,7 +3134,7 @@ TextCursor* TextBase::cursorFromEditData(const EditData& ed)
 
 void TextBase::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     using namespace mu::draw;
     if (hasFrame()) {
         double baseSpatium = DefaultStyle::baseStyle().value(Sid::spatium).toReal();

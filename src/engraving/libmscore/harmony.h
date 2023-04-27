@@ -84,6 +84,7 @@ class HDegree;
 class Harmony final : public TextBase
 {
     OBJECT_ALLOCATOR(engraving, Harmony)
+    DECLARE_CLASSOF(ElementType::HARMONY)
 
     int _rootTpc;               // root note for chord
     int _baseTpc;               // bass note or chord base; used for "slash" chords
@@ -94,7 +95,7 @@ class Harmony final : public TextBase
     String _function;          // numeric representation of root for RNA or Nashville
     String _userName;          // name as typed by user if applicable
     String _textName;          // name recognized from chord list, read from score file, or constructed from imported source
-    ParsedChord* _parsedForm;   // parsed form of chord
+    mutable ParsedChord* _parsedForm;   // parsed form of chord
     bool _isMisspelled = false; // show spell check warning
     HarmonyType _harmonyType;   // used to control rendering, transposition, export, etc.
     double _harmonyHeight;       // used for calculating the height is frame while editing.
@@ -115,6 +116,7 @@ class Harmony final : public TextBase
     NoteCaseType _rootRenderCase, _baseRenderCase;    // case to render
 
     void determineRootBaseSpelling();
+    PointF calculateBoundingRect();
     void draw(mu::draw::Painter*) const override;
     void drawEditMode(mu::draw::Painter* p, EditData& ed, double currentViewScaling) override;
     void render(const String&, double&, double&);
@@ -136,11 +138,12 @@ public:
     void setId(int d) { _id = d; }
     int id() const { return _id; }
 
-    void setPlay(bool p) { _play = p; }
     bool play() const { return _play; }
 
     void setBaseCase(NoteCaseType c) { _baseCase = c; }
+    NoteCaseType baseCase() const { return _baseCase; }
     void setRootCase(NoteCaseType c) { _rootCase = c; }
+    NoteCaseType rootCase() const { return _rootCase; }
 
     bool leftParen() const { return _leftParen; }
     bool rightParen() const { return _rightParen; }
@@ -192,12 +195,11 @@ public:
     HDegree degree(int i) const;
     void clearDegrees();
     const std::vector<HDegree>& degreeList() const;
-    const ParsedChord* parsedForm();
+    const ParsedChord* parsedForm() const;
     HarmonyType harmonyType() const { return _harmonyType; }
     void setHarmonyType(HarmonyType val);
 
-    void write(XmlWriter& xml) const override;
-    void read(XmlReader&) override;
+    void afterRead();
     String harmonyName() const;
     void render();
 
@@ -221,8 +223,6 @@ public:
     void spatiumChanged(double oldValue, double newValue) override;
     void localSpatiumChanged(double oldValue, double newValue) override;
     void setHarmony(const String& s);
-    mu::PointF calculateBoundingRect();
-    double xShapeOffset() const;
 
     TranslatableString typeUserName() const override;
     String accessibleInfo() const override;

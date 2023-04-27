@@ -54,10 +54,10 @@ const UiActionList ApplicationUiActions::m_actions = {
              TranslatableString("action", "Full screen"),
              Checkable::Yes
              ),
-    UiAction("about",
+    UiAction("about-musescore",
              mu::context::UiCtxAny,
              mu::context::CTX_ANY,
-             TranslatableString("action", "&About…")
+             TranslatableString("action", "&About MuseScore…")
              ),
     UiAction("about-qt",
              mu::context::UiCtxAny,
@@ -79,16 +79,6 @@ const UiActionList ApplicationUiActions::m_actions = {
              mu::context::UiCtxAny,
              mu::context::CTX_ANY,
              TranslatableString("action", "As&k for help")
-             ),
-    UiAction("report-bug",
-             mu::context::UiCtxAny,
-             mu::context::CTX_ANY,
-             TranslatableString("action", "&Report a bug")
-             ),
-    UiAction("leave-feedback",
-             mu::context::UiCtxAny,
-             mu::context::CTX_ANY,
-             TranslatableString("action", "F&eedback")
              ),
     UiAction("revert-factory",
              mu::context::UiCtxAny,
@@ -204,11 +194,6 @@ const UiActionList ApplicationUiActions::m_actions = {
              mu::context::CTX_ANY,
              TranslatableString("action", "&Preferences"),
              TranslatableString("action", "Preferences…")
-             ),
-    UiAction("check-update",
-             mu::context::UiCtxAny,
-             mu::context::CTX_ANY,
-             TranslatableString("action", "Check for &update")
              )
 };
 

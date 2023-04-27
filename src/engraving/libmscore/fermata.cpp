@@ -22,7 +22,6 @@
 
 #include "fermata.h"
 
-#include "rw/xml.h"
 #include "types/symnames.h"
 #include "types/translatablestring.h"
 
@@ -60,73 +59,8 @@ Fermata::Fermata(EngravingItem* parent)
 {
     setPlacement(PlacementV::ABOVE);
     _symId         = SymId::noSym;
-    _timeStretch   = 1.0;
     setPlay(true);
     initElementStyle(&fermataStyle);
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Fermata::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        if (!readProperties(e)) {
-            e.unknown();
-        }
-    }
-}
-
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool Fermata::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-
-    if (tag == "subtype") {
-        AsciiStringView s = e.readAsciiText();
-        SymId id = SymNames::symIdByName(s);
-        setSymId(id);
-    } else if (tag == "play") {
-        setPlay(e.readBool());
-    } else if (tag == "timeStretch") {
-        _timeStretch = e.readDouble();
-    } else if (tag == "offset") {
-        if (score()->mscVersion() > 114) {
-            EngravingItem::readProperties(e);
-        } else {
-            e.skipCurrentElement();       // ignore manual layout in older scores
-        }
-    } else if (EngravingItem::readProperties(e)) {
-    } else {
-        return false;
-    }
-    return true;
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Fermata::write(XmlWriter& xml) const
-{
-    if (!xml.context()->canWrite(this)) {
-        LOGD("%s not written", typeName());
-        return;
-    }
-    xml.startElement(this);
-    xml.tag("subtype", SymNames::nameForSymId(_symId));
-    writeProperty(xml, Pid::TIME_STRETCH);
-    writeProperty(xml, Pid::PLAY);
-    writeProperty(xml, Pid::MIN_DISTANCE);
-    if (!isStyled(Pid::OFFSET)) {
-        writeProperty(xml, Pid::OFFSET);
-    }
-    EngravingItem::writeProperties(xml);
-    xml.endElement();
 }
 
 //---------------------------------------------------------
@@ -158,7 +92,7 @@ TranslatableString Fermata::typeUserName() const
 
 void Fermata::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     painter->setPen(curColor());
     drawSymbol(_symId, painter, PointF(-0.5 * width(), 0.0));
 }
@@ -241,7 +175,7 @@ void Fermata::layout()
             double offset = chord->xpos() + note->xpos() + note->headWidth() / 2;
             movePosX(offset);
         } else {
-            movePosX(e->x() + e->width() * staff()->staffMag(Fraction(0, 1)) * .5);
+            movePosX(e->x() - e->shape().left() + e->width() * staff()->staffMag(Fraction(0, 1)) * .5);
         }
     }
 
@@ -318,7 +252,7 @@ bool Fermata::setProperty(Pid propertyId, const PropertyValue& v)
         break;
     case Pid::TIME_STRETCH:
         setTimeStretch(v.toDouble());
-        score()->setUpTempoMap();
+        score()->setUpTempoMapLater();
         break;
     default:
         return EngravingItem::setProperty(propertyId, v);
@@ -337,7 +271,22 @@ PropertyValue Fermata::propertyDefault(Pid propertyId) const
     case Pid::PLACEMENT:
         return track() & 1 ? PlacementV::BELOW : PlacementV::ABOVE;
     case Pid::TIME_STRETCH:
-        return 1.0;           // articulationList[int(articulationType())].timeStretch;
+        switch (fermataType()) {
+        case FermataType::VeryShort:
+            return 1.25;
+        case FermataType::Short:
+        case FermataType::ShortHenze:
+            return 1.5;
+        case FermataType::Normal:
+        case FermataType::Undefined:
+            return 2.0;
+        case FermataType::Long:
+        case FermataType::LongHenze:
+            return 3.0;
+        case FermataType::VeryLong:
+            return 4.0;
+        }
+        break;
     case Pid::PLAY:
         return true;
     default:
@@ -384,6 +333,12 @@ double Fermata::mag() const
     return staff() ? staff()->staffMag(tick()) * score()->styleD(Sid::articulationMag) : 1.0;
 }
 
+void Fermata::setSymId(SymId id)
+{
+    _symId  = id;
+    _timeStretch = _timeStretch == -1 ? propertyDefault(Pid::TIME_STRETCH).value<double>() : -1;
+}
+
 FermataType Fermata::fermataType() const
 {
     static const std::unordered_map<SymId, FermataType> FERMATA_TYPES = {
@@ -427,7 +382,7 @@ void Fermata::added()
         return;
     }
 
-    score()->setUpTempoMap();
+    score()->setUpTempoMapLater();
 }
 
 void Fermata::removed()
@@ -436,6 +391,6 @@ void Fermata::removed()
         return;
     }
 
-    score()->setUpTempoMap();
+    score()->setUpTempoMapLater();
 }
 }

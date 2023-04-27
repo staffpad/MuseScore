@@ -28,8 +28,6 @@
 #include "types/propertyvalue.h"
 
 namespace mu::engraving {
-class XmlReader;
-
 //------------------------------------------------------------------------
 //    M_PROPERTY (type, getter_name, setter_name)
 //       helper macro to define a styled ScoreElement property
@@ -92,7 +90,7 @@ enum class Pid {
     HEAD_TYPE,
     HEAD_GROUP,
     VELO_TYPE,
-    VELO_OFFSET,
+    USER_VELOCITY,
     ARTICULATION_ANCHOR,
 
     DIRECTION,
@@ -100,7 +98,6 @@ enum class Pid {
     NO_STEM,
     SLUR_DIRECTION,
     LEADING_SPACE,
-    DISTRIBUTE,
     MIRROR_HEAD,
     HEAD_HAS_PARENTHESES,
     DOT_POSITION,
@@ -116,6 +113,7 @@ enum class Pid {
     FRET,
     STRING,
     GHOST,
+    DEAD,
     PLAY,
     TIMESIG_NOMINAL,
 
@@ -318,6 +316,7 @@ enum class Pid {
 
     FRAME_BG_COLOR,
     SIZE_SPATIUM_DEPENDENT,
+    TEXT_SIZE_SPATIUM_DEPENDENT, // for text component of textLine items
     ALIGN,
     TEXT_SCRIPT_ALIGN,
     SYSTEM_FLAG,
@@ -331,6 +330,7 @@ enum class Pid {
     BEGIN_FONT_SIZE,
     BEGIN_FONT_STYLE,
     BEGIN_TEXT_OFFSET,
+    GAP_BETWEEN_TEXT_AND_LINE,
 
     CONTINUE_TEXT,
     CONTINUE_TEXT_ALIGN,
@@ -371,6 +371,7 @@ enum class Pid {
     ARPEGGIO_TYPE,
     CHORD_LINE_TYPE,
     CHORD_LINE_STRAIGHT,
+    CHORD_LINE_WAVY,
     TREMOLO_TYPE,
     TREMOLO_STYLE,
     HARMONY_TYPE,
@@ -398,7 +399,6 @@ enum class Pid {
 
 using PropertyIdSet = std::unordered_set<Pid>;
 
-extern PropertyValue readProperty(Pid type, XmlReader& e);
 extern PropertyValue propertyFromString(P_TYPE type, String value);
 extern String propertyToString(Pid, const PropertyValue& value, bool mscx);
 extern P_TYPE propertyType(Pid);

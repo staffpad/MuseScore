@@ -25,6 +25,7 @@
 #include "ui_pagesettings.h"
 #include "modularity/ioc.h"
 #include "context/iglobalcontext.h"
+#include "framework/global/iglobalconfiguration.h"
 
 namespace mu::engraving {
 class Score;
@@ -36,6 +37,7 @@ class PageSettings : public QDialog, private Ui::PageSettingsBase
     Q_OBJECT
 
     INJECT(notation, mu::context::IGlobalContext, globalContext)
+    INJECT(notation, mu::framework::IGlobalConfiguration, configuration)
 
 public:
     explicit PageSettings(QWidget* parent = 0);
@@ -71,18 +73,18 @@ private slots:
     void buttonBoxClicked(QAbstractButton*);
 
     void twosidedToggled(bool);
-    void otmChanged(double val);
-    void obmChanged(double val);
-    void olmChanged(double val);
-    void ormChanged(double val);
-    void etmChanged(double val);
-    void ebmChanged(double val);
-    void elmChanged(double val);
-    void ermChanged(double val);
-    void spatiumChanged(double val);
-    void pageHeightChanged(double);
-    void pageWidthChanged(double);
-    void pageOffsetChanged(int val);
+    void otmChanged();
+    void obmChanged();
+    void olmChanged();
+    void ormChanged();
+    void etmChanged();
+    void ebmChanged();
+    void elmChanged();
+    void ermChanged();
+    void spatiumChanged();
+    void pageHeightChanged();
+    void pageWidthChanged();
+    void pageOffsetChanged();
     void orientationClicked();
     void on_resetPageStyleButton_clicked();
 };

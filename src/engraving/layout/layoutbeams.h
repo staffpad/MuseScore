@@ -25,10 +25,13 @@
 #include <vector>
 
 namespace mu::engraving {
+class Beam;
 class Chord;
+class Rest;
 class ChordRest;
 class Measure;
 class Score;
+class Segment;
 
 class LayoutContext;
 class LayoutBeams
@@ -40,7 +43,8 @@ public:
     static void createBeams(Score* score, LayoutContext& lc, Measure* measure);
     static void restoreBeams(Measure* m);
     static void breakCrossMeasureBeams(const LayoutContext& ctx, Measure* measure);
-    static void respace(const std::vector<ChordRest*>& elements);
+    static void layoutNonCrossBeams(Segment* s);
+    static void verticalAdjustBeamedRests(Rest* rest, Beam* beam);
 
 private:
     static void beamGraceNotes(Score* score, Chord* mainNote, bool after);

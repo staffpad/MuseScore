@@ -22,15 +22,14 @@
 
 #include "timesig.h"
 
-#include "rw/xml.h"
 #include "style/style.h"
 #include "translation.h"
+#include "iengravingfont.h"
 
 #include "score.h"
 #include "segment.h"
 #include "staff.h"
 #include "stafftype.h"
-#include "symbolfont.h"
 #include "utils.h"
 
 #include "log.h"
@@ -143,113 +142,6 @@ void TimeSig::setDenominatorString(const String& a)
 }
 
 //---------------------------------------------------------
-//   write TimeSig
-//---------------------------------------------------------
-
-void TimeSig::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    writeProperty(xml, Pid::TIMESIG_TYPE);
-    EngravingItem::writeProperties(xml);
-
-    xml.tag("sigN",  _sig.numerator());
-    xml.tag("sigD",  _sig.denominator());
-    if (stretch() != Fraction(1, 1)) {
-        xml.tag("stretchN", stretch().numerator());
-        xml.tag("stretchD", stretch().denominator());
-    }
-    writeProperty(xml, Pid::NUMERATOR_STRING);
-    writeProperty(xml, Pid::DENOMINATOR_STRING);
-    if (!_groups.empty()) {
-        _groups.write(xml);
-    }
-    writeProperty(xml, Pid::SHOW_COURTESY);
-    writeProperty(xml, Pid::SCALE);
-
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   TimeSig::read
-//---------------------------------------------------------
-
-void TimeSig::read(XmlReader& e)
-{
-    int n=0, z1=0, z2=0, z3=0, z4=0;
-    bool old = false;
-
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-
-        if (tag == "den") {
-            old = true;
-            n = e.readInt();
-        } else if (tag == "nom1") {
-            old = true;
-            z1 = e.readInt();
-        } else if (tag == "nom2") {
-            old = true;
-            z2 = e.readInt();
-        } else if (tag == "nom3") {
-            old = true;
-            z3 = e.readInt();
-        } else if (tag == "nom4") {
-            old = true;
-            z4 = e.readInt();
-        } else if (tag == "subtype") {
-            int i = e.readInt();
-            if (score()->mscVersion() <= 114) {
-                if (i == 0x40000104) {
-                    _timeSigType = TimeSigType::FOUR_FOUR;
-                } else if (i == 0x40002084) {
-                    _timeSigType = TimeSigType::ALLA_BREVE;
-                } else {
-                    _timeSigType = TimeSigType::NORMAL;
-                }
-            } else {
-                _timeSigType = TimeSigType(i);
-            }
-        } else if (tag == "showCourtesySig") {
-            _showCourtesySig = e.readInt();
-        } else if (tag == "sigN") {
-            _sig.setNumerator(e.readInt());
-        } else if (tag == "sigD") {
-            _sig.setDenominator(e.readInt());
-        } else if (tag == "stretchN") {
-            _stretch.setNumerator(e.readInt());
-        } else if (tag == "stretchD") {
-            _stretch.setDenominator(e.readInt());
-        } else if (tag == "textN") {
-            setNumeratorString(e.readText());
-        } else if (tag == "textD") {
-            setDenominatorString(e.readText());
-        } else if (tag == "Groups") {
-            _groups.read(e);
-        } else if (readStyledProperty(e, tag)) {
-        } else if (!EngravingItem::readProperties(e)) {
-            e.unknown();
-        }
-    }
-    if (old) {
-        _sig.set(z1 + z2 + z3 + z4, n);
-    }
-    _stretch.reduce();
-
-    // HACK: handle time signatures from scores before 3.5 differently on some special occasions.
-    // See https://musescore.org/node/308139.
-    String version = score()->mscoreVersion();
-    if (!version.isEmpty() && (version >= u"3.0") && (version < u"3.5")) {
-        if ((_timeSigType == TimeSigType::NORMAL) && !_numeratorString.isEmpty() && _denominatorString.isEmpty()) {
-            if (_numeratorString == String::number(_sig.numerator())) {
-                _numeratorString.clear();
-            } else {
-                setDenominatorString(String::number(_sig.denominator()));
-            }
-        }
-    }
-}
-
-//---------------------------------------------------------
 //   layout
 //---------------------------------------------------------
 
@@ -298,27 +190,34 @@ void TimeSig::layout()
     double yoff = _spatium * (numOfLines - 1) * .5 * lineDist;
 
     // C and Ccut are placed at the middle of the staff: use yoff directly
+    IEngravingFontPtr font = score()->engravingFont();
+    SizeF mag(magS() * _scale);
+
     if (sigType == TimeSigType::FOUR_FOUR) {
         pz = PointF(0.0, yoff);
-        setbbox(symBbox(SymId::timeSigCommon).translated(pz));
+        RectF bbox = font->bbox(SymId::timeSigCommon, mag);
+        setbbox(bbox.translated(pz));
         ns.clear();
         ns.push_back(SymId::timeSigCommon);
         ds.clear();
     } else if (sigType == TimeSigType::ALLA_BREVE) {
         pz = PointF(0.0, yoff);
-        setbbox(symBbox(SymId::timeSigCutCommon).translated(pz));
+        RectF bbox = font->bbox(SymId::timeSigCutCommon, mag);
+        setbbox(bbox.translated(pz));
         ns.clear();
         ns.push_back(SymId::timeSigCutCommon);
         ds.clear();
     } else if (sigType == TimeSigType::CUT_BACH) {
         pz = PointF(0.0, yoff);
-        setbbox(symBbox(SymId::timeSigCut2).translated(pz));
+        RectF bbox = font->bbox(SymId::timeSigCut2, mag);
+        setbbox(bbox.translated(pz));
         ns.clear();
         ns.push_back(SymId::timeSigCut2);
         ds.clear();
     } else if (sigType == TimeSigType::CUT_TRIPLE) {
         pz = PointF(0.0, yoff);
-        setbbox(symBbox(SymId::timeSigCut3).translated(pz));
+        RectF bbox = font->bbox(SymId::timeSigCut3, mag);
+        setbbox(bbox.translated(pz));
         ns.clear();
         ns.push_back(SymId::timeSigCut3);
         ds.clear();
@@ -330,9 +229,6 @@ void TimeSig::layout()
             ns = timeSigSymIdsFromString(_numeratorString);
             ds = timeSigSymIdsFromString(_denominatorString);
         }
-
-        SymbolFont* font = score()->symbolFont();
-        SizeF mag(magS() * _scale);
 
         RectF numRect = font->bbox(ns, mag);
         RectF denRect = font->bbox(ds, mag);
@@ -382,7 +278,7 @@ void TimeSig::layout()
 
 void TimeSig::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     if (staff() && !const_cast<const Staff*>(staff())->staffType(tick())->genTimesig()) {
         return;
     }
@@ -601,7 +497,7 @@ void TimeSig::added()
         return;
     }
 
-    score()->setUpTempoMap();
+    score()->setUpTempoMapLater();
 }
 
 void TimeSig::removed()
@@ -610,6 +506,6 @@ void TimeSig::removed()
         return;
     }
 
-    score()->setUpTempoMap();
+    score()->setUpTempoMapLater();
 }
 }

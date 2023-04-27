@@ -225,16 +225,18 @@ bool GuitarPro4::readNote(int string, int staffIdx, Note* note)
         //readUInt8();
     }
 
+    int& previousDynamic = previousDynamicByTrack[note->track()];
+
     // set dynamic information on note if different from previous note
     if (noteBits & NOTE_DYNAMIC) {              // 0x10
         int d = readChar();
         if (previousDynamic != d) {
             previousDynamic = d;
-            // addDynamic(note, d);    // velocity? TODO-ws ??
+            addDynamic(note, d);
         }
-    } else if (previousDynamic) {
-        previousDynamic = 0;
-        //addDynamic(note, 0);
+    } else if (previousDynamic != DEFAULT_DYNAMIC) {
+        previousDynamic = DEFAULT_DYNAMIC;
+        addDynamic(note, previousDynamic);
     }
 
     int fretNumber = -1;
@@ -456,13 +458,13 @@ bool GuitarPro4::readNote(int string, int staffIdx, Note* note)
         if (type == 1) {   //Natural
             note->setHarmonic(false);
         } else if (type == 3) { // Tapped
-            addTextToNote(u"T.H.", note);
+            addTextToNote(u"TH", note);
         } else if (type == 4) { //Pinch
-            addTextToNote(u"P.H.", note);
+            addTextToNote(u"PH", note);
         } else if (type == 5) { //semi
-            addTextToNote(u"S.H.", note);
+            addTextToNote(u"SH", note);
         } else {   //Artificial
-            addTextToNote(u"A.H.", note);
+            addTextToNote(u"AH", note);
             int harmonicFret = note->fret();
             harmonicFret += type - 10;
             Note* harmonicNote = Factory::createNote(note->chord());
@@ -635,16 +637,13 @@ bool GuitarPro4::read(IODevice* io)
     key        = readInt();
     /*int octave =*/ readUInt8();      // octave
 
-    //previousDynamic = new int [staves * VOICES];
-    // initialise the dynamics to 0
-    //for (int i = 0; i < staves * VOICES; i++)
-    //      previousDynamic[i] = 0;
-    previousDynamic = -1;
     previousTempo = -1;
 
     readChannels();
     measures = readInt();
     staves   = readInt();
+
+    initDynamics(staves);
 
     curDynam.resize(staves * VOICES);
     for (auto& i : curDynam) {
@@ -780,7 +779,7 @@ bool GuitarPro4::read(IODevice* io)
             staff->setDefaultClefType(ClefTypeList(clefId, clefId));
         }
 
-        if (capo > 0) {
+        if (capo > 0 && !engravingConfiguration()->guitarProImportExperimental()) {
             Segment* s = measure->getSegment(SegmentType::ChordRest, measure->tick());
             StaffText* st = new StaffText(s);
             st->setPlainText(String(u"Capo. fret ") + String::number(capo));
@@ -846,7 +845,7 @@ bool GuitarPro4::read(IODevice* io)
             for (int beat = 0; beat < beats; ++beat) {
                 slide = -1;
                 if (mu::contains(slides, static_cast<int>(track))) {
-                    slide = mu::take(slides, track);
+                    slide = mu::take(slides, static_cast<int>(track));
                 }
 
                 uint8_t beatBits = readUInt8();
@@ -979,7 +978,7 @@ bool GuitarPro4::read(IODevice* io)
                             toChord(cr)->add(note);
 
                             hasSlur = readNote(6 - i, static_cast<int>(staffIdx), note);
-                            dynam = std::max(dynam, previousDynamic);
+                            dynam = std::max(dynam, previousDynamicByTrack[track]);
                             note->setTpcFromPitch();
                         }
                     }

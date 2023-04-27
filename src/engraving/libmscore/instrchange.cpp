@@ -23,7 +23,6 @@
 #include "instrchange.h"
 
 #include "translation.h"
-#include "rw/xml.h"
 
 #include "keysig.h"
 #include "measure.h"
@@ -33,6 +32,8 @@
 #include "segment.h"
 #include "staff.h"
 #include "undo.h"
+
+#include "log.h"
 
 using namespace mu;
 
@@ -89,20 +90,24 @@ void InstrumentChange::setupInstrument(const Instrument* instrument)
         Fraction tickStart = segment()->tick();
         Part* part = staff()->part();
         Interval oldV = part->instrument(tickStart)->transpose();
+        bool concPitch = score()->styleB(Sid::concertPitch);
 
         // change the clef for each staff
         for (size_t i = 0; i < part->nstaves(); i++) {
-            if (part->instrument(tickStart)->clefType(i) != instrument->clefType(i)) {
-                ClefType clefType
-                    = score()->styleB(Sid::concertPitch) ? instrument->clefType(i)._concertClef : instrument->clefType(i)._transposingClef;
+            ClefType oldClefType = concPitch ? part->instrument(tickStart)->clefType(i)._concertClef
+                                   : part->instrument(tickStart)->clefType(i)._transposingClef;
+            ClefType newClefType = concPitch ? instrument->clefType(i)._concertClef
+                                   : instrument->clefType(i)._transposingClef;
+            // Introduce cleff change only if the new clef *symbol* is different from the old one
+            if (ClefInfo::symId(oldClefType) != ClefInfo::symId(newClefType)) {
                 // If instrument change is at the start of a measure, use the measure as the element, as this will place the instrument change before the barline.
                 EngravingItem* element = rtick().isZero() ? toEngravingItem(findMeasure()) : toEngravingItem(this);
-                score()->undoChangeClef(part->staff(i), element, clefType, true);
+                score()->undoChangeClef(part->staff(i), element, newClefType, true);
             }
         }
 
-        // Change key signature if necessary
-        if (instrument->transpose() != oldV) {
+        // Change key signature if necessary. CAUTION: not necessary in case of octave-transposing!
+        if ((instrument->transpose().chromatic - oldV.chromatic) % 12) {
             for (size_t i = 0; i < part->nstaves(); i++) {
                 if (!part->staff(i)->keySigEvent(tickStart).isAtonal()) {
                     KeySigEvent ks;
@@ -185,53 +190,6 @@ std::vector<Clef*> InstrumentChange::clefs() const
         }
     }
     return clefs;
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void InstrumentChange::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    _instrument->write(xml, part());
-    if (_init) {
-        xml.tag("init", _init);
-    }
-    TextBase::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void InstrumentChange::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "Instrument") {
-            _instrument->read(e, part());
-        } else if (tag == "init") {
-            _init = e.readBool();
-        } else if (!TextBase::readProperties(e)) {
-            e.unknown();
-        }
-    }
-    if (score()->mscVersion() < 206) {
-        // previous versions did not honor transposition of instrument change
-        // except in ways that it should not have
-        // notes entered before the instrument change was added would not be altered,
-        // so original transposition remained in effect
-        // notes added afterwards would be transposed by both intervals, resulting in tpc corruption
-        // here we set the instrument change to inherit the staff transposition to emulate previous versions
-        // in Note::read(), we attempt to fix the tpc corruption
-        // There is also code in read206 to try to deal with this, but it is out of date and therefore disabled
-        // What this means is, scores created in 2.1 or later should be fine, scores created in 2.0 maybe not so much
-
-        Interval v = staff() ? staff()->part()->instrument(tick())->transpose() : 0;
-        _instrument->setTranspose(v);
-    }
 }
 
 //---------------------------------------------------------

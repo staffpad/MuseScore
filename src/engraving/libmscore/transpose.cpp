@@ -344,6 +344,9 @@ bool Score::transpose(TransposeMode mode, TransposeDirection direction, Key trKe
             if (!e->staff() || e->staff()->staffType(e->tick())->group() == StaffGroup::PERCUSSION) {
                 continue;
             }
+            if (e->staff()->primaryStaff() && e->staff()->primaryStaff()->staffType(Fraction(0, 1))->group() == StaffGroup::PERCUSSION) {
+                continue;
+            }
             if (e->isNote()) {
                 Note* note = toNote(e);
                 if (mode == TransposeMode::DIATONICALLY) {
@@ -397,6 +400,9 @@ bool Score::transpose(TransposeMode mode, TransposeDirection direction, Key trKe
     for (staff_idx_t staffIdx = _selection.staffStart(); staffIdx < _selection.staffEnd(); ++staffIdx) {
         Staff* s = staff(staffIdx);
         if (s->staffType(Fraction(0, 1))->group() == StaffGroup::PERCUSSION) {        // ignore percussion staff
+            continue;
+        }
+        if (s->primaryStaff() && s->primaryStaff()->staffType(Fraction(0, 1))->group() == StaffGroup::PERCUSSION) {
             continue;
         }
         if (mu::contains(sl, s)) {
@@ -611,16 +617,8 @@ void Score::transposeKeys(staff_idx_t staffStart, staff_idx_t staffEnd, const Fr
                 //            pref = PreferSharpFlat::FLATS;
                 //      }
                 Key nKey = transposeKey(ke.key(), segmentInterval, pref);
-                // remove initial C major key signatures
-                if (nKey == Key::C && s->tick().isZero() && !ks->isCustom()) {
-                    undo(new RemoveElement(ks));
-                    if (s->empty()) {
-                        undo(new RemoveElement(s));
-                    }
-                } else {
-                    ke.setKey(nKey);
-                    undo(new ChangeKeySig(ks, ke, ks->showCourtesy()));
-                }
+                ke.setKey(nKey);
+                undo(new ChangeKeySig(ks, ke, ks->showCourtesy()));
             }
         }
         if (createKey && firstMeasure()) {
@@ -853,5 +851,18 @@ void Score::transpositionChanged(Part* part, Interval oldV, Fraction tickStart, 
             }
         }
     }
+}
+
+void Score::transpositionChanged(Part* part, const Fraction& instrumentTick, Interval oldTransposition)
+{
+    Fraction tickStart = instrumentTick;
+    Fraction tickEnd = { -1, 1 };
+
+    auto mainInstrumentEndIt = part->instruments().upper_bound(tickStart.ticks());
+    if (mainInstrumentEndIt != part->instruments().cend()) {
+        tickEnd = Fraction::fromTicks(mainInstrumentEndIt->first);
+    }
+
+    transpositionChanged(part, oldTransposition, tickStart, tickEnd);
 }
 }

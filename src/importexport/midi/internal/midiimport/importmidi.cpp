@@ -24,10 +24,11 @@
 
 #include <QFile>
 
-#include "engraving/engravingerrors.h"
-#include "engraving/rw/xml.h"
-
 #include "translation.h"
+
+#include "engraving/engravingerrors.h"
+#include "engraving/rw/xmlwriter.h"
+
 #include "infrastructure/messagebox.h"
 
 #include "libmscore/factory.h"
@@ -505,8 +506,7 @@ void setMusicNotesFromMidi(Score*,
         //note->setTpcFromPitch();
 
         chord->add(note);
-        note->setVeloType(VeloType::USER_VAL);
-        note->setVeloOffset(mn.velo);
+        note->setUserVelocity(mn.velo);
 
         if (useDrumset) {
             if (!drumset->isValid(mn.pitch)) {
@@ -712,12 +712,17 @@ std::multimap<int, MTrack> createMTrackList(TimeSigMap* sigmap, const MidiFile* 
                                                track.isDivisionInTps);
             // remove time signature events
             if ((e.type() == ME_META) && (e.metaType() == META_TIME_SIGNATURE)) {
+                Fraction ts = metaTimeSignature(e);
+                if (!ts.isValid() || ts <= Fraction(0, 1)) {
+                    LOGW() << "skipping invalid time signature event from MIDI file at tick " << tick.ticks();
+                    continue;
+                }
                 // because file can have incorrect data
                 // like time sig event not at the beginning of bar
                 // we need to round tick value to integral bar count
                 int bars, beats, ticks;
                 sigmap->tickValues(tick.ticks(), &bars, &beats, &ticks);
-                sigmap->add(sigmap->bar2tick(bars, 0), metaTimeSignature(e));
+                sigmap->add(sigmap->bar2tick(bars, 0), ts);
             } else if (e.type() == ME_NOTE) {
                 hasNotes = true;
                 const int pitch = e.pitch();

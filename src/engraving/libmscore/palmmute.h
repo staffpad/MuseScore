@@ -57,6 +57,7 @@ public:
 class PalmMute final : public ChordTextLineBase
 {
     OBJECT_ALLOCATOR(engraving, PalmMute)
+    DECLARE_CLASSOF(ElementType::PALM_MUTE)
 
     Sid getPropertyStyle(Pid) const override;
 
@@ -65,11 +66,12 @@ public:
 
     PalmMute* clone() const override { return new PalmMute(*this); }
 
-    void read(XmlReader&) override;
 //      virtual void write(XmlWriter& xml) const override;
 
     LineSegment* createLineSegment(System* parent) override;
     PropertyValue propertyDefault(Pid propertyId) const override;
+
+    void setChannel();
 
     friend class PalmMuteLine;
 };

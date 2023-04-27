@@ -26,13 +26,15 @@
 
 #include "containers.h"
 #include "translation.h"
-#include "rw/xml.h"
+
 #include "types/typesconv.h"
 #include "types/constants.h"
 
 #include "score.h"
 #include "segment.h"
 #include "tempotext.h"
+
+#include "log.h"
 
 using namespace mu;
 using namespace mu::engraving;
@@ -65,44 +67,6 @@ TempoText::TempoText(Segment* parent)
     _followText = false;
     _relative   = 1.0;
     _isRelative = false;
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void TempoText::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    xml.tag("tempo", TConv::toXml(_tempo));
-    if (_followText) {
-        xml.tag("followText", _followText);
-    }
-    TextBase::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void TempoText::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "tempo") {
-            setTempo(TConv::fromXml(e.readAsciiText(), Constants::defaultTempo));
-        } else if (tag == "followText") {
-            _followText = e.readInt();
-        } else if (!TextBase::readProperties(e)) {
-            e.unknown();
-        }
-    }
-    // check sanity
-    if (xmlText().isEmpty()) {
-        setXmlText(String(u"<sym>metNoteQuarterUp</sym> = %1").arg(int(lrint(_tempo.toBPM().val))));
-        setVisible(false);
-    }
 }
 
 double TempoText::tempoBpm() const
@@ -250,7 +214,7 @@ String TempoText::duration2tempoTextString(const TDuration dur)
 
 void TempoText::updateScore()
 {
-    score()->setUpTempoMap();
+    score()->setUpTempoMapLater();
     score()->setPlaylistDirty();
 }
 
@@ -395,7 +359,7 @@ bool TempoText::setProperty(Pid propertyId, const PropertyValue& v)
     switch (propertyId) {
     case Pid::TEMPO:
         setTempo(v.value<BeatsPerSecond>());
-        score()->setUpTempoMap();
+        score()->setUpTempoMapLater();
         break;
     case Pid::TEMPO_FOLLOW_TEXT:
         _followText = v.toBool();

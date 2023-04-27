@@ -33,8 +33,6 @@
 namespace mu::engraving {
 class Factory;
 class Segment;
-class XmlReader;
-class XmlWriter;
 
 static const int NO_CLEF = -1000;
 
@@ -91,6 +89,7 @@ public:
 class Clef final : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, Clef)
+    DECLARE_CLASSOF(ElementType::CLEF)
 
     SymId symId;
     bool _showCourtesy = true;
@@ -116,8 +115,6 @@ public:
     EngravingItem* drop(EditData&) override;
     void layout() override;
     void draw(mu::draw::Painter*) const override;
-    void read(XmlReader&) override;
-    void write(XmlWriter&) const override;
 
     bool isEditable() const override { return false; }
 

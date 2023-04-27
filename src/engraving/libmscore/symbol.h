@@ -23,13 +23,18 @@
 #ifndef __SYMBOL_H__
 #define __SYMBOL_H__
 
-#include "bsymbol.h"
+#include <memory>
 
+#include "modularity/ioc.h"
 #include "draw/types/font.h"
+
+#include "iengravingfontsprovider.h"
+
+#include "bsymbol.h"
 
 namespace mu::engraving {
 class Segment;
-class SymbolFont;
+class IEngravingFont;
 
 //---------------------------------------------------------
 //   @@ Symbol
@@ -41,9 +46,13 @@ class SymbolFont;
 class Symbol : public BSymbol
 {
     OBJECT_ALLOCATOR(engraving, Symbol)
+    DECLARE_CLASSOF(ElementType::SYMBOL)
+
+    INJECT(engraving, IEngravingFontsProvider, engravingFonts)
+
 protected:
     SymId _sym;
-    const SymbolFont* _scoreFont = nullptr;
+    std::shared_ptr<IEngravingFont> _scoreFont = nullptr;
 
 public:
     Symbol(const ElementType& type, EngravingItem* parent, ElementFlags f = ElementFlag::MOVABLE);
@@ -54,15 +63,15 @@ public:
 
     Symbol* clone() const override { return new Symbol(*this); }
 
-    void setSym(SymId s, const SymbolFont* sf = nullptr) { _sym  = s; _scoreFont = sf; }
+    void setSym(SymId s, const std::shared_ptr<IEngravingFont>& sf = nullptr) { _sym  = s; _scoreFont = sf; }
     SymId sym() const { return _sym; }
+    const std::shared_ptr<IEngravingFont>& scoreFont() const { return _scoreFont; }
     mu::AsciiStringView symName() const;
 
     String accessibleInfo() const override;
 
     void draw(mu::draw::Painter*) const override;
-    void write(XmlWriter& xml) const override;
-    void read(XmlReader&) override;
+
     void layout() override;
 
     PropertyValue getProperty(Pid) const override;
@@ -80,9 +89,10 @@ public:
 class FSymbol final : public BSymbol
 {
     OBJECT_ALLOCATOR(engraving, FSymbol)
+    DECLARE_CLASSOF(ElementType::FSYMBOL)
 
     mu::draw::Font _font;
-    int _code; // character code point (Unicode)
+    char32_t _code; // character code point (Unicode)
 
 public:
     FSymbol(EngravingItem* parent);
@@ -94,16 +104,15 @@ public:
     String accessibleInfo() const override;
 
     void draw(mu::draw::Painter*) const override;
-    void write(XmlWriter& xml) const override;
-    void read(XmlReader&) override;
+
     void layout() override;
 
     double baseLine() const override { return 0.0; }
     Segment* segment() const { return (Segment*)explicitParent(); }
     mu::draw::Font font() const { return _font; }
-    int code() const { return _code; }
+    char32_t code() const { return _code; }
     void setFont(const mu::draw::Font& f);
-    void setCode(int val) { _code = val; }
+    void setCode(char32_t val) { _code = val; }
 };
 } // namespace mu::engraving
 #endif

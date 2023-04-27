@@ -24,36 +24,63 @@
 
 #include <QQmlComponent>
 
+#include "pluginserrors.h"
+
 #include "api/qmlplugin.h"
 
 #include "log.h"
 
 using namespace mu::plugins;
+using namespace mu::uicomponents;
 
-PluginView::PluginView(const QUrl& url, QObject* parent)
+PluginView::PluginView(QObject* parent)
     : QObject(parent)
 {
-    m_component = new QQmlComponent(engine(), url);
-    m_qmlPlugin = qobject_cast<mu::engraving::QmlPlugin*>(m_component->create());
-
-    connect(m_qmlPlugin, &mu::engraving::QmlPlugin::closeRequested, [this]() {
-        if (m_view && m_view->isVisible()) {
-            m_view->close();
-        }
-    });
 }
 
 PluginView::~PluginView()
 {
     destroyView();
-    delete m_component;
+
+    if (m_component) {
+        delete m_component;
+    }
+
+    if (m_qmlPlugin) {
+        delete m_qmlPlugin;
+    }
+}
+
+mu::Ret PluginView::load(const QUrl& url)
+{
+    m_component = new QQmlComponent(engine(), url);
+
+    if (!m_component->isReady()) {
+        LOGE() << "Failed to load QML plugin from " << url;
+        LOGE() << m_component->errors().at(0).toString();
+        return make_ret(Err::PluginLoadError);
+    }
+
+    m_qmlPlugin = qobject_cast<QmlPlugin*>(m_component->create());
+
+    if (!m_qmlPlugin) {
+        LOGE() << "Failed to create instance of QML plugin from " << url;
+        return make_ret(Err::PluginLoadError);
+    }
+
+    connect(m_qmlPlugin, &QmlPlugin::closeRequested, [this]() {
+        if (m_dialogView && m_dialogView->isOpened()) {
+            m_dialogView->close();
+        }
+    });
+
+    return make_ok();
 }
 
 void PluginView::destroyView()
 {
-    if (m_view) {
-        m_view->close();
-        m_view->deleteLater();
+    if (m_dialogView) {
+        m_dialogView->close();
     }
 }
 
@@ -116,6 +143,11 @@ QString PluginView::categoryCode() const
     return m_qmlPlugin->categoryCode();
 }
 
+QmlPlugin* PluginView::qmlPlugin() const
+{
+    return m_qmlPlugin;
+}
+
 void PluginView::run()
 {
     IF_ASSERT_FAILED(m_qmlPlugin && m_component) {
@@ -128,20 +160,29 @@ void PluginView::run()
     }
 
     destroyView();
-    m_view = new QQuickView(engine(), nullptr);
-    m_view->setContent(QUrl(), m_component, m_qmlPlugin);
-    m_view->setTitle(name());
-    m_view->setColor(configuration()->viewBackgroundColor());
-    m_view->setResizeMode(QQuickView::SizeRootObjectToView);
+
+    m_dialogView = new DialogView();
+    m_dialogView->setEngine(engine());
+    m_dialogView->setComponent(m_component);
+
+    m_dialogView->setContentItem(m_qmlPlugin);
+    m_dialogView->setContentWidth(m_qmlPlugin->width());
+    m_qmlPlugin->setImplicitWidth(m_qmlPlugin->width());
+    m_dialogView->setContentHeight(m_qmlPlugin->height());
+    m_qmlPlugin->setImplicitHeight(m_qmlPlugin->height());
+
+    m_dialogView->setAlwaysOnTop(true);
+
+    m_dialogView->init();
 
     // TODO: Can't use new `connect` syntax because the QQuickView::closing
     // has a parameter of type QQuickCloseEvent, which is not public, so we
     // can't include any header for it and it will always be an incomplete
     // type, which is not allowed for the new `connect` syntax.
     //connect(m_view, &QQuickView::closing, this, &PluginView::finished);
-    connect(m_view, SIGNAL(closing(QQuickCloseEvent*)), this, SIGNAL(finished()));
+    connect(m_dialogView, SIGNAL(aboutToClose(QQuickCloseEvent*)), this, SIGNAL(finished()));
 
-    m_view->show();
+    m_dialogView->show();
 
     m_qmlPlugin->runPlugin();
 }

@@ -25,11 +25,12 @@
 #include "draw/types/pen.h"
 #include "draw/types/brush.h"
 #include "draw/fontmetrics.h"
-#include "rw/xml.h"
 
 #include "note.h"
 #include "score.h"
 #include "staff.h"
+
+#include "log.h"
 
 using namespace mu;
 using namespace mu::draw;
@@ -95,7 +96,7 @@ Bend::Bend(Note* parent, ElementType type)
 
 mu::draw::Font Bend::font(double sp) const
 {
-    mu::draw::Font f(_fontFace);
+    mu::draw::Font f(_fontFace, Font::Type::Unknown);
     f.setBold(_fontStyle & FontStyle::Bold);
     f.setItalic(_fontStyle & FontStyle::Italic);
     f.setUnderline(_fontStyle & FontStyle::Underline);
@@ -264,7 +265,7 @@ void Bend::layout()
 
 void Bend::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     using namespace mu::draw;
     double _spatium = spatium();
     double _lw = _lineWidth;
@@ -352,47 +353,6 @@ void Bend::draw(mu::draw::Painter* painter) const
         }
         x = x2;
         y = y2;
-    }
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Bend::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    for (const PitchValue& v : m_points) {
-        xml.tag("point", { { "time", v.time }, { "pitch", v.pitch }, { "vibrato", v.vibrato } });
-    }
-    writeStyledProperties(xml);
-    writeProperty(xml, Pid::PLAY);
-    EngravingItem::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Bend::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-
-        if (readStyledProperty(e, tag)) {
-        } else if (tag == "point") {
-            PitchValue pv;
-            pv.time    = e.intAttribute("time");
-            pv.pitch   = e.intAttribute("pitch");
-            pv.vibrato = e.intAttribute("vibrato");
-            m_points.push_back(pv);
-            e.readNext();
-        } else if (tag == "play") {
-            setPlayBend(e.readBool());
-        } else if (!EngravingItem::readProperties(e)) {
-            e.unknown();
-        }
     }
 }
 

@@ -25,15 +25,29 @@
 #include "async/channel.h"
 #include "async/notification.h"
 
-#include "types/ret.h"
+#include "types/retval.h"
+#include "types/val.h"
 
 namespace mu::framework {
+using ProgressResult = RetVal<Val>;
+
 struct Progress
 {
     async::Notification started;
     async::Channel<int64_t /*current*/, int64_t /*total*/, std::string /*title*/> progressChanged;
-    async::Channel<Ret> finished;
+    async::Channel<ProgressResult> finished;
+
+    void cancel()
+    {
+        finished.send(make_ret(Ret::Code::Cancel));
+    }
 };
+
+using ProgressPtr = std::shared_ptr<Progress>;
 }
+
+#ifndef NO_QT_SUPPORT
+Q_DECLARE_METATYPE(mu::framework::Progress*)
+#endif
 
 #endif // MU_FRAMEWORK_PROGRESS_H

@@ -24,7 +24,7 @@
 
 #include "translation.h"
 
-#include "rw/xml.h"
+#include "rw/400/tread.h"
 #include "style/style.h"
 #include "types/typesconv.h"
 
@@ -81,7 +81,7 @@ static constexpr PropertyMetaData propertyList[] = {
     { Pid::HEAD_TYPE,               false, "headType",              P_TYPE::NOTEHEAD_TYPE,      DUMMY_QT_TR_NOOP("propertyName", "head type") },
     { Pid::HEAD_GROUP,              false, "head",                  P_TYPE::NOTEHEAD_GROUP,     DUMMY_QT_TR_NOOP("propertyName", "head") },
     { Pid::VELO_TYPE,               false, "veloType",              P_TYPE::VELO_TYPE,      DUMMY_QT_TR_NOOP("propertyName", "velocity type") },
-    { Pid::VELO_OFFSET,             false, "velocity",              P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "velocity") },
+    { Pid::USER_VELOCITY,           false, "velocity",              P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "velocity") },
     { Pid::ARTICULATION_ANCHOR,     false, "anchor",                P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "anchor") },
 
     { Pid::DIRECTION,               false, "direction",             P_TYPE::DIRECTION_V,    DUMMY_QT_TR_NOOP("propertyName", "direction") },
@@ -89,7 +89,6 @@ static constexpr PropertyMetaData propertyList[] = {
     { Pid::NO_STEM,                 false, "noStem",                P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "no stem") },
     { Pid::SLUR_DIRECTION,          false, "up",                    P_TYPE::DIRECTION_V,    DUMMY_QT_TR_NOOP("propertyName", "up") },
     { Pid::LEADING_SPACE,           false, "leadingSpace",          P_TYPE::SPATIUM,        DUMMY_QT_TR_NOOP("propertyName", "leading space") },
-    { Pid::DISTRIBUTE,              false, "distribute",            P_TYPE::BOOL,           DUMMY_QT_TR_NOOP("propertyName", "distributed") },
     { Pid::MIRROR_HEAD,             false, "mirror",                P_TYPE::DIRECTION_H,    DUMMY_QT_TR_NOOP("propertyName", "mirror") },
     { Pid::HEAD_HAS_PARENTHESES,    false, "parentheses",           P_TYPE::BOOL,           DUMMY_QT_TR_NOOP("propertyName", "parentheses") },
     { Pid::DOT_POSITION,            false, "dotPosition",           P_TYPE::DIRECTION_V,    DUMMY_QT_TR_NOOP("propertyName", "dot position") },
@@ -106,6 +105,7 @@ static constexpr PropertyMetaData propertyList[] = {
     { Pid::FRET,                    true,  "fret",                  P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "fret") },
     { Pid::STRING,                  true,  "string",                P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "string") },
     { Pid::GHOST,                   true,  "ghost",                 P_TYPE::BOOL,           DUMMY_QT_TR_NOOP("propertyName", "ghost") },
+    { Pid::DEAD,                    true,  "dead",                  P_TYPE::BOOL,           DUMMY_QT_TR_NOOP("propertyName", "dead") },
     { Pid::PLAY,                    false, "play",                  P_TYPE::BOOL,           DUMMY_QT_TR_NOOP("propertyName", "played") },
     { Pid::TIMESIG_NOMINAL,         false, 0,                       P_TYPE::FRACTION,       DUMMY_QT_TR_NOOP("propertyName", "nominal time signature") },
     { Pid::TIMESIG_ACTUAL,          true,  0,                       P_TYPE::FRACTION,       DUMMY_QT_TR_NOOP("propertyName", "actual time signature") },
@@ -307,7 +307,8 @@ static constexpr PropertyMetaData propertyList[] = {
     { Pid::FRAME_ROUND,             false, "frameRound",            P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "frame round") },
     { Pid::FRAME_FG_COLOR,          false, "frameFgColor",          P_TYPE::COLOR,          DUMMY_QT_TR_NOOP("propertyName", "frame foreground color") },
     { Pid::FRAME_BG_COLOR,          false, "frameBgColor",          P_TYPE::COLOR,          DUMMY_QT_TR_NOOP("propertyName", "frame background color") },
-    { Pid::SIZE_SPATIUM_DEPENDENT,  false, "sizeIsSpatiumDependent",P_TYPE::BOOL,           DUMMY_QT_TR_NOOP("propertyName", "spatium dependent font") },
+    { Pid::SIZE_SPATIUM_DEPENDENT,  false, "sizeIsSpatiumDependent",P_TYPE::BOOL,           DUMMY_QT_TR_NOOP("propertyName", "spatium dependent size") },
+    { Pid::TEXT_SIZE_SPATIUM_DEPENDENT, false, "textSizeIsSpatiumDependent", P_TYPE::BOOL,  DUMMY_QT_TR_NOOP("propertyName", "spatium dependent text size") },
     { Pid::ALIGN,                   false, "align",                 P_TYPE::ALIGN,          DUMMY_QT_TR_NOOP("propertyName", "align") },
     { Pid::TEXT_SCRIPT_ALIGN,       false, "align",                 P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "text script align") },
     { Pid::SYSTEM_FLAG,             false, "systemFlag",            P_TYPE::BOOL,           DUMMY_QT_TR_NOOP("propertyName", "system flag") },
@@ -321,6 +322,7 @@ static constexpr PropertyMetaData propertyList[] = {
     { Pid::BEGIN_FONT_SIZE,         false, "beginFontSize",         P_TYPE::REAL,           DUMMY_QT_TR_NOOP("propertyName", "begin font size") },
     { Pid::BEGIN_FONT_STYLE,        false, "beginFontStyle",        P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "begin font style") },
     { Pid::BEGIN_TEXT_OFFSET,       false, "beginTextOffset",       P_TYPE::POINT,          DUMMY_QT_TR_NOOP("propertyName", "begin text offset") },
+    { Pid::GAP_BETWEEN_TEXT_AND_LINE, false, "gapBetweenTextAndLine", P_TYPE::SPATIUM,      DUMMY_QT_TR_NOOP("propertyName", "gap between text and line") },
 
     { Pid::CONTINUE_TEXT,           true,  "continueText",          P_TYPE::STRING,         DUMMY_QT_TR_NOOP("propertyName", "continue text") },
     { Pid::CONTINUE_TEXT_ALIGN,     false, "continueTextAlign",     P_TYPE::ALIGN,          DUMMY_QT_TR_NOOP("propertyName", "continue text align") },
@@ -361,6 +363,7 @@ static constexpr PropertyMetaData propertyList[] = {
     { Pid::ARPEGGIO_TYPE,           true,  "subtype",               P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "arpeggio type") },
     { Pid::CHORD_LINE_TYPE,         true,  "subtype",               P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "chord line type") },
     { Pid::CHORD_LINE_STRAIGHT,     true,  "straight",              P_TYPE::BOOL,           DUMMY_QT_TR_NOOP("propertyName", "straight chord line") },
+    { Pid::CHORD_LINE_WAVY,         true,  "wavy",                  P_TYPE::BOOL,           DUMMY_QT_TR_NOOP("propertyName", "wavy chord line") },
     { Pid::TREMOLO_TYPE,            true,  "subtype",               P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "tremolo type") },
     { Pid::TREMOLO_STYLE,           true,  "strokeStyle",           P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "tremolo style") },
     { Pid::HARMONY_TYPE,            true,  "harmonyType",           P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "harmony type") },
@@ -459,114 +462,6 @@ PropertyValue propertyFromString(P_TYPE type, String)
     case P_TYPE::INT_VEC:
         return PropertyValue();
     default:
-        break;
-    }
-    return PropertyValue();
-}
-
-//---------------------------------------------------------
-//    readProperty
-//---------------------------------------------------------
-
-PropertyValue readProperty(Pid id, XmlReader& e)
-{
-    switch (propertyType(id)) {
-    case P_TYPE::BOOL:
-        return PropertyValue(bool(e.readInt()));
-    case P_TYPE::INT:
-        return PropertyValue(e.readInt());
-    case P_TYPE::REAL:
-        return PropertyValue(e.readDouble());
-    case P_TYPE::SPATIUM: return PropertyValue(Spatium(e.readDouble()));
-    case P_TYPE::MILLIMETRE: return PropertyValue(Spatium(e.readDouble())); //! NOTE type mm, but stored in xml as spatium
-    case P_TYPE::TEMPO:
-        return PropertyValue(e.readDouble());
-    case P_TYPE::FRACTION:
-        return PropertyValue::fromValue(e.readFraction());
-
-    case P_TYPE::SYMID:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), SymId::noSym));
-    case P_TYPE::COLOR:
-        return PropertyValue::fromValue(e.readColor());
-    case P_TYPE::ORNAMENT_STYLE:
-        return PropertyValue::fromValue(TConv::fromXml(e.readAsciiText(), OrnamentStyle::DEFAULT));
-    case P_TYPE::POINT:
-        return PropertyValue::fromValue(e.readPoint());
-    case P_TYPE::SCALE:
-        return PropertyValue::fromValue(e.readScale());
-    case P_TYPE::SIZE:
-        return PropertyValue::fromValue(e.readSize());
-    case P_TYPE::STRING:
-        return PropertyValue(e.readText());
-
-    case P_TYPE::ALIGN:
-        return PropertyValue(TConv::fromXml(e.readText(), Align()));
-    case P_TYPE::PLACEMENT_V:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), PlacementV::ABOVE));
-    case P_TYPE::PLACEMENT_H:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), PlacementH::LEFT));
-    case P_TYPE::TEXT_PLACE:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), TextPlace::AUTO));
-    case P_TYPE::DIRECTION_V:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), DirectionV::AUTO));
-    case P_TYPE::DIRECTION_H:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), DirectionH::AUTO));
-    case P_TYPE::ORIENTATION:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), Orientation::VERTICAL));
-
-    case P_TYPE::LAYOUTBREAK_TYPE:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), LayoutBreakType::NOBREAK));
-    case P_TYPE::VELO_TYPE:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), VeloType::OFFSET_VAL));
-    case P_TYPE::GLISS_STYLE:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), GlissandoStyle::CHROMATIC));
-    case P_TYPE::BARLINE_TYPE:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), BarLineType::NORMAL));
-
-    case P_TYPE::NOTEHEAD_TYPE:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), NoteHeadType::HEAD_AUTO));
-    case P_TYPE::NOTEHEAD_SCHEME:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), NoteHeadScheme::HEAD_AUTO));
-    case P_TYPE::NOTEHEAD_GROUP:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), NoteHeadGroup::HEAD_NORMAL));
-
-    case P_TYPE::CLEF_TYPE:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), ClefType::G));
-
-    case P_TYPE::DYNAMIC_TYPE:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), DynamicType::OTHER));
-
-    case P_TYPE::LINE_TYPE:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), LineType::SOLID));
-    case P_TYPE::HOOK_TYPE:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), HookType::NONE));
-
-    case P_TYPE::KEY_MODE:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), KeyMode::NONE));
-
-    case P_TYPE::TEXT_STYLE:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), TextStyleType::DEFAULT));
-
-    case P_TYPE::CHANGE_METHOD:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), ChangeMethod::NORMAL));
-
-    case P_TYPE::BEAM_MODE:
-        return PropertyValue(int(0));
-    case P_TYPE::GROUPS: {
-        Groups g;
-        g.read(e);
-        return PropertyValue::fromValue(g.nodes());
-    }
-    case P_TYPE::DURATION_TYPE_WITH_DOTS:
-    case P_TYPE::INT_VEC:
-        return PropertyValue();
-
-    case P_TYPE::PLAYTECH_TYPE:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), PlayingTechniqueType::Natural));
-    case P_TYPE::TEMPOCHANGE_TYPE:
-        return PropertyValue(TConv::fromXml(e.readAsciiText(), GradualTempoChangeType::Undefined));
-    default:
-        ASSERT_X("unhandled PID type");
         break;
     }
     return PropertyValue();

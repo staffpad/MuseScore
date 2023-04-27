@@ -25,7 +25,7 @@
 #include <cmath>
 
 #include "draw/types/pen.h"
-#include "rw/xml.h"
+
 #include "style/style.h"
 
 #include "factory.h"
@@ -96,7 +96,7 @@ static std::vector<double> distributedDashPattern(double dash, double gap, doubl
 
 void TextLineBaseSegment::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     using namespace mu::draw;
     TextLineBase* tl   = textLineBase();
 
@@ -306,18 +306,22 @@ void TextLineBaseSegment::layout()
         _offset2.setY(0);
     }
 
-    auto alignText = [tl](Text* text) {
+    auto alignBaseLine = [tl](Text* text, PointF& pp1, PointF& pp2) {
+        PointF widthCorrection(0.0, tl->lineWidth() / 2);
         switch (text->align().vertical) {
         case AlignV::TOP:
-            text->movePosY(-tl->lineWidth() / 2);
+            pp1 += widthCorrection;
+            pp2 += widthCorrection;
             break;
         case AlignV::VCENTER:
             break;
         case AlignV::BOTTOM:
-            text->movePosY(tl->lineWidth() / 2);
+            pp1 -= widthCorrection;
+            pp2 -= widthCorrection;
             break;
         case AlignV::BASELINE:
-            text->movePosY(tl->lineWidth() / 2);
+            pp1 -= widthCorrection;
+            pp2 -= widthCorrection;
             break;
         }
     };
@@ -345,10 +349,6 @@ void TextLineBaseSegment::layout()
     _text->setPlacement(PlacementV::ABOVE);
     _text->setTrack(track());
     _text->layout();
-    if ((isSingleBeginType() && (tl->beginTextPlace() == TextPlace::LEFT || tl->beginTextPlace() == TextPlace::AUTO))
-        || (!isSingleBeginType() && (tl->continueTextPlace() == TextPlace::LEFT || tl->continueTextPlace() == TextPlace::AUTO))) {
-        alignText(_text);
-    }
 
     if ((isSingleType() || isEndType())) {
         _endText->setXmlText(tl->endText());
@@ -360,12 +360,13 @@ void TextLineBaseSegment::layout()
         _endText->setPlacement(PlacementV::ABOVE);
         _endText->setTrack(track());
         _endText->layout();
-
-        if (tl->endTextPlace() == TextPlace::LEFT || tl->endTextPlace() == TextPlace::AUTO) {
-            alignText(_endText);
-        }
     } else {
         _endText->setXmlText(u"");
+    }
+
+    if (!textLineBase()->textSizeSpatiumDependent()) {
+        _text->setSize(_text->size() * SPATIUM20 / spatium());
+        _endText->setSize(_endText->size() * SPATIUM20 / spatium());
     }
 
     PointF pp1;
@@ -394,10 +395,10 @@ void TextLineBaseSegment::layout()
 
     double l = 0.0;
     if (!_text->empty()) {
-        double textlineTextDistance = _spatium * .5;
+        double gapBetweenTextAndLine = _spatium * tl->gapBetweenTextAndLine().val();
         if ((isSingleBeginType() && (tl->beginTextPlace() == TextPlace::LEFT || tl->beginTextPlace() == TextPlace::AUTO))
             || (!isSingleBeginType() && (tl->continueTextPlace() == TextPlace::LEFT || tl->continueTextPlace() == TextPlace::AUTO))) {
-            l = _text->pos().x() + _text->bbox().width() + textlineTextDistance;
+            l = _text->pos().x() + _text->bbox().width() + gapBetweenTextAndLine;
         }
 
         double h = _text->height();
@@ -445,6 +446,20 @@ void TextLineBaseSegment::layout()
 
     if (tl->lineVisible() || !score()->printing()) {
         pp1 = PointF(l, 0.0);
+
+        // Make sure baseline of text and line are properly aligned (accounting for line thickness)
+        bool alignBeginText = tl->beginTextPlace() == TextPlace::LEFT || tl->beginTextPlace() == TextPlace::AUTO;
+        bool alignContinueText = tl->continueTextPlace() == TextPlace::LEFT || tl->continueTextPlace() == TextPlace::AUTO;
+        bool alignEndText = tl->endTextPlace() == TextPlace::LEFT || tl->endTextPlace() == TextPlace::AUTO;
+        bool isSingleOrBegin = isSingleBeginType();
+        bool hasBeginText = !_text->empty() && isSingleOrBegin;
+        bool hasContinueText = !_text->empty() && !isSingleOrBegin;
+        bool hasEndText = !_endText->empty() && isSingleEndType();
+        if ((hasBeginText && alignBeginText) || (hasContinueText && alignContinueText)) {
+            alignBaseLine(_text, pp1, pp2);
+        } else if (hasEndText && alignEndText) {
+            alignBaseLine(_endText, pp1, pp2);
+        }
 
         double beginHookHeight = tl->beginHookHeight().val() * _spatium;
         double endHookHeight = tl->endHookHeight().val() * _spatium;
@@ -530,12 +545,13 @@ void TextLineBaseSegment::spatiumChanged(double ov, double nv)
     _endText->spatiumChanged(ov, nv);
 }
 
-static constexpr std::array<Pid, 26> TextLineBasePropertyId = { {
+static constexpr std::array<Pid, 27> TextLineBasePropertyId = { {
     Pid::LINE_VISIBLE,
     Pid::BEGIN_HOOK_TYPE,
     Pid::BEGIN_HOOK_HEIGHT,
     Pid::END_HOOK_TYPE,
     Pid::END_HOOK_HEIGHT,
+    Pid::GAP_BETWEEN_TEXT_AND_LINE,
     Pid::BEGIN_TEXT,
     Pid::BEGIN_TEXT_ALIGN,
     Pid::BEGIN_TEXT_PLACE,
@@ -558,6 +574,11 @@ static constexpr std::array<Pid, 26> TextLineBasePropertyId = { {
     Pid::END_FONT_STYLE,
     Pid::END_TEXT_OFFSET,
 } };
+
+const std::array<Pid, 27>& TextLineBase::textLineBasePropertyIds()
+{
+    return TextLineBasePropertyId;
+}
 
 //---------------------------------------------------------
 //   propertyDelegate
@@ -582,39 +603,7 @@ TextLineBase::TextLineBase(const ElementType& type, EngravingItem* parent, Eleme
 {
     setBeginHookHeight(Spatium(1.9));
     setEndHookHeight(Spatium(1.9));
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void TextLineBase::write(XmlWriter& xml) const
-{
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    xml.startElement(this);
-    writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void TextLineBase::read(XmlReader& e)
-{
-    eraseSpannerSegments();
-
-    if (score()->mscVersion() < 301) {
-        e.context()->addSpanner(e.intAttribute("id", -1), this);
-    }
-
-    while (e.readNextStartElement()) {
-        if (!readProperties(e)) {
-            e.unknown();
-        }
-    }
+    setGapBetweenTextAndLine(Spatium(0.5));
 }
 
 //---------------------------------------------------------
@@ -623,37 +612,6 @@ void TextLineBase::read(XmlReader& e)
 
 void TextLineBase::spatiumChanged(double /*ov*/, double /*nv*/)
 {
-}
-
-//---------------------------------------------------------
-//   writeProperties
-//    write properties different from prototype
-//---------------------------------------------------------
-
-void TextLineBase::writeProperties(XmlWriter& xml) const
-{
-    for (Pid pid : TextLineBasePropertyId) {
-        if (!isStyled(pid)) {
-            writeProperty(xml, pid);
-        }
-    }
-    SLine::writeProperties(xml);
-}
-
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool TextLineBase::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-    for (Pid i : TextLineBasePropertyId) {
-        if (readProperty(tag, e, i)) {
-            setPropertyFlags(i, PropertyFlags::UNSTYLED);
-            return true;
-        }
-    }
-    return SLine::readProperties(e);
 }
 
 //---------------------------------------------------------
@@ -705,6 +663,8 @@ PropertyValue TextLineBase::getProperty(Pid id) const
         return _endHookType;
     case Pid::END_HOOK_HEIGHT:
         return _endHookHeight;
+    case Pid::GAP_BETWEEN_TEXT_AND_LINE:
+        return _gapBetweenTextAndLine;
     case Pid::END_FONT_FACE:
         return _endFontFamily;
     case Pid::END_FONT_SIZE:
@@ -715,6 +675,8 @@ PropertyValue TextLineBase::getProperty(Pid id) const
         return _endTextOffset;
     case Pid::LINE_VISIBLE:
         return lineVisible();
+    case Pid::TEXT_SIZE_SPATIUM_DEPENDENT:
+        return textSizeSpatiumDependent();
     default:
         return SLine::getProperty(id);
     }
@@ -763,6 +725,9 @@ bool TextLineBase::setProperty(Pid id, const PropertyValue& v)
     case Pid::BEGIN_TEXT_OFFSET:
         setBeginTextOffset(v.value<PointF>());
         break;
+    case Pid::GAP_BETWEEN_TEXT_AND_LINE:
+        _gapBetweenTextAndLine = v.value<Spatium>();
+        break;
     case Pid::CONTINUE_TEXT_OFFSET:
         setContinueTextOffset(v.value<PointF>());
         break;
@@ -808,10 +773,23 @@ bool TextLineBase::setProperty(Pid id, const PropertyValue& v)
     case Pid::END_FONT_STYLE:
         setEndFontStyle(FontStyle(v.toInt()));
         break;
+    case Pid::TEXT_SIZE_SPATIUM_DEPENDENT:
+        setTextSizeSpatiumDependent(v.toBool());
+        break;
     default:
         return SLine::setProperty(id, v);
     }
     triggerLayout();
     return true;
+}
+
+mu::engraving::PropertyValue TextLineBase::propertyDefault(Pid propertyId) const
+{
+    switch (propertyId) {
+    case Pid::GAP_BETWEEN_TEXT_AND_LINE:
+        return Spatium(0.5);
+    default:
+        return SLine::propertyDefault(propertyId);
+    }
 }
 }

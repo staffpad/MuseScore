@@ -21,8 +21,10 @@
  */
 #include "exportdialogmodel.h"
 
+#include <QApplication>
 #include <QItemSelectionModel>
 
+#include "async/async.h"
 #include "translation.h"
 #include "log.h"
 
@@ -106,6 +108,8 @@ ExportDialogModel::~ExportDialogModel()
 
 void ExportDialogModel::load()
 {
+    TRACEFUNC;
+
     beginResetModel();
 
     IMasterNotationPtr masterNotation = this->masterNotation();
@@ -115,11 +119,14 @@ void ExportDialogModel::load()
     }
 
     m_notations << masterNotation->notation();
-    for (IExcerptNotationPtr excerpt : masterNotation->excerpts().val) {
-        m_notations << excerpt->notation();
-    }
 
-    for (IExcerptNotationPtr excerpt : masterNotation->potentialExcerpts()) {
+    ExcerptNotationList excerpts = masterNotation->excerpts().val;
+    ExcerptNotationList potentialExcerpts = masterNotation->potentialExcerpts();
+    excerpts.insert(excerpts.end(), potentialExcerpts.begin(), potentialExcerpts.end());
+
+    masterNotation->sortExcerpts(excerpts);
+
+    for (IExcerptNotationPtr excerpt : excerpts) {
         m_notations << excerpt->notation();
     }
 
@@ -315,6 +322,11 @@ bool ExportDialogModel::exportScores()
         return false;
     }
 
+    RetVal<io::path_t> exportPath = exportProjectScenario()->askExportPath(notations, m_selectedExportType, m_selectedUnitType);
+    if (!exportPath.ret) {
+        return false;
+    }
+
     ExcerptNotationList excerptsToInit;
     ExcerptNotationList potentialExcerpts = masterNotation()->potentialExcerpts();
 
@@ -330,8 +342,12 @@ bool ExportDialogModel::exportScores()
 
     masterNotation()->initExcerpts(excerptsToInit);
 
-    return exportProjectScenario()->exportScores(notations, m_selectedExportType, m_selectedUnitType,
-                                                 shouldDestinationFolderBeOpenedOnExport());
+    QMetaObject::invokeMethod(qApp, [this, notations, exportPath]() {
+        exportProjectScenario()->exportScores(notations, exportPath.val, m_selectedUnitType,
+                                              shouldDestinationFolderBeOpenedOnExport());
+    }, Qt::QueuedConnection);
+
+    return true;
 }
 
 int ExportDialogModel::pdfResolution() const
@@ -423,8 +439,7 @@ void ExportDialogModel::setBitRate(int rate)
 
 bool ExportDialogModel::midiExpandRepeats() const
 {
-    NOT_IMPLEMENTED;
-    return true;
+    return midiImportExportConfiguration()->isExpandRepeats();
 }
 
 void ExportDialogModel::setMidiExpandRepeats(bool expandRepeats)
@@ -433,7 +448,7 @@ void ExportDialogModel::setMidiExpandRepeats(bool expandRepeats)
         return;
     }
 
-    NOT_IMPLEMENTED;
+    midiImportExportConfiguration()->setExpandRepeats(expandRepeats);
     emit midiExpandRepeatsChanged(expandRepeats);
 }
 

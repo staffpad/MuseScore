@@ -22,8 +22,6 @@
 
 #include "measurebase.h"
 
-#include "rw/xml.h"
-
 #include "factory.h"
 #include "layoutbreak.h"
 #include "measure.h"
@@ -610,70 +608,6 @@ MeasureBase* MeasureBase::prevMM() const
 }
 
 //---------------------------------------------------------
-//   writeProperties
-//---------------------------------------------------------
-
-void MeasureBase::writeProperties(XmlWriter& xml) const
-{
-    EngravingItem::writeProperties(xml);
-    for (const EngravingItem* e : el()) {
-        e->write(xml);
-    }
-}
-
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool MeasureBase::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-    if (tag == "LayoutBreak") {
-        LayoutBreak* lb = Factory::createLayoutBreak(this);
-        lb->read(e);
-        bool doAdd = true;
-        switch (lb->layoutBreakType()) {
-        case LayoutBreakType::LINE:
-            if (lineBreak()) {
-                doAdd = false;
-            }
-            break;
-        case LayoutBreakType::PAGE:
-            if (pageBreak()) {
-                doAdd = false;
-            }
-            break;
-        case LayoutBreakType::SECTION:
-            if (sectionBreak()) {
-                doAdd = false;
-            }
-            break;
-        case LayoutBreakType::NOBREAK:
-            if (noBreak()) {
-                doAdd = false;
-            }
-            break;
-        }
-        if (doAdd) {
-            add(lb);
-            cleanupLayoutBreaks(false);
-        } else {
-            delete lb;
-        }
-    } else if (tag == "StaffTypeChange") {
-        StaffTypeChange* stc = Factory::createStaffTypeChange(this);
-        stc->setTrack(e.context()->track());
-        stc->setParent(this);
-        stc->read(e);
-        add(stc);
-    } else if (EngravingItem::readProperties(e)) {
-    } else {
-        return false;
-    }
-    return true;
-}
-
-//---------------------------------------------------------
 //   index
 //---------------------------------------------------------
 
@@ -681,8 +615,12 @@ int MeasureBase::index() const
 {
     int idx = 0;
     MeasureBase* m = score()->first();
+    Measure* mmRestFirst = nullptr;
+    if (isMeasure() && toMeasure(this)->isMMRest()) {
+        mmRestFirst = toMeasure(this)->mmRestFirst();
+    }
     while (m) {
-        if (m == this) {
+        if (m == this || m == mmRestFirst) {
             return idx;
         }
         m = m->next();

@@ -22,7 +22,8 @@
 
 #include "durationelement.h"
 
-#include "rw/xml.h"
+#include "rw/400/twrite.h"
+#include "realfn.h"
 
 #include "property.h"
 #include "score.h"
@@ -61,10 +62,20 @@ DurationElement::DurationElement(const DurationElement& e)
 
 DurationElement::~DurationElement()
 {
-    if (_tuplet && _tuplet->contains(this)) {
-        while (Tuplet* t = topTuplet()) {   // delete tuplets from top to bottom
-            delete t;       // Tuplet destructor removes references to the deleted object
+    if (_tuplet) {
+        // Note that this sanity check is different from and unrelated to the next `if` condition.
+        // See tuplet.h for the difference between `_tuplet->contains` (which involves `_tuplet->
+        // _currentElements`) and `tuplet->_allElements`.
+        assert(mu::contains(_tuplet->_allElements, this));
+
+        if (_tuplet->contains(this)) {
+            while (Tuplet* t = topTuplet()) { // delete tuplets from top to bottom
+                delete t;   // Tuplet destructor removes references to the deleted object
+            }
         }
+        // else, the tuplet is in the UndoStack and will be deleted there
+
+        setTuplet(nullptr);
     }
 }
 
@@ -96,6 +107,14 @@ Fraction DurationElement::globalTicks() const
     return f;
 }
 
+float DurationElement::timeStretchFactor() const
+{
+    int nominalDuration = _duration.ticks();
+    int actualDuration = actualTicks().ticks();
+
+    return actualDuration / static_cast<float>(nominalDuration);
+}
+
 //---------------------------------------------------------
 //   actualTicks
 //---------------------------------------------------------
@@ -117,27 +136,16 @@ void DurationElement::readAddTuplet(Tuplet* t)
     }
 }
 
-//---------------------------------------------------------
-//   writeTupletStart
-//---------------------------------------------------------
-
-void DurationElement::writeTupletStart(XmlWriter& xml) const
+void DurationElement::setTuplet(Tuplet* t)
 {
-    if (tuplet() && tuplet()->elements().front() == this) {
-        tuplet()->writeTupletStart(xml);               // recursion
-        tuplet()->write(xml);
+    if (_tuplet) {
+        _tuplet->removeDurationElement(this);
     }
-}
 
-//---------------------------------------------------------
-//   writeTupletEnd
-//---------------------------------------------------------
+    _tuplet = t;
 
-void DurationElement::writeTupletEnd(XmlWriter& xml) const
-{
-    if (tuplet() && tuplet()->elements().back() == this) {
-        xml.tag("endTuplet");
-        tuplet()->writeTupletEnd(xml);               // recursion
+    if (_tuplet) {
+        _tuplet->addDurationElement(this);
     }
 }
 

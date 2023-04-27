@@ -78,9 +78,12 @@ public:
     std::vector<InstanceMeta> instances() const override;
     async::Notification instancesChanged() const override;
 
+    void notifyAboutInstanceWasQuited() override;
+
     // Quit for all
     void quitForAll() override;
     void quitAllAndRestartLast() override;
+    void quitAllAndRunInstallation(const io::path_t& installerPath) override;
 
 private:
 

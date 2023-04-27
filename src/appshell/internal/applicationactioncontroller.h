@@ -57,6 +57,7 @@ class ApplicationActionController : public QObject, public IApplicationActionCon
     INJECT(appshell, framework::IApplication, application)
 
 public:
+    void preInit();
     void init();
 
     ValCh<bool> isFullScreen() const;
@@ -64,14 +65,13 @@ public:
     void onDragEnterEvent(QDragEnterEvent* event) override;
     void onDragMoveEvent(QDragMoveEvent* event) override;
     void onDropEvent(QDropEvent* event) override;
-    bool canReceiveAction(const mu::actions::ActionCode&) const override;
 
 private:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
     void setupConnections();
 
-    void quit(bool isAllInstances);
+    bool quit(bool isAllInstances, const io::path_t& installerPath = io::path_t());
     void restart();
 
     void toggleFullScreen();
@@ -81,13 +81,11 @@ private:
 
     void openOnlineHandbookPage();
     void openAskForHelpPage();
-    void openBugReportPage();
-    void openLeaveFeedbackPage();
     void openPreferencesDialog();
 
     void revertToFactorySettings();
 
-    void checkForUpdate();
+    bool m_quiting = false;
 
     async::Channel<bool> m_fullScreenChannel;
     async::Channel<actions::ActionCodeList> m_actionsReceiveAvailableChanged;

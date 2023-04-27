@@ -21,11 +21,13 @@
  */
 
 #include "stafftypechange.h"
-#include "rw/xml.h"
+
 #include "score.h"
 #include "measure.h"
 #include "system.h"
 #include "staff.h"
+
+#include "log.h"
 
 using namespace mu;
 using namespace mu::engraving;
@@ -57,39 +59,6 @@ StaffTypeChange::~StaffTypeChange()
 {
     if (m_staffType && m_ownsStaffType) {
         delete m_staffType;
-    }
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void StaffTypeChange::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    if (m_staffType) {
-        m_staffType->write(xml);
-    }
-    EngravingItem::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void StaffTypeChange::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "StaffType") {
-            StaffType* st = new StaffType();
-            st->read(e);
-            // Measure::add() will replace this with a pointer to a copy in the staff
-            setStaffType(st, true);
-        } else if (!EngravingItem::readProperties(e)) {
-            e.unknown();
-        }
     }
 }
 
@@ -134,7 +103,7 @@ void StaffTypeChange::layout()
 
 void StaffTypeChange::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     using namespace mu::draw;
     if (score()->printing() || !score()->showUnprintable()) {
         return;

@@ -89,6 +89,7 @@ QList<mu::engraving::EngravingItem*> ElementRepositoryService::findElementsByTyp
     case mu::engraving::ElementType::TEXT: return findTexts();
     case mu::engraving::ElementType::TREMOLO: return findTremolos();
     case mu::engraving::ElementType::BRACKET: return findBrackets();
+    case mu::engraving::ElementType::REST: return findRests();
     case mu::engraving::ElementType::PEDAL:
     case mu::engraving::ElementType::GLISSANDO:
     case mu::engraving::ElementType::VIBRATO:
@@ -141,7 +142,7 @@ const
 {
     QList<mu::engraving::EngravingItem*> resultList;
 
-    for (const mu::engraving::EngravingItem* element : rawElementList) {
+    for (mu::engraving::EngravingItem* element : rawElementList) {
         mu::engraving::ElementType elementType = element->type();
 
         //! NOTE: instrument names can't survive the layout process,
@@ -156,9 +157,7 @@ const
             continue;
         }
 
-        if (!resultList.contains(element->elementBase())) {
-            resultList << element->elementBase();
-        }
+        resultList << element;
 
         if (elementType == mu::engraving::ElementType::BEAM) {
             const mu::engraving::Beam* beam = mu::engraving::toBeam(element);
@@ -174,34 +173,57 @@ const
 
 QList<mu::engraving::EngravingItem*> ElementRepositoryService::findChords() const
 {
-    QList<mu::engraving::EngravingItem*> resultList;
+    QSet<mu::engraving::EngravingItem*> elements;
 
     for (mu::engraving::EngravingItem* element : m_exposedElementList) {
         if (element->type() == mu::engraving::ElementType::CHORD) {
-            resultList << element;
+            elements << element;
+            continue;
+        }
+
+        mu::engraving::EngravingItem* chord = element->findAncestor(mu::engraving::ElementType::CHORD);
+        if (chord) {
+            elements << chord;
         }
     }
 
-    return resultList;
+    return QList<mu::engraving::EngravingItem*>(elements.begin(), elements.end());
 }
 
 QList<mu::engraving::EngravingItem*> ElementRepositoryService::findNotes() const
 {
-    QList<mu::engraving::EngravingItem*> resultList;
+    QList<mu::engraving::EngravingItem*> result;
 
-    for (const mu::engraving::EngravingItem* element : findChords()) {
-        const mu::engraving::Chord* chord = mu::engraving::toChord(element);
-
-        if (!chord) {
+    for (engraving::EngravingItem* element : m_rawElementList) {
+        if (element->isNote()) {
+            result << element;
             continue;
         }
 
-        for (mu::engraving::EngravingItem* note : chord->notes()) {
-            resultList << note;
+        engraving::EngravingItem* elementBase = element->elementBase();
+
+        if (elementBase->isChord()) {
+            engraving::Chord* chord = engraving::toChord(elementBase);
+
+            for (mu::engraving::Note* note : chord->notes()) {
+                result << note;
+            }
+        } else if (elementBase->isBeam()) {
+            const mu::engraving::Beam* beam = mu::engraving::toBeam(elementBase);
+
+            for (mu::engraving::ChordRest* chordRest : beam->elements()) {
+                if (!chordRest->isChord()) {
+                    continue;
+                }
+
+                for (mu::engraving::Note* note : engraving::toChord(chordRest)->notes()) {
+                    result << note;
+                }
+            }
         }
     }
 
-    return resultList;
+    return result;
 }
 
 QList<mu::engraving::EngravingItem*> ElementRepositoryService::findNoteHeads() const
@@ -409,6 +431,19 @@ QList<mu::engraving::EngravingItem*> ElementRepositoryService::findBrackets() co
 
     for (mu::engraving::EngravingItem* element : m_exposedElementList) {
         if (element->isBracketItem()) {
+            resultList << element;
+        }
+    }
+
+    return resultList;
+}
+
+QList<mu::engraving::EngravingItem*> ElementRepositoryService::findRests() const
+{
+    QList<mu::engraving::EngravingItem*> resultList;
+
+    for (mu::engraving::EngravingItem* element : m_exposedElementList) {
+        if (element->isRest()) {
             resultList << element;
         }
     }

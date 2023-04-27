@@ -22,24 +22,24 @@
 
 #include "audiooutputhandler.h"
 
-#include "config.h"
-
-#include "log.h"
 #include "async/async.h"
+#include "containers.h"
 
 #include "internal/audiosanitizer.h"
 #include "internal/audiothread.h"
 #include "internal/worker/audioengine.h"
 #include "audioerrors.h"
 
-#ifdef ENABLE_AUDIO_EXPORT
+#ifdef MUE_ENABLE_AUDIO_EXPORT
 #include "internal/soundtracks/soundtrackwriter.h"
 #endif
+
+#include "log.h"
 
 using namespace mu::audio;
 using namespace mu::async;
 
-#ifdef ENABLE_AUDIO_EXPORT
+#ifdef MUE_ENABLE_AUDIO_EXPORT
 using namespace mu::audio::soundtrack;
 #endif
 
@@ -120,6 +120,19 @@ void AudioOutputHandler::setMasterOutputParams(const AudioOutputParams& params)
     }, AudioThread::ID);
 }
 
+void AudioOutputHandler::clearMasterOutputParams()
+{
+    Async::call(this, [this]() {
+        ONLY_AUDIO_WORKER_THREAD;
+
+        IF_ASSERT_FAILED(mixer()) {
+            return;
+        }
+
+        mixer()->clearMasterOutputParams();
+    }, AudioThread::ID);
+}
+
 Channel<AudioOutputParams> AudioOutputHandler::masterOutputParamsChanged() const
 {
     ONLY_AUDIO_MAIN_OR_WORKER_THREAD;
@@ -183,19 +196,56 @@ Promise<bool> AudioOutputHandler::saveSoundTrack(const TrackSequenceId sequenceI
             return reject(static_cast<int>(Err::InvalidSequenceId), "invalid sequence id");
         }
 
-#ifdef ENABLE_AUDIO_EXPORT
+#ifdef MUE_ENABLE_AUDIO_EXPORT
+        s->player()->stop();
         s->player()->seek(0);
         msecs_t totalDuration = s->player()->duration();
-        SoundTrackWriter writer(destination, format, totalDuration, mixer());
 
-        bool ok = writer.write();
+        SoundTrackWriterPtr writer = std::make_shared<SoundTrackWriter>(destination, format, totalDuration, mixer());
+        m_saveSoundTracksWritersMap[sequenceId] = writer;
+
+        framework::Progress progress = saveSoundTrackProgress(sequenceId);
+        writer->progress().progressChanged.onReceive(this, [&progress](int64_t current, int64_t total, std::string title) {
+            progress.progressChanged.send(current, total, title);
+        });
+
+        Ret ret = writer->write();
         s->player()->seek(0);
 
-        return resolve(ok);
+        m_saveSoundTracksWritersMap.erase(sequenceId);
+
+        if (!ret) {
+            return reject(ret.code(), ret.text());
+        }
+
+        return resolve(ret);
 #else
         return reject(static_cast<int>(Err::DisabledAudioExport), "audio export is disabled");
 #endif
     }, AudioThread::ID);
+}
+
+void AudioOutputHandler::abortSavingAllSoundTracks()
+{
+#ifdef MUE_ENABLE_AUDIO_EXPORT
+    for (auto writer : m_saveSoundTracksWritersMap) {
+        writer.second->abort();
+    }
+#endif
+}
+
+mu::framework::Progress AudioOutputHandler::saveSoundTrackProgress(const TrackSequenceId sequenceId)
+{
+    if (!contains(m_saveSoundTracksProgressMap, sequenceId)) {
+        m_saveSoundTracksProgressMap.emplace(sequenceId, framework::Progress());
+    }
+
+    return m_saveSoundTracksProgressMap[sequenceId];
+}
+
+void AudioOutputHandler::clearAllFx()
+{
+    fxResolver()->clearAllFx();
 }
 
 std::shared_ptr<Mixer> AudioOutputHandler::mixer() const

@@ -24,10 +24,12 @@
 
 #include "compat/pageformat.h"
 #include "rw/compat/readchordlisthook.h"
-#include "rw/xml.h"
+#include "rw/xmlreader.h"
+#include "rw/xmlwriter.h"
 #include "types/typesconv.h"
 
 #include "libmscore/mscore.h"
+#include "libmscore/types.h"
 
 #include "defaultstyle.h"
 
@@ -334,6 +336,10 @@ void MStyle::read(XmlReader& e, compat::ReadChordListHook* readChordListHook)
                     || tag == "propertyDistance")
                    && defaultStyleVersion() < 400) {
             // Ignoring pre-4.0 articulation style settings. Using the new defaults instead
+            e.skipCurrentElement();
+        } else if ((tag == "bracketDistance")
+                   && defaultStyleVersion() < 400) {
+            // Ignoring pre-4.0 brackets distance settings. Using the new defaults instead.
             e.skipCurrentElement();
         } else if (!readProperties(e)) {
             e.unknown();

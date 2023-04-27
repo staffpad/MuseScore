@@ -63,15 +63,15 @@ public:
     GraceNotesGroup(Chord* c);
 
     Chord* parent() const { return _parent; }
-    Shape shape() const override { return _shape; }
+    Shape shape() const override;
     void layout() override;
     void setPos(double x, double y) override;
     Segment* appendedSegment() const { return _appendedSegment; }
     void setAppendedSegment(Segment* s) { _appendedSegment = s; }
+    void addToShape();
 
 private:
     Chord* _parent = nullptr;
-    Shape _shape;
     Segment* _appendedSegment = nullptr; // the graceNoteGroup is appended to this segment
 };
 
@@ -93,6 +93,9 @@ private:
 class Chord final : public ChordRest
 {
     OBJECT_ALLOCATOR(engraving, Chord)
+    DECLARE_CLASSOF(ElementType::CHORD)
+
+private:
 
     std::vector<Note*> _notes;           // sorted to decreasing line step
     LedgerLine* _ledgerLines = nullptr;  // single linked list
@@ -119,9 +122,27 @@ class Chord final : public ChordRest
 
     double _defaultStemLength;
     double _minStemLength;
-    double _relativeMag = 1; // mag() but relative to the staff size
 
     bool _isUiItem = false;
+
+    double _dotPosX = 0.0;
+
+    struct StartEndSlurs {
+        bool startUp = false;
+        bool startDown = false;
+        bool endUp = false;
+        bool endDown = false;
+        void reset()
+        {
+            startUp = false;
+            startDown = false;
+            endUp = false;
+            endDown = false;
+        }
+    } _startEndSlurs;
+
+    bool _allowKerningAbove = true;
+    bool _allowKerningBelow = true;
 
     std::vector<Articulation*> _articulations;
 
@@ -133,7 +154,9 @@ class Chord final : public ChordRest
     double downPos() const override;
     double centerX() const;
     void addLedgerLines();
-    void processSiblings(std::function<void(EngravingItem*)> func) const;
+
+    // `includeTemporarySiblings`: whether items that are deleted & recreated during every layout should also be processed
+    void processSiblings(std::function<void(EngravingItem*)> func, bool includeTemporarySiblings) const;
 
     void layoutPitched();
     void layoutTablature();
@@ -152,7 +175,6 @@ class Chord final : public ChordRest
     int calcMinStemLength();
     int calc4BeamsException(int stemLength) const;
     double calcDefaultStemLength();
-    void calcRelativeMag();
 
 public:
 
@@ -173,14 +195,10 @@ public:
     void undoUnlink() override;
 
     void setScore(Score* s) override;
-    double chordMag() const;
+    double intrinsicMag() const override;
     double mag() const override;
-    double relativeMag() const { return _relativeMag; }
     double noteHeadWidth() const;
 
-    void write(XmlWriter& xml) const override;
-    void read(XmlReader&) override;
-    bool readProperties(XmlReader&) override;
     EngravingItem* drop(EditData&) override;
 
     void setColor(const mu::draw::Color& c) override;
@@ -224,9 +242,11 @@ public:
 
     Stem* stem() const { return _stem; }
     Arpeggio* arpeggio() const { return _arpeggio; }
+    void setArpeggio(Arpeggio* a) { _arpeggio = a; }
     Tremolo* tremolo() const { return _tremolo; }
+    void setTremolo(Tremolo* t, bool applyLogic = true);
+
     ChordLine* chordLine() const;
-    void setTremolo(Tremolo* t);
     bool endsGlissando() const { return _endsGlissando; }
     void setEndsGlissando(bool val) { _endsGlissando = val; }
     void updateEndsGlissando();
@@ -253,6 +273,7 @@ public:
 
     bool underBeam() const;
     Hook* hook() const { return _hook; }
+    void setHook(Hook* h) { _hook = h; }
 
     //@ add an element to the Chord
     void add(EngravingItem*) override;
@@ -274,7 +295,8 @@ public:
     void computeUp() override;
     static int computeAutoStemDirection(const std::vector<int>& noteDistances);
 
-    double dotPosX() const;
+    double dotPosX() const { return _dotPosX; }
+    void setDotPosX(double x) { _dotPosX = x; }
 
     bool noStem() const { return _noStem; }
     void setNoStem(bool val) { _noStem = val; }
@@ -287,7 +309,7 @@ public:
     TremoloChordType tremoloChordType() const;
 
     void layoutArticulations();
-    void layoutArticulations2();
+    void layoutArticulations2(bool layoutOnCrossBeamSide = false);
     void layoutArticulations3(Slur* s);
 
     std::vector<Articulation*>& articulations() { return _articulations; }
@@ -333,7 +355,12 @@ public:
     void undoChangeProperty(Pid id, const PropertyValue& newValue);
     void undoChangeProperty(Pid id, const PropertyValue& newValue, PropertyFlags ps) override;
 
-    bool isSlurStartEnd() const;
+    void styleChanged() override;
+    StartEndSlurs& startEndSlurs() { return _startEndSlurs; }
+    void checkStartEndSlurs();
+    bool allowKerningAbove() const { return _allowKerningAbove; }
+    bool allowKerningBelow() const { return _allowKerningBelow; }
+    void computeKerningExceptions();
 };
 } // namespace mu::engraving
 #endif

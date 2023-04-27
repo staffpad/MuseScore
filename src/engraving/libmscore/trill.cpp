@@ -25,13 +25,13 @@
 #include <cmath>
 
 #include "types/typesconv.h"
-#include "rw/xml.h"
+
+#include "iengravingfont.h"
 
 #include "accidental.h"
 #include "factory.h"
 #include "score.h"
 #include "staff.h"
-#include "symbolfont.h"
 #include "system.h"
 
 #include "log.h"
@@ -65,7 +65,7 @@ TrillSegment::TrillSegment(System* parent)
 
 void TrillSegment::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     painter->setPen(spanner()->curColor());
     drawSymbols(_symbols, painter);
 }
@@ -107,7 +107,7 @@ void TrillSegment::symbolLine(SymId start, SymId fill)
     double x2 = pos2().x();
     double w   = x2 - x1;
     double mag = magS();
-    SymbolFont* f = score()->symbolFont();
+    IEngravingFontPtr f = score()->engravingFont();
 
     _symbols.clear();
     _symbols.push_back(start);
@@ -127,7 +127,7 @@ void TrillSegment::symbolLine(SymId start, SymId fill, SymId end)
     double x2 = pos2().x();
     double w   = x2 - x1;
     double mag = magS();
-    SymbolFont* f = score()->symbolFont();
+    IEngravingFontPtr f = score()->engravingFont();
 
     _symbols.clear();
     _symbols.push_back(start);
@@ -374,53 +374,6 @@ LineSegment* Trill::createLineSegment(System* parent)
     seg->setColor(color());
     seg->initElementStyle(&trillSegmentStyle);
     return seg;
-}
-
-//---------------------------------------------------------
-//   Trill::write
-//---------------------------------------------------------
-
-void Trill::write(XmlWriter& xml) const
-{
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    xml.startElement(this);
-    xml.tag("subtype", TConv::toXml(trillType()));
-    writeProperty(xml, Pid::PLAY);
-    writeProperty(xml, Pid::ORNAMENT_STYLE);
-    writeProperty(xml, Pid::PLACEMENT);
-    SLine::writeProperties(xml);
-    if (_accidental) {
-        _accidental->write(xml);
-    }
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   Trill::read
-//---------------------------------------------------------
-
-void Trill::read(XmlReader& e)
-{
-    eraseSpannerSegments();
-
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "subtype") {
-            setTrillType(TConv::fromXml(e.readAsciiText(), TrillType::TRILL_LINE));
-        } else if (tag == "Accidental") {
-            _accidental = Factory::createAccidental(this);
-            _accidental->read(e);
-            _accidental->setParent(this);
-        } else if (tag == "ornamentStyle") {
-            readProperty(e, Pid::ORNAMENT_STYLE);
-        } else if (tag == "play") {
-            setPlayArticulation(e.readBool());
-        } else if (!SLine::readProperties(e)) {
-            e.unknown();
-        }
-    }
 }
 
 //---------------------------------------------------------

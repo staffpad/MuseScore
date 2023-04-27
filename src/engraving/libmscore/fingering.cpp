@@ -24,8 +24,7 @@
 
 #include "translation.h"
 
-#include "rw/xml.h"
-
+#include "beam.h"
 #include "chord.h"
 #include "measure.h"
 #include "note.h"
@@ -68,7 +67,7 @@ Fingering::Fingering(Note* parent, ElementFlags ef)
 //   layoutType
 //---------------------------------------------------------
 
-ElementType Fingering::layoutType()
+ElementType Fingering::layoutType() const
 {
     switch (textStyleType()) {
     case TextStyleType::FINGERING:
@@ -108,8 +107,9 @@ void Fingering::layout()
     if (explicitParent()) {
         Fraction tick = parentItem()->tick();
         const Staff* st = staff();
-        if (st && st->isTabStaff(tick) && !st->staffType(tick)->showTabFingering()) {
-            setbbox(RectF());
+        _skipDraw = false;
+        if (st && st->isTabStaff(tick) && (!st->staffType(tick)->showTabFingering() || textStyleType() == TextStyleType::STRING_NUMBER)) {
+            _skipDraw = true;
             return;
         }
     }
@@ -247,7 +247,7 @@ void Fingering::layout()
 
 void Fingering::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     TextBase::draw(painter);
 }
 
@@ -258,15 +258,6 @@ bool Fingering::isEditAllowed(EditData& ed) const
     }
 
     return TextBase::isEditAllowed(ed);
-}
-
-bool Fingering::edit(EditData& ed)
-{
-    if (!isEditAllowed(ed)) {
-        return false;
-    }
-
-    return TextBase::edit(ed);
 }
 
 //---------------------------------------------------------
@@ -280,6 +271,17 @@ String Fingering::accessibleInfo() const
         rez += u' ' + mtrc("engraving", "String number");
     }
     return String(u"%1: %2").arg(rez, plainText());
+}
+
+bool Fingering::isOnCrossBeamSide() const
+{
+    Chord* chord = note() ? note()->chord() : nullptr;
+    if (!chord) {
+        return false;
+    }
+    return layoutType() == ElementType::CHORD
+           && chord->beam() && (chord->beam()->cross() || chord->staffMove() != 0)
+           && placeAbove() == chord->up();
 }
 
 //---------------------------------------------------------

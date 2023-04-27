@@ -56,7 +56,7 @@ void ProjectAutoSaver::init()
 
     globalContext()->currentProjectChanged().onNotify(this, [this]() {
         if (auto project = currentProject()) {
-            if (project->isNewlyCreated()) {
+            if (project->isNewlyCreated() && !project->isImported()) {
                 Ret ret = project->save(configuration()->newProjectTemporaryPath(), SaveMode::AutoSave);
                 if (!ret) {
                     LOGE() << "[autosave] failed to save project, err: " << ret.toString();
@@ -146,6 +146,11 @@ void ProjectAutoSaver::onTrySave()
 
     if (!project->needSave().val) {
         LOGD() << "[autosave] project does not need save";
+        return;
+    }
+
+    if (!project->canSave()) {
+        LOGD() << "[autosave] project could not be saved";
         return;
     }
 

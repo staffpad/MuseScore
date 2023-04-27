@@ -39,8 +39,12 @@ public:
     virtual void signIn() = 0;
     virtual void signOut() = 0;
 
+    virtual Ret ensureAuthorization(const std::string& text = {}) = 0;
+
     virtual ValCh<bool> userAuthorized() const = 0;
     virtual ValCh<AccountInfo> accountInfo() const = 0;
+
+    virtual Ret checkCloudIsAvailable() const = 0;
 };
 }
 

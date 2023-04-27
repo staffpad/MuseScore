@@ -44,6 +44,7 @@ class Segment;
 class Slur;
 class TabDurationSymbol;
 enum class SegmentType;
+class BeamSegment;
 
 //-------------------------------------------------------------------
 //   ChordRest
@@ -53,10 +54,12 @@ enum class SegmentType;
 class ChordRest : public DurationElement
 {
     OBJECT_ALLOCATOR(engraving, ChordRest)
+    DECLARE_CLASSOF(ElementType::INVALID) // dummy
 
     ElementList _el;
     TDuration _durationType;
-    int _staffMove;           // -1, 0, +1, used for crossbeaming
+    int _staffMove; // -1, 0, +1, used for crossbeaming
+    int _storedStaffMove = 0; // used to remember and re-apply staff move if needed
 
     void processSiblings(std::function<void(EngravingItem*)> func);
 
@@ -65,6 +68,7 @@ protected:
     TabDurationSymbol* _tabDur;           // stores a duration symbol in tablature staves
 
     Beam* _beam;
+    BeamSegment* _beamlet = nullptr;
     BeamMode _beamMode;
     bool _up;                             // actual stem direction
     bool _usesAutoUp;
@@ -91,15 +95,12 @@ public:
 
     virtual Segment* segment() const { return (Segment*)explicitParent(); }
 
-    virtual void writeProperties(XmlWriter& xml) const override;
-    virtual bool readProperties(XmlReader&) override;
-    virtual void readAddConnector(ConnectorInfoReader* info, bool pasteMode) override;
-
     void setBeamMode(BeamMode m) { _beamMode = m; }
     void undoSetBeamMode(BeamMode m);
     BeamMode beamMode() const { return _beamMode; }
 
     void setBeam(Beam* b);
+    void setBeamlet(BeamSegment* b);
     virtual Beam* beam() const final;
     int beams() const { return _durationType.hooks(); }
     virtual double upPos()   const = 0;
@@ -123,8 +124,10 @@ public:
     void undoSetSmall(bool val);
 
     int staffMove() const { return _staffMove; }
+    int storedStaffMove() const { return _storedStaffMove; }
     void setStaffMove(int val) { _staffMove = val; }
     staff_idx_t vStaffIdx() const override { return staffIdx() + _staffMove; }
+    void checkStaffMoveValidity();
 
     const TDuration durationType() const
     {
@@ -155,6 +158,7 @@ public:
 
     const std::vector<Lyrics*>& lyrics() const { return _lyrics; }
     std::vector<Lyrics*>& lyrics() { return _lyrics; }
+    Lyrics* lyrics(int verse) const;
     Lyrics* lyrics(int verse, PlacementV) const;
     int lastVerse(PlacementV) const;
     bool isMelismaEnd() const;
@@ -186,7 +190,7 @@ public:
     bool isGraceBefore() const;
     bool isGraceAfter() const;
     Breath* hasBreathMark() const;
-    void writeBeam(XmlWriter& xml) const;
+
     Segment* nextSegmentAfterCR(SegmentType types) const;
 
     void setScore(Score* s) override;
@@ -207,6 +211,8 @@ public:
     bool isBefore(const ChordRest*) const;
 
     void undoAddAnnotation(EngravingItem*);
+
+    virtual double intrinsicMag() const = 0;
 };
 } // namespace mu::engraving
 #endif

@@ -26,8 +26,6 @@
 
 #include "containers.h"
 
-#include "rw/xml.h"
-
 #include "barline.h"
 #include "chord.h"
 #include "lyrics.h"
@@ -65,41 +63,6 @@ LineSegment::LineSegment(const ElementType& type, System* parent, ElementFlags f
 LineSegment::LineSegment(const LineSegment& s)
     : SpannerSegment(s)
 {
-}
-
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool LineSegment::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-    if (tag == "subtype") {
-        setSpannerSegmentType(SpannerSegmentType(e.readInt()));
-    } else if (tag == "off2") {
-        setUserOff2(e.readPoint() * score()->spatium());
-    }
-/*      else if (tag == "pos") {
-            setOffset(PointF());
-            e.readNext();
-            }
-      */
-    else if (!SpannerSegment::readProperties(e)) {
-        e.unknown();
-        return false;
-    }
-    return true;
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void LineSegment::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        readProperties(e);
-    }
 }
 
 //---------------------------------------------------------
@@ -218,6 +181,9 @@ void LineSegment::startDrag(EditData& ed)
 {
     SpannerSegment::startDrag(ed);
     ElementEditDataPtr eed = ed.getData(this);
+    if (!eed) {
+        return;
+    }
     eed->pushProperty(Pid::OFFSET2);
 }
 
@@ -228,6 +194,9 @@ void LineSegment::startDrag(EditData& ed)
 void LineSegment::startEditDrag(EditData& ed)
 {
     ElementEditDataPtr eed = ed.getData(this);
+    if (!eed) {
+        return;
+    }
     eed->pushProperty(Pid::OFFSET);
     eed->pushProperty(Pid::OFFSET2);
     eed->pushProperty(Pid::AUTOPLACE);
@@ -452,12 +421,11 @@ Segment* LineSegment::findSegmentForGrip(Grip grip, PointF pos) const
     SLine* l = line();
     const bool left = (grip == Grip::START);
 
-    Segment* const oldSeg = left ? l->startSegment() : score()->tick2leftSegmentMM(l->tick2() - Fraction::eps());
     const staff_idx_t oldStaffIndex = left ? staffIdx() : track2staff(l->effectiveTrack2());
 
     const double spacingFactor = left ? 0.5 : 1.0;   // defines the point where canvas is divided between segments, systems etc.
 
-    System* sys = oldSeg->system();
+    System* sys = system();
     const std::vector<System*> foundSystems = score()->searchSystem(pos, sys, spacingFactor);
 
     if (!foundSystems.empty() && !mu::contains(foundSystems, sys) && foundSystems[0]->staves().size()) {
@@ -665,7 +633,7 @@ void LineSegment::rebaseAnchors(EditData& ed, Grip grip)
         // the line will just push away other systems according to autoplacement
         // rules if necessary.
         PointF cpos = canvasPos();
-        cpos.setY(l->startSegment()->system()->staffCanvasYpage(l->staffIdx()));           // prevent cross-system move
+        cpos.setY(system()->staffCanvasYpage(l->staffIdx()));           // prevent cross-system move
 
         Segment* seg1 = findSegmentForGrip(Grip::START, cpos);
         Segment* seg2 = findSegmentForGrip(Grip::END, cpos + pos2());
@@ -847,7 +815,7 @@ PointF SLine::linePos(Grip grip, System** sys) const
     {
         ChordRest* cr;
         if (grip == Grip::START) {
-            cr = toChordRest(startElement());
+            cr = (startElement() && startElement()->isChordRest()) ? toChordRest(startElement()) : nullptr;
             if (cr && type() == ElementType::OTTAVA) {
                 // some sources say to center the text over the notehead
                 // others say to start the text just to left of notehead
@@ -860,7 +828,7 @@ PointF SLine::linePos(Grip grip, System** sys) const
 //                                    x = -cr->spaceLw;  // account for accidentals, etc
             }
         } else {
-            cr = toChordRest(endElement());
+            cr = (endElement() && endElement()->isChordRest()) ? toChordRest(endElement()) : nullptr;
             if (isOttava()) {
                 if (cr && cr->durationType() == DurationType::V_MEASURE) {
                     x = cr->x() + cr->width() + sp;
@@ -937,7 +905,7 @@ PointF SLine::linePos(Grip grip, System** sys) const
                 } else {
                     x = spatium() - score()->styleMM(Sid::minNoteDistance);
                 }
-            } else if (isHairpin() || isTrill() || isVibrato() || isTextLine() || isLyricsLine()) {
+            } else if (isHairpin() || isTrill() || isVibrato() || isTextLine() || isLyricsLine() || isGradualTempoChange()) {
                 // (for LYRICSLINE, this is hyphen; melisma line is handled above)
                 // lay out to just before next chordrest on this staff, or barline
                 // tick2 actually tells us the right chordrest to look for
@@ -970,11 +938,31 @@ PointF SLine::linePos(Grip grip, System** sys) const
             }
         }
 
-        Fraction t = grip == Grip::START ? tick() : tick2();
-        Measure* m = cr ? cr->measure() : score()->tick2measure(t);
+        Measure* m = nullptr;
+        if (cr) {
+            m = cr->measure();
+            x += cr->segment()->pos().x() + m->pos().x();
+        } else {
+            Segment* segment = (grip == Grip::START) ? startSegment() : endSegment();
+            if (grip == Grip::END && segment && segment->rtick().ticks() == 0) {
+                // The line should end on the left-most segment at this tick. If endSegment() is the first of
+                // the measure, we need to look back for other segments (eg endBarLine) in the prev measure
+                Segment* prevSegment = segment->prev1MM();
+                while (prevSegment && prevSegment->tick() == segment->tick()) {
+                    segment = prevSegment;
+                    prevSegment = segment->prev1MM();
+                }
+            }
+            if (segment) {
+                m = segment->measure();
+                if (m->isMMRest() && m->mmRest()) {
+                    m = m->mmRest();
+                }
+                x += m->pos().x() + segment->pos().x() - (grip == Grip::START ? 0 : sp);
+            }
+        }
 
         if (m) {
-            x += cr ? cr->segment()->pos().x() + m->pos().x() : m->tick2pos(t);
             *sys = m->system();
         } else {
             *sys = 0;
@@ -1286,122 +1274,6 @@ void SLine::layout()
 }
 
 //---------------------------------------------------------
-//   writeProperties
-//    write properties different from prototype
-//---------------------------------------------------------
-
-void SLine::writeProperties(XmlWriter& xml) const
-{
-    if (!endElement()) {
-        ((Spanner*)this)->computeEndElement();                    // HACK
-        if (!endElement()) {
-            xml.tagFraction("ticks", ticks());
-        }
-    }
-    Spanner::writeProperties(xml);
-    if (_diagonal) {
-        xml.tag("diagonal", _diagonal);
-    }
-    writeProperty(xml, Pid::LINE_WIDTH);
-    writeProperty(xml, Pid::LINE_STYLE);
-    writeProperty(xml, Pid::COLOR);
-    writeProperty(xml, Pid::ANCHOR);
-    writeProperty(xml, Pid::DASH_LINE_LEN);
-    writeProperty(xml, Pid::DASH_GAP_LEN);
-    if (score()->isPaletteScore()) {
-        // when used as icon
-        if (!spannerSegments().empty()) {
-            const LineSegment* s = frontSegment();
-            xml.tag("length", s->pos2().x());
-        } else {
-            xml.tag("length", spatium() * 4);
-        }
-        return;
-    }
-    //
-    // check if user has modified the default layout
-    //
-    bool modified = false;
-    for (const SpannerSegment* seg : spannerSegments()) {
-        if (!seg->autoplace() || !seg->visible()
-            || (seg->propertyFlags(Pid::MIN_DISTANCE) == PropertyFlags::UNSTYLED
-                || seg->getProperty(Pid::MIN_DISTANCE) != seg->propertyDefault(Pid::MIN_DISTANCE))
-            || (!seg->isStyled(Pid::OFFSET) && (!seg->offset().isNull() || !seg->userOff2().isNull()))) {
-            modified = true;
-            break;
-        }
-    }
-    if (!modified) {
-        return;
-    }
-
-    //
-    // write user modified layout and other segment properties
-    //
-    double _spatium = score()->spatium();
-    for (const SpannerSegment* seg : spannerSegments()) {
-        xml.startElement("Segment", seg);
-        xml.tag("subtype", int(seg->spannerSegmentType()));
-        // TODO:
-        // NOSTYLE offset written in EngravingItem::writeProperties,
-        // so we probably don't need to duplicate it here
-        // see https://musescore.org/en/node/286848
-        //if (seg->propertyFlags(Pid::OFFSET) & PropertyFlags::UNSTYLED)
-        xml.tagPoint("offset", seg->offset() / _spatium);
-        xml.tagPoint("off2", seg->userOff2() / _spatium);
-        seg->writeProperty(xml, Pid::MIN_DISTANCE);
-        seg->EngravingItem::writeProperties(xml);
-        xml.endElement();
-    }
-}
-
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool SLine::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-
-    if (tag == "tick2") {                  // obsolete
-        if (tick() == Fraction(-1, 1)) {   // not necessarily set (for first note of score?) #30151
-            setTick(e.context()->tick());
-        }
-        setTick2(Fraction::fromTicks(e.readInt()));
-    } else if (tag == "tick") {           // obsolete
-        setTick(Fraction::fromTicks(e.readInt()));
-    } else if (tag == "ticks") {
-        setTicks(Fraction::fromTicks(e.readInt()));
-    } else if (tag == "Segment") {
-        LineSegment* ls = createLineSegment(score()->dummy()->system());
-        ls->setTrack(track());     // needed in read to get the right staff mag
-        ls->read(e);
-        add(ls);
-        ls->setVisible(visible());
-    } else if (tag == "length") {
-        setLen(e.readDouble());
-    } else if (tag == "diagonal") {
-        setDiagonal(e.readInt());
-    } else if (tag == "anchor") {
-        setAnchor(Anchor(e.readInt()));
-    } else if (tag == "lineWidth") {
-        _lineWidth = e.readDouble() * spatium();
-    } else if (readProperty(tag, e, Pid::LINE_STYLE)) {
-    } else if (tag == "dashLineLength") {
-        _dashLineLen = e.readDouble();
-    } else if (tag == "dashGapLength") {
-        _dashGapLen = e.readDouble();
-    } else if (tag == "lineColor") {
-        _lineColor = e.readColor();
-    } else if (tag == "color") {
-        _lineColor = e.readColor();
-    } else if (!Spanner::readProperties(e)) {
-        return false;
-    }
-    return true;
-}
-
-//---------------------------------------------------------
 //   setLen
 //    used to create an element suitable for palette
 //---------------------------------------------------------
@@ -1429,36 +1301,6 @@ const mu::RectF& SLine::bbox() const
         setbbox(segmentAt(0)->bbox());
     }
     return EngravingItem::bbox();
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void SLine::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    SLine::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void SLine::read(XmlReader& e)
-{
-    eraseSpannerSegments();
-
-    if (score()->mscVersion() < 301) {
-        e.context()->addSpanner(e.intAttribute("id", -1), this);
-    }
-
-    while (e.readNextStartElement()) {
-        if (!SLine::readProperties(e)) {
-            e.unknown();
-        }
-    }
 }
 
 //---------------------------------------------------------
@@ -1499,7 +1341,11 @@ bool SLine::setProperty(Pid id, const PropertyValue& v)
         _lineColor = v.value<mu::draw::Color>();
         break;
     case Pid::LINE_WIDTH:
-        _lineWidth = v.value<Millimetre>();
+        if (v.type() == P_TYPE::MILLIMETRE) {
+            _lineWidth = v.value<Millimetre>();
+        } else if (v.type() == P_TYPE::SPATIUM) {
+            _lineWidth = v.value<Spatium>().toMM(spatium());
+        }
         break;
     case Pid::LINE_STYLE:
         _lineStyle = v.value<LineType>();

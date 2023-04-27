@@ -22,7 +22,6 @@
 
 #include "breath.h"
 
-#include "rw/xml.h"
 #include "types/symnames.h"
 
 #include "measure.h"
@@ -95,53 +94,6 @@ void Breath::layout()
 }
 
 //---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Breath::write(XmlWriter& xml) const
-{
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    xml.startElement(this);
-    writeProperty(xml, Pid::SYMBOL);
-    writeProperty(xml, Pid::PAUSE);
-    EngravingItem::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Breath::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "subtype") {                 // obsolete
-            switch (e.readInt()) {
-            case 0:
-            case 1:
-                _symId = SymId::breathMarkComma;
-                break;
-            case 2:
-                _symId = SymId::caesuraCurved;
-                break;
-            case 3:
-                _symId = SymId::caesura;
-                break;
-            }
-        } else if (tag == "symbol") {
-            _symId = SymNames::symIdByName(e.readAsciiText());
-        } else if (tag == "pause") {
-            _pause = e.readDouble();
-        } else if (!EngravingItem::readProperties(e)) {
-            e.unknown();
-        }
-    }
-}
-
-//---------------------------------------------------------
 //   mag
 //---------------------------------------------------------
 
@@ -156,7 +108,7 @@ double Breath::mag() const
 
 void Breath::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     painter->setPen(curColor());
     drawSymbol(_symId, painter);
 }
@@ -267,7 +219,7 @@ void Breath::added()
         return;
     }
 
-    score()->setUpTempoMap();
+    score()->setUpTempoMapLater();
 }
 
 void Breath::removed()
@@ -276,6 +228,6 @@ void Breath::removed()
         return;
     }
 
-    score()->setUpTempoMap();
+    score()->setUpTempoMapLater();
 }
 }

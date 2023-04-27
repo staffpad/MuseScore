@@ -44,26 +44,39 @@ public:
     ButtonData buttonData(Button b) const override;
 
     // info
-    Result info(const std::string& title, const std::string& text, const ButtonDatas& buttons, int defBtn = int(Button::NoButton),
+    Result info(const std::string& title, const std::string& text, const Buttons& buttons, int defBtn = int(Button::NoButton),
+                const Options& options = {}) const override;
+
+    Result info(const std::string& title, const Text& text, const ButtonDatas& buttons, int defBtn = int(Button::NoButton),
                 const Options& options = {}) const override;
 
     // warning
     Result warning(const std::string& title, const std::string& text, const Buttons& buttons, const Button& def = Button::NoButton,
-                   const Options& options = {}) const override;
+                   const Options& options = { WithIcon }) const override;
 
     Result warning(const std::string& title, const Text& text, const ButtonDatas& buttons, int defBtn = int(Button::NoButton),
-                   const Options& options = {}) const override;
+                   const Options& options = { WithIcon }) const override;
+
+    Result warning(const std::string& title, const Text& text, const std::string& detailedText, const ButtonDatas& buttons,
+                   int defBtn = int(Button::NoButton), const Options& options = { WithIcon }) const override;
 
     // error
     Result error(const std::string& title, const std::string& text, const Buttons& buttons, const Button& def = Button::NoButton,
-                 const Options& options = {}) const override;
+                 const Options& options = { WithIcon }) const override;
 
     Result error(const std::string& title, const Text& text, const ButtonDatas& buttons, int defBtn = int(Button::NoButton),
-                 const Options& options = {}) const override;
+                 const Options& options = { WithIcon }) const override;
+
+    Result error(const std::string& title, const Text& text, const std::string& detailedText, const ButtonDatas& buttons,
+                 int defBtn = int(Button::NoButton), const Options& options = { WithIcon }) const override;
+
+    // progress
+    Ret showProgress(const std::string& title, framework::Progress* progress) const override;
 
     // files
-    io::path_t selectOpeningFile(const QString& title, const io::path_t& dir, const QString& filter) override;
-    io::path_t selectSavingFile(const QString& title, const io::path_t& dir, const QString& filter, bool confirmOverwrite = true) override;
+    io::path_t selectOpeningFile(const QString& title, const io::path_t& dir, const std::vector<std::string>& filter) override;
+    io::path_t selectSavingFile(const QString& title, const io::path_t& path, const std::vector<std::string>& filter,
+                                bool confirmOverwrite = true) override;
 
     // dirs
     io::path_t selectDirectory(const QString& title, const io::path_t& dir) override;
@@ -86,6 +99,7 @@ public:
     void close(const std::string& uri) override;
     void close(const Uri& uri) override;
     void close(const UriQuery& uri) override;
+    void closeAllDialogs() override;
 
     ValCh<Uri> currentUri() const override;
     std::vector<Uri> stack() const override;

@@ -43,7 +43,7 @@ using namespace mu::mpe;
 
 static constexpr double FLUID_GLOBAL_VOLUME_GAIN = 4.8;
 static constexpr int DEFAULT_MIDI_VOLUME = 100;
-static constexpr msecs_t MIN_NOTE_LENGTH = 25;
+static constexpr msecs_t MIN_NOTE_LENGTH = 10;
 
 /// @note
 ///  Fluid does not support MONO, so they start counting audio channels from 1, which means "1 pair of audio channels"
@@ -141,8 +141,6 @@ Ret FluidSynth::init()
 
     createFluidInstance();
 
-    m_currentExpressionLevel = DEFAULT_MIDI_VOLUME;
-
     m_sequencer.flushedOffStreamEvents().onNotify(this, [this]() {
         revokePlayingNotes();
     });
@@ -167,20 +165,18 @@ bool FluidSynth::handleEvent(const midi::Event& event)
     switch (event.opcode()) {
     case Event::Opcode::NoteOn: {
         ret = fluid_synth_noteon(m_fluid->synth, event.channel(), event.note(), event.velocity());
+        m_tuning.add(event.note(), event.pitchTuningCents());
     } break;
     case Event::Opcode::NoteOff: {
         ret = fluid_synth_noteoff(m_fluid->synth, event.channel(), event.note());
+        m_tuning.add(event.note(), event.pitchTuningCents());
     } break;
     case Event::Opcode::ControlChange: {
-        int currentValue = 0;
-        fluid_synth_get_cc(m_fluid->synth, event.channel(), event.index(), &currentValue);
-
-        if (event.data() == static_cast<uint32_t>(currentValue)) {
-            break;
+        if (event.index() == midi::EXPRESSION_CONTROLLER) {
+            ret = setExpressionLevel(event.data());
+        } else {
+            ret = setControllerValue(event);
         }
-
-        ret = fluid_synth_cc(m_fluid->synth, event.channel(), event.index(), event.data());
-        updateCurrentExpressionLevel(event);
     } break;
     case Event::Opcode::ProgramChange: {
         fluid_synth_program_change(m_fluid->synth, event.channel(), event.program());
@@ -197,13 +193,6 @@ bool FluidSynth::handleEvent(const midi::Event& event)
     midiOutPort()->sendEvent(event);
 
     return ret == FLUID_OK;
-}
-
-void FluidSynth::updateCurrentExpressionLevel(const midi::Event& event)
-{
-    if (event.index() == 11) {
-        m_currentExpressionLevel = event.data();
-    }
 }
 
 void FluidSynth::setSampleRate(unsigned int sampleRate)
@@ -263,32 +252,29 @@ void FluidSynth::setupSound(const PlaybackSetupData& setupData)
         return;
     }
 
-    m_channels.clear();
-    m_articulationMapping.clear();
+    fluid_synth_activate_key_tuning(m_fluid->synth, 0, 0, "standard", NULL, true);
 
-    const Programs& programs = findPrograms(setupData);
-    for (const Program& program : programs) {
-        m_channels.emplace(static_cast<int>(m_channels.size()), program);
+    auto setupChannel = [this](const midi::channel_t channelIdx, const midi::Program& program) {
+        fluid_synth_set_interp_method(m_fluid->synth, channelIdx, FLUID_INTERP_DEFAULT);
+        fluid_synth_pitch_wheel_sens(m_fluid->synth, channelIdx, 24);
+        fluid_synth_bank_select(m_fluid->synth, channelIdx, program.bank);
+        fluid_synth_program_change(m_fluid->synth, channelIdx, program.program);
+        fluid_synth_cc(m_fluid->synth, channelIdx, 7, DEFAULT_MIDI_VOLUME);
+        fluid_synth_cc(m_fluid->synth, channelIdx, 74, 0);
+        fluid_synth_set_portamento_mode(m_fluid->synth, channelIdx, FLUID_CHANNEL_PORTAMENTO_MODE_EACH_NOTE);
+        fluid_synth_set_legato_mode(m_fluid->synth, channelIdx, FLUID_CHANNEL_LEGATO_MODE_RETRIGGER);
+        fluid_synth_activate_tuning(m_fluid->synth, channelIdx, 0, 0, 0);
+    };
+
+    m_sequencer.channelAdded().onReceive(this, setupChannel);
+    m_sequencer.init(setupData);
+
+    for (const auto& voice : m_sequencer.channels().data()) {
+        for (const auto& pair : voice.second) {
+            const ChannelMap::ChannelMapping& channelMapping = pair.second;
+            setupChannel(channelMapping.first, channelMapping.second);
+        }
     }
-
-    m_articulationMapping = articulationSounds(setupData);
-    for (const auto& pair : m_articulationMapping) {
-        m_channels.emplace(static_cast<int>(m_channels.size()), pair.second);
-    }
-
-    for (const auto& pair : m_channels) {
-        fluid_synth_set_interp_method(m_fluid->synth, pair.first, FLUID_INTERP_DEFAULT);
-        fluid_synth_pitch_wheel_sens(m_fluid->synth, pair.first, 12);
-        fluid_synth_bank_select(m_fluid->synth, pair.first, pair.second.bank);
-        fluid_synth_program_change(m_fluid->synth, pair.first, pair.second.program);
-        fluid_synth_cc(m_fluid->synth, pair.first, 7, m_currentExpressionLevel);
-        fluid_synth_cc(m_fluid->synth, pair.first, 74, 0);
-        fluid_synth_set_portamento_mode(m_fluid->synth, pair.first, FLUID_CHANNEL_PORTAMENTO_MODE_EACH_NOTE);
-        fluid_synth_set_legato_mode(m_fluid->synth, pair.first, FLUID_CHANNEL_LEGATO_MODE_RETRIGGER);
-        fluid_synth_activate_tuning(m_fluid->synth, pair.first, 0, 0, 0);
-    }
-
-    m_sequencer.init(m_articulationMapping, m_channels);
 }
 
 void FluidSynth::setupEvents(const mpe::PlaybackData& playbackData)
@@ -336,6 +322,10 @@ msecs_t FluidSynth::playbackPosition() const
 void FluidSynth::setPlaybackPosition(const msecs_t newPosition)
 {
     m_sequencer.setPlaybackPosition(newPosition);
+
+    if (isActive()) {
+        setExpressionLevel(m_sequencer.currentExpressionLevel());
+    }
 }
 
 unsigned int FluidSynth::audioChannelsCount() const
@@ -353,13 +343,21 @@ samples_t FluidSynth::process(float* buffer, samples_t samplesPerChannel)
 
     const FluidSequencer::EventSequence& sequence = m_sequencer.eventsToBePlayed(nextMsecs);
 
+    if (!sequence.empty()) {
+        m_tuning.reset();
+    }
+
     for (const FluidSequencer::EventType& event : sequence) {
         handleEvent(std::get<midi::Event>(event));
     }
 
+    fluid_synth_tune_notes(m_fluid->synth, 0, 0, m_tuning.size(), m_tuning.keys.data(), m_tuning.pitches.data(), true);
+
+    unsigned int channelCount = audioChannelsCount();
+
     int result = fluid_synth_write_float(m_fluid->synth, samplesPerChannel,
-                                         buffer, 0, audioChannelsCount(),
-                                         buffer, 1, audioChannelsCount());
+                                         buffer, 0, channelCount,
+                                         buffer, 1, channelCount);
 
     if (result != FLUID_OK) {
         return 0;
@@ -378,10 +376,31 @@ void FluidSynth::toggleExpressionController()
     int volume = DEFAULT_MIDI_VOLUME;
 
     if (isActive()) {
-        volume = m_currentExpressionLevel;
+        volume = m_sequencer.currentExpressionLevel();
     }
 
-    for (const auto& pair : m_channels) {
-        fluid_synth_cc(m_fluid->synth, pair.first, 11, volume);
+    setExpressionLevel(volume);
+}
+
+int FluidSynth::setExpressionLevel(int level)
+{
+    midi::channel_t lastChannelIdx = m_sequencer.channels().lastIndex();
+
+    for (midi::channel_t i = 0; i < lastChannelIdx; ++i) {
+        fluid_synth_cc(m_fluid->synth, i, midi::EXPRESSION_CONTROLLER, level);
     }
+
+    return FLUID_OK;
+}
+
+int FluidSynth::setControllerValue(const midi::Event& event)
+{
+    int currentValue = 0;
+    fluid_synth_get_cc(m_fluid->synth, event.channel(), event.index(), &currentValue);
+
+    if (event.data() == static_cast<uint32_t>(currentValue)) {
+        return FLUID_OK;
+    }
+
+    return fluid_synth_cc(m_fluid->synth, event.channel(), event.index(),  event.data());
 }

@@ -25,10 +25,11 @@
 #include "io/file.h"
 
 #include "engraving/infrastructure/smufl.h"
-#include "engraving/infrastructure/symbolfonts.h"
-#include "engraving/rw/xml.h"
+
 #include "engraving/types/symnames.h"
 #include "engraving/types/typesconv.h"
+
+#include "engraving/rw/xmlwriter.h"
 
 #include "libmscore/chord.h"
 #include "libmscore/factory.h"
@@ -98,6 +99,8 @@ NoteHeadGroup noteHeadNames[] = {
     NoteHeadGroup::HEAD_FA,
     NoteHeadGroup::HEAD_LA,
     NoteHeadGroup::HEAD_TI,
+    NoteHeadGroup::HEAD_SWISS_RUDIMENTS_FLAM,
+    NoteHeadGroup::HEAD_SWISS_RUDIMENTS_DOUBLE,
     NoteHeadGroup::HEAD_CUSTOM
 };
 
@@ -118,13 +121,13 @@ struct SymbolIcon {
         QPixmap image(w, h);
         image.fill(Qt::transparent);
         mu::draw::Painter painter(&image, "generateicon");
-        const mu::RectF& bbox = SymbolFonts::fallbackFont()->bbox(id, 1);
+        const mu::RectF& bbox = EditDrumsetDialog::engravingFonts()->fallbackFont()->bbox(id, 1);
         const qreal actualSymbolScale = std::min(w / bbox.width(), h / bbox.height());
         qreal mag = std::min(defaultScale, actualSymbolScale);
         const qreal& xStShift = (w - mag * bbox.width()) / 2 - mag * bbox.left();
         const qreal& yStShift = (h - mag * bbox.height()) / 2 - mag * bbox.top();
         const mu::PointF& stPtPos = mu::PointF(xStShift, yStShift);
-        SymbolFonts::fallbackFont()->draw(id, &painter, mag, stPtPos);
+        EditDrumsetDialog::engravingFonts()->fallbackFont()->draw(id, &painter, mag, stPtPos);
         icon.addPixmap(image);
         return SymbolIcon(id, icon);
     }
@@ -142,13 +145,12 @@ EditDrumsetDialog::EditDrumsetDialog(QWidget* parent)
 
     const INotationInteractionPtr interaction = m_notation->interaction();
     INotationInteraction::HitElementContext context = interaction->hitElementContext();
-    const Measure* measure = toMeasure(context.element);
 
-    if (measure && context.staff) {
-        mu::engraving::Instrument* instrument = context.staff->part()->instrument(measure->tick());
+    if (context.element && context.staff) {
+        mu::engraving::Instrument* instrument = context.staff->part()->instrument(context.element->tick());
         m_instrumentKey.instrumentId = instrument->id();
         m_instrumentKey.partId = context.staff->part()->id();
-        m_instrumentKey.tick = measure->tick();
+        m_instrumentKey.tick = context.element->tick();
         m_originDrumset = *instrument->drumset();
     } else {
         NoteInputState state = m_notation->interaction()->noteInput()->state();
@@ -188,7 +190,8 @@ EditDrumsetDialog::EditDrumsetDialog(QWidget* parent)
     pitchList->setColumnWidth(2, 30);
 
     QStringList validNoteheadRanges
-        = { "Noteheads", "Round and square noteheads", "Slash noteheads", "Shape note noteheads", "Shape note noteheads supplement" };
+        = { "Noteheads", "Round and square noteheads", "Slash noteheads", "Shape note noteheads", "Shape note noteheads supplement",
+            "Techniques noteheads" };
     QSet<QString> excludeSym = { "noteheadParenthesisLeft", "noteheadParenthesisRight", "noteheadParenthesis", "noteheadNull" };
     QStringList primaryNoteheads = {
         "noteheadXOrnate",
@@ -622,7 +625,7 @@ void EditDrumsetDialog::updateExample()
 
 void EditDrumsetDialog::load()
 {
-    QString filter = mu::qtrc("palette", "MuseScore drumset file") + " (*.drm)";
+    std::vector<std::string> filter = { mu::trc("palette", "MuseScore drumset file") + " (*.drm)" };
     mu::io::path_t dir = notationConfiguration()->userStylesPath();
     mu::io::path_t fname = interactive()->selectOpeningFile(mu::qtrc("palette", "Load drumset"), dir, filter);
 
@@ -671,7 +674,7 @@ void EditDrumsetDialog::load()
 
 void EditDrumsetDialog::save()
 {
-    QString filter = mu::qtrc("palette", "MuseScore drumset file") + " (*.drm)";
+    std::vector<std::string> filter = { mu::trc("palette", "MuseScore drumset file") + " (*.drm)" };
     mu::io::path_t dir = notationConfiguration()->userStylesPath();
     mu::io::path_t fname = interactive()->selectSavingFile(mu::qtrc("palette", "Save drumset"), dir, filter);
 

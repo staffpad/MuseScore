@@ -25,6 +25,7 @@
 #include "modularity/imoduleexport.h"
 #include "types/uri.h"
 #include "types/retval.h"
+#include "progress.h"
 
 #include "iinteractive.h"
 
@@ -43,19 +44,28 @@ public:
                                  int defBtn = int(framework::IInteractive::Button::NoButton),
                                  const framework::IInteractive::Options& options = {}) = 0;
 
-    virtual RetVal<Val> info(const std::string& title, const std::string& text, const framework::IInteractive::ButtonDatas& buttons,
+    virtual RetVal<Val> info(const std::string& title, const framework::IInteractive::Text& text,
+                             const framework::IInteractive::ButtonDatas& buttons,
                              int defBtn = int(framework::IInteractive::Button::NoButton),
                              const framework::IInteractive::Options& options = {}) = 0;
 
-    virtual RetVal<Val> warning(const std::string& title, const framework::IInteractive::Text& text,
-                                const framework::IInteractive::ButtonDatas& buttons,
+    virtual RetVal<Val> warning(const std::string& title, const framework::IInteractive::Text& text, const std::string& detailedText = {},
+                                const framework::IInteractive::ButtonDatas& buttons = {},
                                 int defBtn = int(framework::IInteractive::Button::NoButton),
                                 const framework::IInteractive::Options& options = {}) = 0;
 
-    virtual RetVal<Val> error(const std::string& title, const framework::IInteractive::Text& text,
-                              const framework::IInteractive::ButtonDatas& buttons,
+    virtual RetVal<Val> error(const std::string& title, const framework::IInteractive::Text& text, const std::string& detailedText = {},
+                              const framework::IInteractive::ButtonDatas& buttons = {},
                               int defBtn = int(framework::IInteractive::Button::NoButton),
                               const framework::IInteractive::Options& options = {}) = 0;
+
+    virtual Ret showProgress(const std::string& title, framework::Progress* progress) = 0;
+
+    virtual RetVal<io::path_t> selectOpeningFile(const std::string& title, const io::path_t& dir,
+                                                 const std::vector<std::string>& filter) = 0;
+    virtual RetVal<io::path_t> selectSavingFile(const std::string& title, const io::path_t& path, const std::vector<std::string>& filter,
+                                                bool confirmOverwrite) = 0;
+    virtual RetVal<io::path_t> selectDirectory(const std::string& title, const io::path_t& dir) = 0;
 
     virtual RetVal<Val> open(const UriQuery& uri) = 0;
     virtual RetVal<bool> isOpened(const Uri& uri) const = 0;
@@ -66,8 +76,10 @@ public:
 
     virtual void close(const Uri& uri) = 0;
     virtual void close(const UriQuery& uri) = 0;
+    virtual void closeAllDialogs() = 0;
 
     virtual ValCh<Uri> currentUri() const = 0;
+    virtual async::Notification currentUriAboutToBeChanged() const = 0;
     virtual std::vector<Uri> stack() const = 0;
 
     virtual QWindow* topWindow() const = 0;

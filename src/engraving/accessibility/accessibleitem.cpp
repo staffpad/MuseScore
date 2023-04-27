@@ -116,12 +116,12 @@ const IAccessible* AccessibleItem::accessibleParent() const
         return nullptr;
     }
 
-    EngravingObject* p = m_element->parent();
-    if (!p || !p->isEngravingItem()) {
+    EngravingItem* p = m_element->parentItem(false /*not explicit*/);
+    if (!p) {
         return nullptr;
     }
 
-    return static_cast<EngravingItem*>(p)->accessible().get();
+    return p->accessible().get();
 }
 
 size_t AccessibleItem::accessibleChildCount() const
@@ -167,6 +167,11 @@ const IAccessible* AccessibleItem::accessibleChild(size_t i) const
     return nullptr;
 }
 
+QWindow* AccessibleItem::accessibleWindow() const
+{
+    return nullptr;
+}
+
 IAccessible::Role AccessibleItem::accessibleRole() const
 {
     return m_role;
@@ -179,16 +184,19 @@ QString AccessibleItem::accessibleName() const
     }
 
     AccessibleRoot* root = accessibleRoot();
+    QString commandInfo = root ? root->commandInfo() : "";
     QString staffInfo = root ? root->staffInfo() : "";
     QString barsAndBeats = m_element->formatBarsAndBeats();
 
     barsAndBeats.remove(u';'); // Too many pauses in speech
 
-    QString name = QString("%1%2%3%4")
+    QString name = QString("%1%2%3%4%5%6")
+                   .arg(!commandInfo.isEmpty() ? (commandInfo + "; ") : "")
                    .arg(!staffInfo.isEmpty() ? (staffInfo + "; ") : "")
                    .arg(m_element->screenReaderInfo().toQString())
                    .arg(m_element->visible() ? "" : " " + qtrc("engraving", "invisible"))
-                   .arg(!barsAndBeats.isEmpty() ? ("; " + barsAndBeats) : "");
+                   .arg(!barsAndBeats.isEmpty() ? ("; " + barsAndBeats) : "")
+                   .arg(root->isRangeSelection() ? ("; " + qtrc("engraving", "selected")) : "");
 
     return readable(name);
 }
@@ -199,13 +207,12 @@ QString AccessibleItem::accessibleDescription() const
         return QString();
     }
 
-    QString result;
-#ifdef Q_OS_MACOS
-    result = accessibleName() + " ";
-#endif
+    AccessibleRoot* root = accessibleRoot();
+    if (root->isRangeSelection()) {
+        return readable(root->rangeSelectionInfo());
+    }
 
-    result += readable(m_element->accessibleExtraInfo());
-    return result;
+    return readable(m_element->accessibleExtraInfo());
 }
 
 QVariant AccessibleItem::accessibleValue() const
@@ -285,6 +292,18 @@ QString AccessibleItem::accessibleText(int startOffset, int endOffset) const
     delete textCursor;
 
     return text;
+}
+
+QString AccessibleItem::accessibleTextBeforeOffset(int, TextBoundaryType, int*, int*) const
+{
+    NOT_IMPLEMENTED;
+    return QString();
+}
+
+QString AccessibleItem::accessibleTextAfterOffset(int, TextBoundaryType, int*, int*) const
+{
+    NOT_IMPLEMENTED;
+    return QString();
 }
 
 QString AccessibleItem::accessibleTextAtOffset(int offset, TextBoundaryType boundaryType, int* startOffset, int* endOffset) const

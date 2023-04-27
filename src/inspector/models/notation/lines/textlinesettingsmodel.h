@@ -42,18 +42,20 @@ class TextLineSettingsModel : public AbstractInspectorModel
 
     Q_PROPERTY(PropertyItem * startHookType READ startHookType CONSTANT)
     Q_PROPERTY(PropertyItem * endHookType READ endHookType CONSTANT)
-    Q_PROPERTY(PropertyItem * hookHeight READ hookHeight CONSTANT)
+    Q_PROPERTY(PropertyItem * startHookHeight READ startHookHeight CONSTANT)
+    Q_PROPERTY(PropertyItem * endHookHeight READ endHookHeight CONSTANT)
+    Q_PROPERTY(PropertyItem * gapBetweenTextAndLine READ gapBetweenTextAndLine CONSTANT)
 
     Q_PROPERTY(PropertyItem * placement READ placement CONSTANT)
 
     Q_PROPERTY(PropertyItem * beginningText READ beginningText CONSTANT)
-    Q_PROPERTY(PropertyItem * beginningTextVerticalOffset READ beginningTextVerticalOffset CONSTANT)
+    Q_PROPERTY(PropertyItem * beginningTextOffset READ beginningTextOffset CONSTANT)
 
     Q_PROPERTY(PropertyItem * continuousText READ continuousText CONSTANT)
-    Q_PROPERTY(PropertyItem * continuousTextVerticalOffset READ continuousTextVerticalOffset CONSTANT)
+    Q_PROPERTY(PropertyItem * continuousTextOffset READ continuousTextOffset CONSTANT)
 
     Q_PROPERTY(PropertyItem * endText READ endText CONSTANT)
-    Q_PROPERTY(PropertyItem * endTextVerticalOffset READ endTextVerticalOffset CONSTANT)
+    Q_PROPERTY(PropertyItem * endTextOffset READ endTextOffset CONSTANT)
 
 public:
     explicit TextLineSettingsModel(QObject* parent, IElementRepositoryService* repository,
@@ -70,18 +72,20 @@ public:
 
     PropertyItem* startHookType() const;
     PropertyItem* endHookType() const;
-    PropertyItem* hookHeight() const;
+    PropertyItem* startHookHeight() const;
+    PropertyItem* endHookHeight() const;
+    PropertyItem* gapBetweenTextAndLine() const;
 
     PropertyItem* placement() const;
 
     PropertyItem* beginningText() const;
-    PropertyItem* beginningTextVerticalOffset() const;
+    PropertyItem* beginningTextOffset() const;
 
     PropertyItem* continuousText() const;
-    PropertyItem* continuousTextVerticalOffset() const;
+    PropertyItem* continuousTextOffset() const;
 
     PropertyItem* endText() const;
-    PropertyItem* endTextVerticalOffset() const;
+    PropertyItem* endTextOffset() const;
 
     Q_INVOKABLE QVariantList possibleStartHookTypes() const;
     Q_INVOKABLE QVariantList possibleEndHookTypes() const;
@@ -112,7 +116,8 @@ protected:
     void createProperties() override;
     void loadProperties() override;
     void resetProperties() override;
-    void updatePropertiesOnNotationChanged() override;
+    void onNotationChanged(const mu::engraving::PropertyIdSet& changedPropertyIdSet,
+                           const mu::engraving::StyleIdSet& changedStyleIdSet) override;
 
     virtual void onUpdateLinePropertiesAvailability();
     virtual bool isTextVisible(TextType type) const;
@@ -122,6 +127,8 @@ protected:
 
 private:
     QVariantList hookTypesToObjList(const QList<HookTypeInfo>& types) const;
+
+    void loadProperties(const mu::engraving::PropertyIdSet& propertyIdSet);
 
     PropertyItem* m_lineStyle = nullptr;
     PropertyItem* m_placement = nullptr;
@@ -135,16 +142,18 @@ private:
 
     PropertyItem* m_startHookType = nullptr;
     PropertyItem* m_endHookType = nullptr;
-    PropertyItem* m_hookHeight = nullptr;
+    PropertyItem* m_startHookHeight = nullptr;
+    PropertyItem* m_endHookHeight = nullptr;
+    PropertyItem* m_gapBetweenTextAndLine = nullptr;
 
     PropertyItem* m_beginningText = nullptr;
-    PropertyItem* m_beginningTextVerticalOffset = nullptr;
+    PointFPropertyItem* m_beginningTextOffset = nullptr;
 
     PropertyItem* m_continuousText = nullptr;
-    PropertyItem* m_continuousTextVerticalOffset = nullptr;
+    PointFPropertyItem* m_continuousTextOffset = nullptr;
 
     PropertyItem* m_endText = nullptr;
-    PropertyItem* m_endTextVerticalOffset = nullptr;
+    PointFPropertyItem* m_endTextOffset = nullptr;
 
     QVariantList m_possibleStartHookTypes;
     QVariantList m_possibleEndHookTypes;

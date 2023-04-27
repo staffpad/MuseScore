@@ -36,21 +36,20 @@ class Chord;
 class Arpeggio final : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, Arpeggio)
+    DECLARE_CLASSOF(ElementType::ARPEGGIO)
 
     ArpeggioType _arpeggioType;
     double _userLen1;
     double _userLen2;
     double _height;
     int _span;                // spanning staves
-    SymIdList symbols;
+    SymIdList m_symbols;
     bool _playArpeggio;
 
     double _stretch;
 
     friend class Factory;
     Arpeggio(Chord* parent);
-
-    void symbolLine(SymId start, SymId fill);
 
     void spatiumChanged(double /*oldValue*/, double /*newValue*/) override;
     std::vector<mu::LineF> dragAnchorLines() const override;
@@ -85,13 +84,12 @@ public:
     bool isEditAllowed(EditData&) const override;
     bool edit(EditData&) override;
 
-    void read(XmlReader& e) override;
-    void write(XmlWriter& xml) const override;
     void reset() override;
 
     int span() const { return _span; }
     void setSpan(int val) { _span = val; }
     void setHeight(double) override;
+    void computeHeight(bool includeCrossStaffHeight = false);
 
     double userLen1() const { return _userLen1; }
     double userLen2() const { return _userLen2; }
@@ -105,6 +103,9 @@ public:
 
     double Stretch() const { return _stretch; }
     void setStretch(double val) { _stretch = val; }
+
+    void symbolLine(SymId start, SymId fill);
+    const SymIdList& symbols() { return m_symbols; }
 
     PropertyValue getProperty(Pid propertyId) const override;
     bool setProperty(Pid propertyId, const PropertyValue&) override;

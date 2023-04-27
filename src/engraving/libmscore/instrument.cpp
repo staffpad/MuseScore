@@ -22,9 +22,14 @@
 
 #include "instrument.h"
 
-#include "rw/xml.h"
 #include "infrastructure/htmlparser.h"
 #include "types/typesconv.h"
+
+#include "rw/xmlreader.h"
+#include "rw/xmlwriter.h"
+#include "rw/400/readcontext.h"
+#include "rw/400/tread.h"
+#include "rw/400/twrite.h"
 
 #include "compat/midi/event.h"
 //#include "compat/midi/midipatch.h"
@@ -49,89 +54,9 @@ namespace mu::engraving {
 const char* InstrChannel::DEFAULT_NAME = QT_TRANSLATE_NOOP("engraving/instruments", "normal");
 //: Channel name for the chord symbols playback channel, best keep translation shorter than 11 letters
 const char* InstrChannel::HARMONY_NAME = QT_TRANSLATE_NOOP("engraving/instruments", "harmony");
+const char* InstrChannel::PALM_MUTE_NAME = QT_TRANSLATE_NOOP("engraving/instruments", "palmmute");
 
 Instrument InstrumentList::defaultInstrument;
-const std::initializer_list<InstrChannel::Prop> PartChannelSettingsLink::excerptProperties {
-    InstrChannel::Prop::SOLOMUTE,
-    InstrChannel::Prop::SOLO,
-    InstrChannel::Prop::MUTE,
-};
-
-static void midi_event_write(const MidiCoreEvent& e, XmlWriter& xml)
-{
-    switch (e.type()) {
-    case ME_NOTEON:
-        xml.tag("note-on", { { "channel", e.channel() }, { "pitch", e.pitch() }, { "velo", e.velo() } });
-        break;
-
-    case ME_NOTEOFF:
-        xml.tag("note-off", { { "channel", e.channel() }, { "pitch", e.pitch() }, { "velo", e.velo() } });
-        break;
-
-    case ME_CONTROLLER:
-        if (e.controller() == CTRL_PROGRAM) {
-            if (e.channel() == 0) {
-                xml.tag("program", { { "value", e.value() } });
-            } else {
-                xml.tag("program", { { "channel", e.channel() }, { "value", e.value() } });
-            }
-        } else {
-            if (e.channel() == 0) {
-                xml.tag("controller", { { "ctrl", e.controller() }, { "value", e.value() } });
-            } else {
-                xml.tag("controller", { { "channel", e.channel() }, { "ctrl", e.controller() }, { "value", e.value() } });
-            }
-        }
-        break;
-    default:
-        LOGD("MidiCoreEvent::write: unknown type");
-        break;
-    }
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void NamedEventList::write(XmlWriter& xml, const AsciiStringView& n) const
-{
-    xml.startElement(n, { { "name", name } });
-    if (!descr.empty()) {
-        xml.tag("descr", descr);
-    }
-    for (const MidiCoreEvent& e : events) {
-        midi_event_write(e, xml);
-    }
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void NamedEventList::read(XmlReader& e)
-{
-    name = e.attribute("name");
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "program") {
-            MidiCoreEvent ev(ME_CONTROLLER, 0, CTRL_PROGRAM, e.intAttribute("value", 0));
-            events.push_back(ev);
-            e.skipCurrentElement();
-        } else if (tag == "controller") {
-            MidiCoreEvent ev;
-            ev.setType(ME_CONTROLLER);
-            ev.setDataA(e.intAttribute("ctrl", 0));
-            ev.setDataB(e.intAttribute("value", 0));
-            events.push_back(ev);
-            e.skipCurrentElement();
-        } else if (tag == "descr") {
-            descr = e.readText();
-        } else {
-            e.unknown();
-        }
-    }
-}
 
 //---------------------------------------------------------
 //   operator
@@ -173,7 +98,7 @@ Instrument::Instrument(const Instrument& i)
     _minPitchP    = i._minPitchP;
     _maxPitchP    = i._maxPitchP;
     _transpose    = i._transpose;
-    _instrumentId = i._instrumentId;
+    _musicXmlId   = i._musicXmlId;
     _stringData   = i._stringData;
     _drumset      = 0;
     setDrumset(i._drumset);
@@ -204,7 +129,7 @@ void Instrument::operator=(const Instrument& i)
     _minPitchP    = i._minPitchP;
     _maxPitchP    = i._maxPitchP;
     _transpose    = i._transpose;
-    _instrumentId = i._instrumentId;
+    _musicXmlId   = i._musicXmlId;
     _stringData   = i._stringData;
     _drumset      = 0;
     setDrumset(i._drumset);
@@ -241,118 +166,9 @@ StaffName::StaffName(const String& xmlText, int pos)
     TextBase::validateText(_name); // enforce HTML encoding
 }
 
-//---------------------------------------------------------
-//   StaffName::write
-//---------------------------------------------------------
-
-void StaffName::write(XmlWriter& xml, const char* tag) const
+String Instrument::recognizeMusicXmlId() const
 {
-    if (!name().isEmpty()) {
-        if (pos() == 0) {
-            xml.writeXml(String::fromUtf8(tag), name());
-        } else {
-            xml.writeXml(String(u"%1 pos=\"%2\"").arg(String::fromUtf8(tag)).arg(pos()), name());
-        }
-    }
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void StaffName::read(XmlReader& e)
-{
-    _pos  = e.intAttribute("pos", 0);
-    _name = e.readXml();
-    if (_name.startsWith(u"<html>")) {
-        // compatibility to old html implementation:
-        _name = HtmlParser::parse(_name);
-    }
-}
-
-//---------------------------------------------------------
-//   Instrument::write
-//---------------------------------------------------------
-
-void Instrument::write(XmlWriter& xml, const Part* part) const
-{
-    if (_id.isEmpty()) {
-        xml.startElement("Instrument");
-    } else {
-        xml.startElement("Instrument", { { "id", _id } });
-    }
-    _longNames.write(xml, "longName");
-    _shortNames.write(xml, "shortName");
-//      if (!_trackName.empty())
-    xml.tag("trackName", _trackName);
-    if (_minPitchP > 0) {
-        xml.tag("minPitchP", _minPitchP);
-    }
-    if (_maxPitchP < 127) {
-        xml.tag("maxPitchP", _maxPitchP);
-    }
-    if (_minPitchA > 0) {
-        xml.tag("minPitchA", _minPitchA);
-    }
-    if (_maxPitchA < 127) {
-        xml.tag("maxPitchA", _maxPitchA);
-    }
-    if (_transpose.diatonic) {
-        xml.tag("transposeDiatonic", _transpose.diatonic);
-    }
-    if (_transpose.chromatic) {
-        xml.tag("transposeChromatic", _transpose.chromatic);
-    }
-    if (!_instrumentId.isEmpty()) {
-        xml.tag("instrumentId", _instrumentId);
-    }
-    if (_useDrumset) {
-        xml.tag("useDrumset", _useDrumset);
-        _drumset->save(xml);
-    }
-    for (size_t i = 0; i < _clefType.size(); ++i) {
-        ClefTypeList ct = _clefType[i];
-        if (ct._concertClef == ct._transposingClef) {
-            if (ct._concertClef != ClefType::G) {
-                if (i) {
-                    xml.tag("clef", { { "staff", i + 1 } }, TConv::toXml(ct._concertClef));
-                } else {
-                    xml.tag("clef", TConv::toXml(ct._concertClef));
-                }
-            }
-        } else {
-            if (i) {
-                xml.tag("concertClef", { { "staff", i + 1 } }, TConv::toXml(ct._concertClef));
-                xml.tag("transposingClef", { { "staff", i + 1 } }, TConv::toXml(ct._transposingClef));
-            } else {
-                xml.tag("concertClef", TConv::toXml(ct._concertClef));
-                xml.tag("transposingClef", TConv::toXml(ct._transposingClef));
-            }
-        }
-    }
-
-    if (_singleNoteDynamics != getSingleNoteDynamicsFromTemplate()) {
-        xml.tag("singleNoteDynamics", _singleNoteDynamics);
-    }
-
-    if (!(_stringData == StringData())) {
-        _stringData.write(xml);
-    }
-    for (const NamedEventList& a : _midiActions) {
-        a.write(xml, "MidiAction");
-    }
-    for (const MidiArticulation& a : _articulation) {
-        a.write(xml);
-    }
-    for (const InstrChannel* a : _channel) {
-        a->write(xml, part);
-    }
-    xml.endElement();
-}
-
-String Instrument::recognizeInstrumentId() const
-{
-    static const String defaultInstrumentId(u"keyboard.piano");
+    static const String defaultMusicXmlId(u"keyboard.piano");
 
     std::list<String> nameList;
 
@@ -369,7 +185,7 @@ String Instrument::recognizeInstrumentId() const
     const InstrChannel* channel = this->channel(0);
 
     if (!channel) {
-        return defaultInstrumentId;
+        return defaultMusicXmlId;
     }
 
     const InstrumentTemplate* tmplMidiProgram = mu::engraving::searchTemplateForMidiProgram(channel->bank(), channel->program(),
@@ -384,7 +200,7 @@ String Instrument::recognizeInstrumentId() const
         return drumsetId;
     }
 
-    return defaultInstrumentId;
+    return defaultMusicXmlId;
 }
 
 String Instrument::recognizeId() const
@@ -399,7 +215,7 @@ String Instrument::recognizeId() const
     // There are some duplicate MusicXML IDs among other instruments too. In
     // that case we check the pitch range and use the shortest ID that matches.
     const String arco = String(u"arco");
-    const bool groupHack = instrumentId() == String(u"strings.group");
+    const bool groupHack = musicXmlId() == String(u"strings.group");
     const int idxref = channelIdx(arco);
     const int val32ref = (idxref < 0) ? -1 : channel(idxref)->bank();
     String fallback;
@@ -407,7 +223,7 @@ String Instrument::recognizeId() const
 
     for (InstrumentGroup* g : instrumentGroups) {
         for (InstrumentTemplate* it : g->instrumentTemplates) {
-            if (it->musicXMLid != instrumentId()) {
+            if (it->musicXMLid != musicXmlId()) {
                 continue;
             }
             if (groupHack) {
@@ -452,7 +268,7 @@ String Instrument::recognizeId() const
 
 int Instrument::recognizeMidiProgram() const
 {
-    InstrumentTemplate* tmplInstrumentId = mu::engraving::searchTemplateForMusicXmlId(_instrumentId);
+    InstrumentTemplate* tmplInstrumentId = mu::engraving::searchTemplateForMusicXmlId(_musicXmlId);
 
     if (tmplInstrumentId && !tmplInstrumentId->channel.empty() && tmplInstrumentId->channel[0].program() >= 0) {
         return tmplInstrumentId->channel[0].program();
@@ -471,132 +287,6 @@ int Instrument::recognizeMidiProgram() const
     }
 
     return 0;
-}
-
-//---------------------------------------------------------
-//   Instrument::read
-//---------------------------------------------------------
-
-void Instrument::read(XmlReader& e, Part* part)
-{
-    bool customDrumset = false;
-    bool readSingleNoteDynamics = false;
-
-    _channel.clear();         // remove default channel
-    _id = e.attribute("id");
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "singleNoteDynamics") {
-            _singleNoteDynamics = e.readBool();
-            readSingleNoteDynamics = true;
-        } else if (!readProperties(e, part, &customDrumset)) {
-            e.unknown();
-        }
-    }
-
-    if (_instrumentId.isEmpty()) {
-        _instrumentId = recognizeInstrumentId();
-    }
-
-    if (_id.isEmpty()) {
-        _id = recognizeId();
-    }
-
-    if (channel(0) && channel(0)->program() == -1) {
-        channel(0)->setProgram(recognizeMidiProgram());
-    }
-
-    if (!readSingleNoteDynamics) {
-        setSingleNoteDynamicsFromTemplate();
-    }
-}
-
-//---------------------------------------------------------
-//   Instrument::readProperties
-//---------------------------------------------------------
-
-bool Instrument::readProperties(XmlReader& e, Part* part, bool* customDrumset)
-{
-    const AsciiStringView tag(e.name());
-    if (tag == "longName") {
-        StaffName name;
-        name.read(e);
-        _longNames.push_back(name);
-    } else if (tag == "shortName") {
-        StaffName name;
-        name.read(e);
-        _shortNames.push_back(name);
-    } else if (tag == "trackName") {
-        _trackName = e.readText();
-    } else if (tag == "minPitch") {      // obsolete
-        _minPitchP = _minPitchA = e.readInt();
-    } else if (tag == "maxPitch") {       // obsolete
-        _maxPitchP = _maxPitchA = e.readInt();
-    } else if (tag == "minPitchA") {
-        _minPitchA = e.readInt();
-    } else if (tag == "minPitchP") {
-        _minPitchP = e.readInt();
-    } else if (tag == "maxPitchA") {
-        _maxPitchA = e.readInt();
-    } else if (tag == "maxPitchP") {
-        _maxPitchP = e.readInt();
-    } else if (tag == "transposition") {    // obsolete
-        _transpose.chromatic = e.readInt();
-        _transpose.diatonic = chromatic2diatonic(_transpose.chromatic);
-    } else if (tag == "transposeChromatic") {
-        _transpose.chromatic = e.readInt();
-    } else if (tag == "transposeDiatonic") {
-        _transpose.diatonic = e.readInt();
-    } else if (tag == "instrumentId") {
-        _instrumentId = e.readText();
-    } else if (tag == "useDrumset") {
-        _useDrumset = e.readInt();
-        if (_useDrumset) {
-            delete _drumset;
-            _drumset = new Drumset(*smDrumset);
-        }
-    } else if (tag == "Drum") {
-        // if we see on of this tags, a custom drumset will
-        // be created
-        if (!_drumset) {
-            _drumset = new Drumset(*smDrumset);
-        }
-        if (!(*customDrumset)) {
-            const_cast<Drumset*>(_drumset)->clear();
-            *customDrumset = true;
-        }
-        const_cast<Drumset*>(_drumset)->load(e);
-    }
-    // support tag "Tablature" for a while for compatibility with existent 2.0 scores
-    else if (tag == "Tablature" || tag == "StringData") {
-        _stringData.read(e);
-    } else if (tag == "MidiAction") {
-        NamedEventList a;
-        a.read(e);
-        _midiActions.push_back(a);
-    } else if (tag == "Articulation") {
-        MidiArticulation a;
-        a.read(e);
-        _articulation.push_back(a);
-    } else if (tag == "Channel" || tag == "channel") {
-        InstrChannel* a = new InstrChannel;
-        a->read(e, part);
-        _channel.push_back(a);
-    } else if (tag == "clef") {           // sets both transposing and concert clef
-        int idx = e.intAttribute("staff", 1) - 1;
-        ClefType ct = TConv::fromXml(e.readAsciiText(), ClefType::G);
-        setClefType(idx, ClefTypeList(ct, ct));
-    } else if (tag == "concertClef") {
-        int idx = e.intAttribute("staff", 1) - 1;
-        setClefType(idx, ClefTypeList(TConv::fromXml(e.readAsciiText(), ClefType::G), clefType(idx)._transposingClef));
-    } else if (tag == "transposingClef") {
-        int idx = e.intAttribute("staff", 1) - 1;
-        setClefType(idx, ClefTypeList(clefType(idx)._concertClef, TConv::fromXml(e.readAsciiText(), ClefType::G)));
-    } else {
-        return false;
-    }
-
-    return true;
 }
 
 //---------------------------------------------------------
@@ -639,12 +329,6 @@ InstrChannel::InstrChannel()
     _chorus   = 0;
     _reverb   = 0;
     _color = DEFAULT_COLOR;
-
-    _mute     = false;
-    _solo     = false;
-    _soloMute = false;
-
-//      LOGD("construct Channel ");
 }
 
 //---------------------------------------------------------
@@ -787,42 +471,6 @@ void InstrChannel::setChannel(int value)
 }
 
 //---------------------------------------------------------
-//   setSoloMute
-//---------------------------------------------------------
-
-void InstrChannel::setSoloMute(bool value)
-{
-    if (_soloMute != value) {
-        _soloMute = value;
-        firePropertyChanged(Prop::SOLOMUTE);
-    }
-}
-
-//---------------------------------------------------------
-//   setMute
-//---------------------------------------------------------
-
-void InstrChannel::setMute(bool value)
-{
-    if (_mute != value) {
-        _mute = value;
-        firePropertyChanged(Prop::MUTE);
-    }
-}
-
-//---------------------------------------------------------
-//   setSolo
-//---------------------------------------------------------
-
-void InstrChannel::setSolo(bool value)
-{
-    if (_solo != value) {
-        _solo = value;
-        firePropertyChanged(Prop::SOLO);
-    }
-}
-
-//---------------------------------------------------------
 //   setUserBankController
 //---------------------------------------------------------
 
@@ -831,165 +479,6 @@ void InstrChannel::setUserBankController(bool val)
     if (_userBankController != val) {
         _userBankController = val;
         firePropertyChanged(Prop::USER_BANK_CONTROL);
-    }
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void InstrChannel::write(XmlWriter& xml, const Part* part) const
-{
-    if (_name.isEmpty() || _name == DEFAULT_NAME) {
-        xml.startElement("Channel");
-    } else {
-        xml.startElement("Channel", { { "name", _name } });
-    }
-    if (_color != DEFAULT_COLOR) {
-        xml.tag("color", _color);
-    }
-
-    for (const MidiCoreEvent& e : initList()) {
-        if (e.type() == ME_INVALID) {
-            continue;
-        }
-        if (e.type() == ME_CONTROLLER) {
-            // Don't write bank if automatically switched, but always write if switched by the user
-            if (e.dataA() == CTRL_HBANK && e.dataB() == 0 && !_userBankController) {
-                continue;
-            }
-            if (e.dataA() == CTRL_LBANK && e.dataB() == 0 && !_userBankController) {
-                continue;
-            }
-            if (e.dataA() == CTRL_VOLUME && e.dataB() == 100) {
-                continue;
-            }
-            if (e.dataA() == CTRL_PANPOT && e.dataB() == 64) {
-                continue;
-            }
-            if (e.dataA() == CTRL_REVERB_SEND && e.dataB() == 0) {
-                continue;
-            }
-            if (e.dataA() == CTRL_CHORUS_SEND && e.dataB() == 0) {
-                continue;
-            }
-        }
-
-        midi_event_write(e, xml);
-    }
-    if (!MScore::testMode) {
-        // xml.tag("synti", ::synti->name(synti));
-        xml.tag("synti", _synti);
-    }
-    if (_mute) {
-        xml.tag("mute", _mute);
-    }
-    if (_solo) {
-        xml.tag("solo", _solo);
-    }
-
-    if (part && part->masterScore()->exportMidiMapping() && part->score() == part->masterScore()) {
-        xml.tag("midiPort",    part->masterScore()->midiMapping(_channel)->port());
-        xml.tag("midiChannel", part->masterScore()->midiMapping(_channel)->channel());
-    }
-    for (const NamedEventList& a : midiActions) {
-        a.write(xml, "MidiAction");
-    }
-    for (const MidiArticulation& a : articulation) {
-        a.write(xml);
-    }
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void InstrChannel::read(XmlReader& e, Part* part)
-{
-    // synti = 0;
-    _name = e.attribute("name");
-    if (_name == "") {
-        _name = String::fromUtf8(DEFAULT_NAME);
-    }
-
-    int midiPort = -1;
-    int midiChannel = -1;
-
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "program") {
-            _program = e.intAttribute("value", -1);
-            if (_program == -1) {
-                _program = e.readInt();
-            } else {
-                e.readNext();
-            }
-        } else if (tag == "controller") {
-            int value = e.intAttribute("value", 0);
-            int ctrl  = e.intAttribute("ctrl", 0);
-            switch (ctrl) {
-            case CTRL_HBANK:
-                _bank = (value << 7) + (_bank & 0x7f);
-                _userBankController = true;
-                break;
-            case CTRL_LBANK:
-                _bank = (_bank & ~0x7f) + (value & 0x7f);
-                _userBankController = true;
-                break;
-            case CTRL_VOLUME:
-                _volume = value;
-                break;
-            case CTRL_PANPOT:
-                _pan = value;
-                break;
-            case CTRL_CHORUS_SEND:
-                _chorus = value;
-                break;
-            case CTRL_REVERB_SEND:
-                _reverb = value;
-                break;
-            default:
-            {
-                Event ev(ME_CONTROLLER);
-                ev.setOntime(-1);
-                ev.setChannel(0);
-                ev.setDataA(ctrl);
-                ev.setDataB(value);
-                _init.push_back(ev);
-            }
-            break;
-            }
-            e.readNext();
-        } else if (tag == "Articulation") {
-            MidiArticulation a;
-            a.read(e);
-            articulation.push_back(a);
-        } else if (tag == "MidiAction") {
-            NamedEventList a;
-            a.read(e);
-            midiActions.push_back(a);
-        } else if (tag == "synti") {
-            _synti = e.readText();
-        } else if (tag == "color") {
-            _color = e.readInt();
-        } else if (tag == "mute") {
-            _mute = e.readInt();
-        } else if (tag == "solo") {
-            _solo = e.readInt();
-        } else if (tag == "midiPort") {
-            midiPort = e.readInt();
-        } else if (tag == "midiChannel") {
-            midiChannel = e.readInt();
-        } else {
-            e.unknown();
-        }
-    }
-
-    _mustUpdateInit = true;
-
-    if ((midiPort != -1 || midiChannel != -1) && part && part->score()->isMaster()) {
-        part->masterScore()->addMidiMapping(this, part, midiPort, midiChannel);
     }
 }
 
@@ -1126,11 +615,6 @@ void InstrChannel::removeListener(ChannelListener* l)
 PartChannelSettingsLink::PartChannelSettingsLink(InstrChannel* main, InstrChannel* bound, bool excerpt)
     : _main(main), _bound(bound), _excerpt(excerpt)
 {
-    if (excerpt) {
-        for (InstrChannel::Prop p : excerptProperties) {
-            applyProperty(p, /* from */ bound, /* to */ main);
-        }
-    }
     // Maybe it would be good to assign common properties if the link
     // is constructed in non-excerpt mode. But it is not currently
     // necessary as playback channels are currently recreated on each
@@ -1206,15 +690,6 @@ void PartChannelSettingsLink::applyProperty(InstrChannel::Prop p, const InstrCha
     case InstrChannel::Prop::COLOR:
         to->setColor(from->color());
         break;
-    case InstrChannel::Prop::SOLOMUTE:
-        to->setSoloMute(from->soloMute());
-        break;
-    case InstrChannel::Prop::SOLO:
-        to->setSolo(from->solo());
-        break;
-    case InstrChannel::Prop::MUTE:
-        to->setMute(from->mute());
-        break;
     case InstrChannel::Prop::SYNTI:
         to->setSynti(from->synti());
         break;
@@ -1233,9 +708,7 @@ void PartChannelSettingsLink::applyProperty(InstrChannel::Prop p, const InstrCha
 
 void PartChannelSettingsLink::propertyChanged(InstrChannel::Prop p)
 {
-    if (isExcerptProperty(p) == _excerpt) {
-        applyProperty(p, _main, _bound);
-    }
+    applyProperty(p, _main, _bound);
 }
 
 //---------------------------------------------------------
@@ -1255,54 +728,6 @@ int Instrument::channelIdx(const String& s) const
         ++idx;
     }
     return -1;
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void MidiArticulation::write(XmlWriter& xml) const
-{
-    if (name.isEmpty()) {
-        xml.startElement("Articulation");
-    } else {
-        xml.startElement("Articulation", { { "name", name } });
-    }
-    if (!descr.isEmpty()) {
-        xml.tag("descr", descr);
-    }
-    xml.tag("velocity", velocity);
-    xml.tag("gateTime", gateTime);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void MidiArticulation::read(XmlReader& e)
-{
-    name = e.attribute("name");
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "velocity") {
-            String text(e.readText());
-            if (text.endsWith(u"%")) {
-                text = text.left(text.size() - 1);
-            }
-            velocity = text.toInt();
-        } else if (tag == "gateTime") {
-            String text(e.readText());
-            if (text.endsWith(u"%")) {
-                text = text.left(text.size() - 1);
-            }
-            gateTime = text.toInt();
-        } else if (tag == "descr") {
-            descr = e.readText();
-        } else {
-            e.unknown();
-        }
-    }
 }
 
 //---------------------------------------------------------
@@ -1533,7 +958,7 @@ ClefTypeList Instrument::clefType(size_t staffIdx) const
 {
     if (staffIdx >= _clefType.size()) {
         if (_clefType.empty()) {
-            return ClefTypeList(staffIdx == 1 ? ClefType::F : ClefType::G);
+            return ClefTypeList();
         }
         return _clefType[0];
     }
@@ -1589,12 +1014,12 @@ int Instrument::maxPitchA() const
 }
 
 //---------------------------------------------------------
-//   instrumentId
+//   musicXmlId
 //---------------------------------------------------------
 
-String Instrument::instrumentId() const
+String Instrument::musicXmlId() const
 {
-    return _instrumentId;
+    return _musicXmlId;
 }
 
 //---------------------------------------------------------
@@ -1653,40 +1078,34 @@ bool InstrumentList::contains(const std::string& instrumentId) const
     return false;
 }
 
-//---------------------------------------------------------
-//   longName
-//---------------------------------------------------------
+void Instrument::setLongNames(const StaffNameList& l)
+{
+    _longNames = l;
+}
 
-const std::list<StaffName>& Instrument::longNames() const
+const StaffNameList& Instrument::longNames() const
 {
     return _longNames;
 }
 
-//---------------------------------------------------------
-//   shortName
-//---------------------------------------------------------
+void Instrument::setShortNames(const StaffNameList& l)
+{
+    _shortNames = l;
+}
 
-const std::list<StaffName>& Instrument::shortNames() const
+const StaffNameList& Instrument::shortNames() const
 {
     return _shortNames;
 }
 
-//---------------------------------------------------------
-//   longName
-//---------------------------------------------------------
-
-std::list<StaffName>& Instrument::longNames()
+void Instrument::appendLongName(const StaffName& n)
 {
-    return _longNames;
+    _longNames.push_back(n);
 }
 
-//---------------------------------------------------------
-//   shortName
-//---------------------------------------------------------
-
-std::list<StaffName>& Instrument::shortNames()
+void Instrument::appendShortName(const StaffName& n)
 {
-    return _shortNames;
+    _shortNames.push_back(n);
 }
 
 //---------------------------------------------------------
@@ -1743,7 +1162,7 @@ Instrument Instrument::fromTemplate(const InstrumentTemplate* templ)
 
     instrument.setTrackName(templ->trackName);
     instrument.setTranspose(templ->transpose);
-    instrument.setInstrumentId(templ->musicXMLid);
+    instrument.setMusicXmlId(templ->musicXMLid);
     instrument._useDrumset = templ->useDrumset;
 
     if (templ->useDrumset) {
@@ -1779,10 +1198,20 @@ void Instrument::setTrait(const Trait& trait)
     _trait = trait;
 }
 
+bool Instrument::isPrimary() const
+{
+    return _isPrimary;
+}
+
+void Instrument::setIsPrimary(bool isPrimary)
+{
+    _isPrimary = isPrimary;
+}
+
 void Instrument::updateInstrumentId()
 {
-    if (_instrumentId.isEmpty()) {
-        _instrumentId = recognizeInstrumentId();
+    if (_musicXmlId.isEmpty()) {
+        _musicXmlId = recognizeMusicXmlId();
     }
 
     if (_id.isEmpty()) {
@@ -1829,17 +1258,6 @@ bool Instrument::getSingleNoteDynamicsFromTemplate() const
 void Instrument::setSingleNoteDynamicsFromTemplate()
 {
     setSingleNoteDynamics(getSingleNoteDynamicsFromTemplate());
-}
-
-//---------------------------------------------------------
-//   StaffNameList::write
-//---------------------------------------------------------
-
-void StaffNameList::write(XmlWriter& xml, const char* name) const
-{
-    for (const StaffName& sn : *this) {
-        sn.write(xml, name);
-    }
 }
 
 std::list<String> StaffNameList::toStringList() const

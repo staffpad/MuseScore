@@ -22,13 +22,13 @@
 
 #include "notedot.h"
 
-#include "rw/xml.h"
-
 #include "chord.h"
 #include "note.h"
 #include "rest.h"
 #include "score.h"
 #include "staff.h"
+
+#include "log.h"
 
 using namespace mu;
 
@@ -55,8 +55,10 @@ NoteDot::NoteDot(Rest* parent)
 
 void NoteDot::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     if (note() && note()->dotsHidden()) {     // don't draw dot if note is hidden
+        return;
+    } else if (rest() && rest()->isGap()) {  // don't draw dot for gap rests
         return;
     }
     Note* n = note();
@@ -87,23 +89,6 @@ void NoteDot::layout()
 EngravingItem* NoteDot::elementBase() const
 {
     return parentItem();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void NoteDot::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        if (e.name() == "name") {      // obsolete
-            e.readText();
-        } else if (e.name() == "subtype") {     // obsolete
-            e.readText();
-        } else if (!EngravingItem::readProperties(e)) {
-            e.unknown();
-        }
-    }
 }
 
 //---------------------------------------------------------

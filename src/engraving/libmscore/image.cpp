@@ -28,7 +28,6 @@
 #include "draw/types/pixmap.h"
 #include "draw/types/transform.h"
 #include "draw/svgrenderer.h"
-#include "rw/xml.h"
 
 #include "imageStore.h"
 #include "masterscore.h"
@@ -146,7 +145,7 @@ SizeF Image::imageSize() const
 
 void Image::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     bool emptyImage = false;
     if (imageType == ImageType::SVG) {
         if (!svgDoc) {
@@ -272,108 +271,8 @@ double Image::imageWidth() const
     return _size.width();
 }
 
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Image::write(XmlWriter& xml) const
+bool Image::load()
 {
-    // attempt to convert the _linkPath to a path relative to the score
-    //
-    // TODO : on Save As, score()->fileInfo() still contains the old path and fname
-    //          if the Save As path is different, image relative path will be wrong!
-    //
-    String relativeFilePath;
-    if (!_linkPath.isEmpty() && _linkIsValid) {
-        FileInfo fi(_linkPath);
-        // score()->fileInfo()->canonicalPath() would be better
-        // but we are saving under a temp file name and the 'final' file
-        // might not exist yet, so canonicalFilePath() may return only "/"
-        // OTOH, the score 'final' file name is practically always canonical, at this point
-        String scorePath = score()->masterScore()->fileInfo()->absoluteDirPath().toString();
-        String imgFPath  = fi.canonicalFilePath();
-        // if imgFPath is in (or below) the directory of scorePath
-        if (imgFPath.startsWith(scorePath, mu::CaseSensitive)) {
-            // relative img path is the part exceeding scorePath
-            imgFPath.remove(0, scorePath.size());
-            if (imgFPath.startsWith(u'/')) {
-                imgFPath.remove(0, 1);
-            }
-            relativeFilePath = imgFPath;
-        }
-        // try 1 level up
-        else {
-            // reduce scorePath by one path level
-            fi = FileInfo(scorePath);
-            scorePath = fi.path();
-            // if imgFPath is in (or below) the directory up the score directory
-            if (imgFPath.startsWith(scorePath, mu::CaseSensitive)) {
-                // relative img path is the part exceeding new scorePath plus "../"
-                imgFPath.remove(0, scorePath.size());
-                if (!imgFPath.startsWith(u'/')) {
-                    imgFPath.prepend(u'/');
-                }
-                imgFPath.prepend(u"..");
-                relativeFilePath = imgFPath;
-            }
-        }
-    }
-    // if no match, use full _linkPath
-    if (relativeFilePath.isEmpty()) {
-        relativeFilePath = _linkPath;
-    }
-
-    xml.startElement(this);
-    BSymbol::writeProperties(xml);
-    // keep old "path" tag, for backward compatibility and because it is used elsewhere
-    // (for instance by Box:read(), Measure:read(), Note:read(), ...)
-    xml.tag("path", _storeItem ? _storeItem->hashName() : relativeFilePath);
-    xml.tag("linkPath", relativeFilePath);
-
-    writeProperty(xml, Pid::AUTOSCALE);
-    writeProperty(xml, Pid::SIZE);
-    writeProperty(xml, Pid::LOCK_ASPECT_RATIO);
-    writeProperty(xml, Pid::SIZE_IS_SPATIUM);
-
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Image::read(XmlReader& e)
-{
-    if (score()->mscVersion() <= 114) {
-        _sizeIsSpatium = false;
-    }
-
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "autoScale") {
-            readProperty(e, Pid::AUTOSCALE);
-        } else if (tag == "size") {
-            readProperty(e, Pid::SIZE);
-        } else if (tag == "lockAspectRatio") {
-            readProperty(e, Pid::LOCK_ASPECT_RATIO);
-        } else if (tag == "sizeIsSpatium") {
-            // setting this using the property Pid::SIZE_IS_SPATIUM breaks, because the
-            // property setter attempts to maintain a constant size. If we're reading, we
-            // don't want to do that, because the stored size will be in:
-            //    mm if size isn't spatium
-            //    sp if size is spatium
-            _sizeIsSpatium = e.readBool();
-        } else if (tag == "path") {
-            _storePath = e.readText();
-        } else if (tag == "linkPath") {
-            _linkPath = e.readText();
-        } else if (tag == "subtype") {    // obsolete
-            e.skipCurrentElement();
-        } else if (!BSymbol::readProperties(e)) {
-            e.unknown();
-        }
-    }
-
     // once all paths are read, load img or retrieve it from store
     // loading from file is tried first to update the stored image, if necessary
 
@@ -394,7 +293,8 @@ void Image::read(XmlReader& e)
     }
     // if no success from store path, attempt loading from link path (for .mscx files)
     if (!loaded) {
-        _linkIsValid = load(_linkPath);
+        loaded = load(_linkPath);
+        _linkIsValid = loaded;
         path = _linkPath;
     }
 
@@ -403,6 +303,8 @@ void Image::read(XmlReader& e)
     } else {
         setImageType(ImageType::RASTER);
     }
+
+    return loaded;
 }
 
 //---------------------------------------------------------
@@ -413,6 +315,10 @@ void Image::read(XmlReader& e)
 
 bool Image::load(const io::path_t& ss)
 {
+    if (ss.empty()) {
+        return false;
+    }
+
     io::path_t path(ss);
     // if file path is relative, prepend score path
     FileInfo fi(path);

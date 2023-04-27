@@ -22,11 +22,12 @@
 
 #include "jump.h"
 
-#include "rw/xml.h"
 #include "types/typesconv.h"
 
 #include "measure.h"
 #include "score.h"
+
+#include "log.h"
 
 using namespace mu;
 using namespace mu::engraving;
@@ -120,43 +121,6 @@ void Jump::layout()
 {
     TextBase::layout();
     autoplaceMeasureElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Jump::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "jumpTo") {
-            _jumpTo = e.readText();
-        } else if (tag == "playUntil") {
-            _playUntil = e.readText();
-        } else if (tag == "continueAt") {
-            _continueAt = e.readText();
-        } else if (tag == "playRepeats") {
-            _playRepeats = e.readBool();
-        } else if (!TextBase::readProperties(e)) {
-            e.unknown();
-        }
-    }
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Jump::write(XmlWriter& xml) const
-{
-    xml.startElement(this);
-    TextBase::writeProperties(xml);
-    xml.tag("jumpTo", _jumpTo);
-    xml.tag("playUntil", _playUntil);
-    xml.tag("continueAt", _continueAt);
-    writeProperty(xml, Pid::PLAY_REPEATS);
-    xml.endElement();
 }
 
 //---------------------------------------------------------

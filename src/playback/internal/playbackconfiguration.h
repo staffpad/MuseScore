@@ -22,11 +22,16 @@
 #ifndef MU_PLAYBACK_PLAYBACKCONFIGURATION_H
 #define MU_PLAYBACK_PLAYBACKCONFIGURATION_H
 
+#include "modularity/ioc.h"
+#include "musesampler/imusesamplerinfo.h"
+
 #include "../iplaybackconfiguration.h"
 
 namespace mu::playback {
 class PlaybackConfiguration : public IPlaybackConfiguration
 {
+    INJECT(playback, musesampler::IMuseSamplerInfo, musesamplerInfo)
+
 public:
     void init();
 
@@ -43,6 +48,13 @@ public:
 
     bool isMixerSectionVisible(MixerSectionType sectionType) const override;
     void setMixerSectionVisible(MixerSectionType sectionType, bool visible) override;
+
+    const SoundProfileName& basicSoundProfileName() const override;
+    const SoundProfileName& museSoundProfileName() const override;
+    SoundProfileName defaultProfileForNewProjects() const override;
+    void setDefaultProfileForNewProjects(const SoundProfileName& name) override;
+private:
+    const SoundProfileName& fallbackSoundProfileStr() const;
 };
 }
 

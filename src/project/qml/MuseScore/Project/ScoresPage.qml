@@ -205,6 +205,23 @@ FocusScope {
             accessible.name: qsTrc("project", "Scores actions")
         }
 
+        FlatButton {
+            anchors.left: parent.left
+            anchors.leftMargin: prv.sideMargin
+            anchors.verticalCenter: parent.verticalCenter
+
+            navigation.name: "ScoreManager"
+            navigation.panel: navBottomPanel
+            navigation.column: 1
+
+            minWidth: 216
+            text: qsTrc("project", "Score manager (online)")
+
+            onClicked: {
+                recentScoresModel.openScoreManager()
+            }
+        }
+
         Row {
             anchors.right : parent.right
             anchors.rightMargin: prv.sideMargin
@@ -216,9 +233,9 @@ FocusScope {
 
                 navigation.name: "NewScore"
                 navigation.panel: navBottomPanel
-                navigation.column: 1
+                navigation.column: 2
 
-                width: prv.buttonWidth
+                minWidth: prv.buttonWidth
                 text: qsTrc("project", "New")
 
                 onClicked: {
@@ -229,9 +246,9 @@ FocusScope {
             FlatButton {
                 navigation.name: "Open other Score"
                 navigation.panel: navBottomPanel
-                navigation.column: 2
+                navigation.column: 3
 
-                width: prv.buttonWidth
+                minWidth: prv.buttonWidth
                 text: qsTrc("project", "Open other…")
 
                 onClicked: {

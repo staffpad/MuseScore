@@ -29,6 +29,9 @@
 #include "inotationconfiguration.h"
 #include "iinteractive.h"
 #include "ui/iuiengine.h"
+#include "engraving/iengravingfontsprovider.h"
+
+#include "engraving/style/textstyle.h"
 
 namespace mu::notation {
 class EditStyle : public QDialog, private Ui::EditStyleBase
@@ -39,6 +42,7 @@ class EditStyle : public QDialog, private Ui::EditStyleBase
     INJECT(notation, mu::notation::INotationConfiguration, configuration)
     INJECT(notation, mu::framework::IInteractive, interactive)
     INJECT(notation, mu::ui::IUiEngine, uiEngine)
+    INJECT(notation, mu::engraving::IEngravingFontsProvider, engravingFonts)
 
     Q_PROPERTY(QString currentPageCode READ currentPageCode WRITE setCurrentPageCode NOTIFY currentPageChanged)
     Q_PROPERTY(QString currentSubPageCode READ currentSubPageCode WRITE setCurrentSubPageCode NOTIFY currentSubPageChanged)
@@ -122,8 +126,8 @@ private slots:
     void resetStyleValue(int);
     void valueChanged(int);
     void textStyleChanged(int);
-    void resetTextStyle(mu::engraving::Pid);
-    void textStyleValueChanged(mu::engraving::Pid, QVariant);
+    void resetTextStyle(engraving::TextStylePropertyType type);
+    void textStyleValueChanged(engraving::TextStylePropertyType type, QVariant);
     void on_comboFBFont_currentIndexChanged(int index);
     void on_buttonTogglePagelist_clicked();
     void on_resetStylesButton_clicked();

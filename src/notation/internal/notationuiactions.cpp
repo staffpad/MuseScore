@@ -80,9 +80,7 @@ static const TranslatableString X_TAB = TranslatableString("action", "%1 (TAB)")
 const UiActionList NotationUiActions::m_actions = {
     UiAction("notation-escape",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_FOCUSED,
-             TranslatableString("action", "Esc"),
-             TranslatableString("action", "Escape (Esc)")
+             mu::context::CTX_NOTATION_FOCUSED
              ),
     UiAction("put-note", // args: PointF pos, bool replace, bool insert
              mu::context::UiCtxNotationOpened,
@@ -246,13 +244,13 @@ const UiActionList NotationUiActions::m_actions = {
              ),
     UiAction("pitch-up",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "Up"),
              TranslatableString("action", "Move pitch/selection up")
              ),
     UiAction("pitch-down",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "Down"),
              TranslatableString("action", "Move pitch/selection down")
              ),
@@ -526,8 +524,8 @@ const UiActionList NotationUiActions::m_actions = {
     UiAction("staff-properties",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "Staff/part properties…"),
-             TranslatableString("action", "Staff/part properties…")
+             TranslatableString("action", "Staff/Part properties…"),
+             TranslatableString("action", "Staff/Part properties…")
              ),
     UiAction("staff-text-properties",
              mu::context::UiCtxNotationOpened,
@@ -845,7 +843,7 @@ const UiActionList NotationUiActions::m_actions = {
     UiAction("interval1",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_ANY,
-             TranslatableString("action", "&Unison above"),
+             TranslatableString("action", "&Unison"),
              TranslatableString("action", "Enter interval: unison")
              ),
     UiAction("interval2",
@@ -1065,7 +1063,7 @@ const UiActionList NotationUiActions::m_actions = {
              ),
     UiAction("rest",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "Rest"),
              TranslatableString("action", "Enter rest")
              ),
@@ -1095,91 +1093,91 @@ const UiActionList NotationUiActions::m_actions = {
              ),
     UiAction("fret-0",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(0),
              enter_TAB_fret_X.arg(0)
              ),
     UiAction("fret-1",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(1),
              enter_TAB_fret_X.arg(1)
              ),
     UiAction("fret-2",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(2),
              enter_TAB_fret_X.arg(2)
              ),
     UiAction("fret-3",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(3),
              enter_TAB_fret_X.arg(3)
              ),
     UiAction("fret-4",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(4),
              enter_TAB_fret_X.arg(4)
              ),
     UiAction("fret-5",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(5),
              enter_TAB_fret_X.arg(5)
              ),
     UiAction("fret-6",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(6),
              enter_TAB_fret_X.arg(6)
              ),
     UiAction("fret-7",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(7),
              enter_TAB_fret_X.arg(7)
              ),
     UiAction("fret-8",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(8),
              enter_TAB_fret_X.arg(8)
              ),
     UiAction("fret-9",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(9),
              enter_TAB_fret_X.arg(9)
              ),
     UiAction("fret-10",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(10),
              enter_TAB_fret_X.arg(10)
              ),
     UiAction("fret-11",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(11),
              enter_TAB_fret_X.arg(11)
              ),
     UiAction("fret-12",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(12),
              enter_TAB_fret_X.arg(12)
              ),
     UiAction("fret-13",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(13),
              enter_TAB_fret_X.arg(13)
              ),
     UiAction("fret-14",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              fret_X_TAB.arg(14),
              enter_TAB_fret_X.arg(14)
              ),
@@ -1589,17 +1587,23 @@ const UiActionList NotationUiActions::m_actions = {
              IconCode::Code::TUNING_FORK,
              Checkable::Yes
              ),
+    UiAction("next-word",
+             mu::context::UiCtxNotationFocused,
+             mu::context::CTX_NOTATION_TEXT_EDITING,
+             TranslatableString("action", "Next word"),
+             TranslatableString("action", "Go to next word")
+             ),
     UiAction("next-text-element",
              mu::context::UiCtxNotationFocused,
              mu::context::CTX_NOTATION_TEXT_EDITING,
              TranslatableString("action", "Next text element"),
-             TranslatableString("action", "Go to next syllable")
+             TranslatableString("action", "Go to next text element")
              ),
     UiAction("prev-text-element",
              mu::context::UiCtxNotationFocused,
              mu::context::CTX_NOTATION_TEXT_EDITING,
              TranslatableString("action", "Previous text element"),
-             TranslatableString("action", "Go to previous syllable")
+             TranslatableString("action", "Go to previous text element")
              ),
     UiAction("next-beat-TEXT",
              mu::context::UiCtxNotationFocused,
@@ -1794,32 +1798,32 @@ const UiActionList NotationUiActions::m_actions = {
     UiAction("sharp2-post",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "Double ♯ (non-toggle)"),
-             TranslatableString("action", "Apply accidental retrospectively: double sharp")
+             TranslatableString("action", "Add double-sharp"),
+             TranslatableString("action", "Add accidental: double-sharp")
              ),
     UiAction("sharp-post",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "♯ (non-toggle)"),
-             TranslatableString("action", "Apply accidental retrospectively: sharp")
+             TranslatableString("action", "Add sharp"),
+             TranslatableString("action", "Add accidental: sharp")
              ),
     UiAction("nat-post",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "♮ (non-toggle)"),
-             TranslatableString("action", "Apply accidental retrospectively: natural")
+             TranslatableString("action", "Add natural"),
+             TranslatableString("action", "Add accidental: natural")
              ),
     UiAction("flat-post",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "♭ (non-toggle)"),
-             TranslatableString("action", "Apply accidental retrospectively: flat")
+             TranslatableString("action", "Add flat"),
+             TranslatableString("action", "Add accidental: flat")
              ),
     UiAction("flat2-post",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "Double ♭ (non-toggle)"),
-             TranslatableString("action", "Apply accidental retrospectively: double flat")
+             TranslatableString("action", "Add double-flat"),
+             TranslatableString("action", "Add accidental: double-flat")
              ),
     UiAction("transpose-up",
              mu::context::UiCtxNotationOpened,
@@ -1889,13 +1893,13 @@ const UiActionList NotationUiActions::m_actions = {
              ),
     UiAction("string-above",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "String above (TAB)"),
              TranslatableString("action", "Go to string above (TAB)")
              ),
     UiAction("string-below",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_TAB,
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "String below (TAB)"),
              TranslatableString("action", "Go to string below (TAB)")
              ),
@@ -1926,7 +1930,7 @@ const UiActionList NotationUiActions::m_actions = {
              mu::context::CTX_ANY,
              TranslatableString("action", "Re-pitch existing notes"),
              TranslatableString("action", "Note input: toggle ‘re-pitch existing notes’ mode"),
-             IconCode::Code::RE_PITH
+             IconCode::Code::RE_PITCH
              ),
     UiAction("note-input-realtime-auto",
              mu::context::UiCtxNotationOpened,
@@ -1949,93 +1953,100 @@ const UiActionList NotationUiActions::m_actions = {
              TranslatableString("action", "Note input: toggle ‘insert’ mode (increases measure duration)"),
              IconCode::Code::NOTE_PLUS
              ),
+    UiAction("realtime-advance",
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_NOTATION_OPENED,
+             TranslatableString("action", "Real-time advance"),
+             TranslatableString("action", "Real-time advance"),
+             IconCode::Code::METRONOME
+             ),
     UiAction("note-longa",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "Longa"),
              TranslatableString("action", "Set duration: longa"),
              IconCode::Code::LONGO
              ),
     UiAction("note-breve",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "Double whole note"),
              TranslatableString("action", "Set duration: double whole note"),
              IconCode::Code::NOTE_WHOLE_DOUBLE
              ),
     UiAction("pad-note-1",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "Whole note"),
              TranslatableString("action", "Set duration: whole note"),
              IconCode::Code::NOTE_WHOLE
              ),
     UiAction("pad-note-2",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "Half note"),
              TranslatableString("action", "Set duration: half note"),
              IconCode::Code::NOTE_HALF
              ),
     UiAction("pad-note-4",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "Quarter note"),
              TranslatableString("action", "Set duration: quarter note"),
              IconCode::Code::NOTE_QUARTER
              ),
     UiAction("pad-note-8",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "Eighth note"),
              TranslatableString("action", "Set duration: eighth note"),
              IconCode::Code::NOTE_8TH
              ),
     UiAction("pad-note-16",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "16th note"),
              TranslatableString("action", "Set duration: 16th note"),
              IconCode::Code::NOTE_16TH
              ),
     UiAction("pad-note-32",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "32nd note"),
              TranslatableString("action", "Set duration: 32nd note"),
              IconCode::Code::NOTE_32ND
              ),
     UiAction("pad-note-64",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "64th note"),
              TranslatableString("action", "Set duration: 64th note"),
              IconCode::Code::NOTE_64TH
              ),
     UiAction("pad-note-128",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "128th note"),
              TranslatableString("action", "Set duration: 128th note"),
              IconCode::Code::NOTE_128TH
              ),
     UiAction("pad-note-256",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "256th note"),
              TranslatableString("action", "Set duration: 256th note"),
              IconCode::Code::NOTE_256TH
              ),
     UiAction("pad-note-512",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "512th note"),
              TranslatableString("action", "Set duration: 512th note"),
              IconCode::Code::NOTE_512TH
              ),
     UiAction("pad-note-1024",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "1024th note"),
              TranslatableString("action", "Set duration: 1024th note"),
              IconCode::Code::NOTE_1024TH
@@ -2119,7 +2130,7 @@ const UiActionList NotationUiActions::m_actions = {
              ),
     UiAction("pad-dot",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_STAFF_NOT_TAB,
+             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
              TranslatableString("action", "Augmentation dot"),
              TranslatableString("action", "Toggle duration dot"),
              IconCode::Code::NOTE_DOTTED
@@ -2166,36 +2177,36 @@ const UiActionList NotationUiActions::m_actions = {
     UiAction("flat",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "Flat"),
+             TranslatableString("action", "Toggle flat"),
              TranslatableString("action", "Toggle accidental: flat"),
              IconCode::Code::FLAT
              ),
     UiAction("flat2",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "Double flat"),
-             TranslatableString("action", "Toggle accidental: double flat"),
+             TranslatableString("action", "Toggle double-flat"),
+             TranslatableString("action", "Toggle accidental: double-flat"),
              IconCode::Code::FLAT_DOUBLE
              ),
     UiAction("nat",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "Natural"),
+             TranslatableString("action", "Toggle natural"),
              TranslatableString("action", "Toggle accidental: natural"),
              IconCode::Code::NATURAL
              ),
     UiAction("sharp",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_ANY,
-             TranslatableString("action", "Sharp"),
+             mu::context::CTX_NOTATION_OPENED,
+             TranslatableString("action", "Toggle sharp"),
              TranslatableString("action", "Toggle accidental: sharp"),
              IconCode::Code::SHARP
              ),
     UiAction("sharp2",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "Double sharp"),
-             TranslatableString("action", "Toggle accidental: double sharp"),
+             TranslatableString("action", "Toggle double-sharp"),
+             TranslatableString("action", "Toggle accidental: double-sharp"),
              IconCode::Code::SHARP_DOUBLE
              ),
     UiAction("tie",
@@ -2325,34 +2336,46 @@ const UiActionList NotationUiActions::m_scoreConfigActions = {
 };
 
 const UiActionList NotationUiActions::m_engravingDebuggingActions = {
-    UiAction("show-skylines",
+    UiAction("show-element-bounding-rects",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "Show &skylines"),
+             TranslatableString::untranslatable("Show element bounding rectangles"),
+             Checkable::Yes
+             ),
+    UiAction("color-element-shapes",
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_NOTATION_OPENED,
+             TranslatableString::untranslatable("Color element shapes"),
              Checkable::Yes
              ),
     UiAction("show-segment-shapes",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "Show s&egment shapes"),
+             TranslatableString::untranslatable("Show segment shapes"),
              Checkable::Yes
              ),
-    UiAction("show-bounding-rect",
+    UiAction("color-segment-shapes",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "Show &bounding rectangles"),
+             TranslatableString::untranslatable("Color segment shapes"),
              Checkable::Yes
              ),
-    UiAction("show-system-bounding-rect",
+    UiAction("show-skylines",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "Show s&ystem bounding rectangles"),
+             TranslatableString::untranslatable("Show skylines"),
+             Checkable::Yes
+             ),
+    UiAction("show-system-bounding-rects",
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_NOTATION_OPENED,
+             TranslatableString::untranslatable("Show system bounding rectangles"),
              Checkable::Yes
              ),
     UiAction("show-corrupted-measures",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "Show &corrupted measures"),
+             TranslatableString::untranslatable("Show corrupted measures"),
              Checkable::Yes
              )
 };
@@ -2388,6 +2411,8 @@ void NotationUiActions::init()
                 m_actionCheckedChanged.send({ configActions.at(configType) });
             });
         }
+
+        m_actionCheckedChanged.send({ TOGGLE_CONCERT_PITCH_CODE });
         m_controller->currentNotationStyleChanged().onNotify(this, [this]() {
             m_actionCheckedChanged.send({ TOGGLE_CONCERT_PITCH_CODE });
         });

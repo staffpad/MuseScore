@@ -23,11 +23,14 @@
 #include "articulation.h"
 
 #include "draw/fontmetrics.h"
-#include "rw/compat/read206.h"
-#include "rw/xml.h"
-#include "types/symnames.h"
-#include "types/translatablestring.h"
 
+#include "types/symnames.h"
+#include "types/typesconv.h"
+#include "types/translatablestring.h"
+#include "layout/tlayout.h"
+
+#include "beam.h"
+#include "chord.h"
 #include "chordrest.h"
 #include "masterscore.h"
 #include "measure.h"
@@ -36,6 +39,8 @@
 #include "staff.h"
 #include "stafftype.h"
 #include "system.h"
+
+#include "log.h"
 
 using namespace mu;
 using namespace mu::engraving;
@@ -51,23 +56,6 @@ static const ElementStyle articulationStyle {
     { Sid::articulationAnchorDefault, Pid::ARTICULATION_ANCHOR },
 };
 
-struct ArticulationTextTypeMapping {
-    AsciiStringView xml;
-    String text;
-    TranslatableString name;
-};
-
-// Note about "engraving/sym": they need to be in this context because PaletteCell::translationContext expects them there
-static const std::map<Articulation::TextType, ArticulationTextTypeMapping> artTypeToInfo {
-    { Articulation::TextType::SLAP, { "Slap", String(u"S"), TranslatableString("engraving/sym", "Slap") } },
-    { Articulation::TextType::POP, { "Pop", String(u"P"), TranslatableString("engraving/sym", "Pop") } },
-};
-
-static const std::map<AsciiStringView, Articulation::TextType> artTextToType {
-    { "Slap", Articulation::TextType::SLAP },
-    { "Pop", Articulation::TextType::POP },
-};
-
 //---------------------------------------------------------
 //   Articulation
 //---------------------------------------------------------
@@ -81,9 +69,8 @@ Articulation::Articulation(ChordRest* parent)
     _up            = true;
     _ornamentStyle = OrnamentStyle::DEFAULT;
 
-    m_font.setFamily(u"FreeSans");
+    m_font.setFamily(u"FreeSans", draw::Font::Type::Tablature);
     m_font.setPointSizeF(7.0);
-    m_font.setBold(true);
 
     setPlayArticulation(true);
     initElementStyle(&articulationStyle);
@@ -97,16 +84,17 @@ Articulation::Articulation(ChordRest* parent)
 void Articulation::setSymId(SymId id)
 {
     _symId  = id;
+    computeCategories();
     setupShowOnTabStyles();
     _anchor = ArticulationAnchor(propertyDefault(Pid::ARTICULATION_ANCHOR).toInt());
-    m_textType = TextType::NO_TEXT;
+    m_textType = ArticulationTextType::NO_TEXT;
 }
 
 //---------------------------------------------------------
 //   setTextType
 //---------------------------------------------------------
 
-void Articulation::setTextType(TextType textType)
+void Articulation::setTextType(ArticulationTextType textType)
 {
     m_textType = textType;
 }
@@ -152,107 +140,13 @@ void Articulation::setUp(bool val)
 }
 
 //---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Articulation::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        if (!readProperties(e)) {
-            e.unknown();
-        }
-    }
-}
-
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool Articulation::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-
-    if (tag == "subtype") {
-        AsciiStringView s = e.readAsciiText();
-        if (artTextToType.find(s) != artTextToType.end()) {
-            m_textType = artTextToType.at(s);
-        } else {
-            SymId id = SymNames::symIdByName(s);
-            if (id == SymId::noSym) {
-                id = compat::Read206::articulationNames2SymId206(s); // compatibility hack for "old" 3.0 scores
-            }
-            if (id == SymId::noSym || s == "ornamentMordentInverted") {   // SMuFL < 1.30
-                id = SymId::ornamentMordent;
-            }
-
-            String programVersion = masterScore()->mscoreVersion();
-            if (!programVersion.isEmpty() && programVersion < u"3.6") {
-                if (id == SymId::noSym || s == "ornamentMordent") {   // SMuFL < 1.30 and MuseScore < 3.6
-                    id = SymId::ornamentShortTrill;
-                }
-            }
-            setSymId(id);
-        }
-    } else if (tag == "channel") {
-        _channelName = e.attribute("name");
-        e.readNext();
-    } else if (readProperty(tag, e, Pid::ARTICULATION_ANCHOR)) {
-    } else if (tag == "direction") {
-        readProperty(e, Pid::DIRECTION);
-    } else if (tag == "ornamentStyle") {
-        readProperty(e, Pid::ORNAMENT_STYLE);
-    } else if (tag == "play") {
-        setPlayArticulation(e.readBool());
-    } else if (tag == "offset") {
-        if (score()->mscVersion() >= 400) {
-            EngravingItem::readProperties(e);
-        } else {
-            e.skipCurrentElement();       // ignore manual layout in older scores
-        }
-    } else if (EngravingItem::readProperties(e)) {
-    } else {
-        return false;
-    }
-    return true;
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Articulation::write(XmlWriter& xml) const
-{
-    if (!xml.context()->canWrite(this)) {
-        return;
-    }
-    xml.startElement(this);
-    if (!_channelName.isEmpty()) {
-        xml.tag("channe", { { "name", _channelName } });
-    }
-    writeProperty(xml, Pid::DIRECTION);
-    if (m_textType != TextType::NO_TEXT) {
-        xml.tag("subtype", artTypeToInfo.at(m_textType).xml);
-    } else {
-        xml.tag("subtype", SymNames::nameForSymId(_symId));
-    }
-
-    writeProperty(xml, Pid::PLAY);
-    writeProperty(xml, Pid::ORNAMENT_STYLE);
-    for (const StyledProperty& spp : *styledProperties()) {
-        writeProperty(xml, spp.pid);
-    }
-    EngravingItem::writeProperties(xml);
-    xml.endElement();
-}
-
-//---------------------------------------------------------
 //   typeUserName
 //---------------------------------------------------------
 
 TranslatableString Articulation::typeUserName() const
 {
-    if (m_textType != TextType::NO_TEXT) {
-        return artTypeToInfo.at(m_textType).name;
+    if (m_textType != ArticulationTextType::NO_TEXT) {
+        return TConv::userName(m_textType);
     }
 
     return TranslatableString("engraving/sym", SymNames::userNameForSymId(symId()));
@@ -260,8 +154,8 @@ TranslatableString Articulation::typeUserName() const
 
 String Articulation::translatedTypeUserName() const
 {
-    if (m_textType != TextType::NO_TEXT) {
-        return artTypeToInfo.at(m_textType).name.translated();
+    if (m_textType != ArticulationTextType::NO_TEXT) {
+        return TConv::userName(m_textType).translated();
     }
 
     return SymNames::translatedUserNameForSymId(symId());
@@ -273,15 +167,15 @@ String Articulation::translatedTypeUserName() const
 
 void Articulation::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
 
     painter->setPen(curColor());
 
-    if (m_textType != TextType::NO_TEXT) {
+    if (m_textType != ArticulationTextType::NO_TEXT) {
         mu::draw::Font scaledFont(m_font);
         scaledFont.setPointSizeF(m_font.pointSizeF() * magS() * MScore::pixelRatio);
         painter->setFont(scaledFont);
-        painter->drawText(bbox(), draw::TextDontClip | draw::AlignLeft | draw::AlignTop, artTypeToInfo.at(m_textType).text);
+        painter->drawText(bbox(), draw::TextDontClip | draw::AlignLeft | draw::AlignTop, TConv::text(m_textType));
     } else {
         drawSymbol(_symId, painter, PointF(-0.5 * width(), 0.0));
     }
@@ -342,25 +236,8 @@ Page* Articulation::page() const
 
 void Articulation::layout()
 {
-    _skipDraw = false;
-    if (isHiddenOnTabStaff()) {
-        _skipDraw = true;
-        return;
-    }
-
-    RectF bRect;
-
-    if (m_textType != TextType::NO_TEXT) {
-        mu::draw::Font scaledFont(m_font);
-        scaledFont.setPointSizeF(m_font.pointSizeF() * magS());
-        mu::draw::FontMetrics fm(scaledFont);
-
-        bRect = fm.boundingRect(scaledFont, artTypeToInfo.at(m_textType).text);
-    } else {
-        bRect = symBbox(_symId);
-    }
-
-    setbbox(bRect.translated(-0.5 * bRect.width(), 0.0));
+    LayoutContext ctx(score());
+    TLayout::layout(this, ctx);
 }
 
 bool Articulation::isHiddenOnTabStaff() const
@@ -522,9 +399,6 @@ Articulation::AnchorGroup Articulation::anchorGroup(SymId symId)
     case SymId::articSoftAccentTenutoStaccatoAbove:
     case SymId::articSoftAccentTenutoStaccatoBelow:
 
-    case SymId::guitarFadeIn:
-    case SymId::guitarFadeOut:
-    case SymId::guitarVolumeSwell:
     case SymId::wiggleSawtooth:
     case SymId::wiggleSawtoothWide:
     case SymId::wiggleVibratoLargeFaster:
@@ -641,6 +515,7 @@ Sid Articulation::getPropertyStyle(Pid id) const
         }
     }
         assert(false);           // should never be reached
+    // fallthrough
     default:
         return Sid::NOSTYLE;
     }
@@ -676,49 +551,39 @@ double Articulation::mag() const
     return explicitParent() ? parentItem()->mag() * score()->styleD(Sid::articulationMag) : 1.0;
 }
 
-bool Articulation::isTenuto() const
+void Articulation::computeCategories()
 {
-    return _symId == SymId::articTenutoAbove || _symId == SymId::articTenutoBelow;
-}
+    m_categories.setFlag(ArticulationCategory::DOUBLE,
+                         _symId == SymId::articMarcatoStaccatoAbove || _symId == SymId::articMarcatoStaccatoBelow
+                         || _symId == SymId::articTenutoStaccatoAbove || _symId == SymId::articTenutoStaccatoBelow
+                         || _symId == SymId::articAccentStaccatoAbove || _symId == SymId::articAccentStaccatoBelow
+                         || _symId == SymId::articMarcatoTenutoAbove || _symId == SymId::articMarcatoTenutoBelow
+                         || _symId == SymId::articTenutoAccentAbove || _symId == SymId::articTenutoAccentBelow);
 
-bool Articulation::isStaccato() const
-{
-    return _symId == SymId::articStaccatoAbove || _symId == SymId::articStaccatoBelow
-           || _symId == SymId::articMarcatoStaccatoAbove || _symId == SymId::articMarcatoStaccatoBelow
-           || _symId == SymId::articAccentStaccatoAbove || _symId == SymId::articAccentStaccatoBelow;
-}
+    m_categories.setFlag(ArticulationCategory::TENUTO,
+                         _symId == SymId::articTenutoAbove || _symId == SymId::articTenutoBelow
+                         || _symId == SymId::articMarcatoTenutoAbove || _symId == SymId::articMarcatoTenutoBelow
+                         || _symId == SymId::articTenutoAccentAbove || _symId == SymId::articTenutoAccentBelow);
 
-bool Articulation::isAccent() const
-{
-    return _symId == SymId::articAccentAbove || _symId == SymId::articAccentBelow
-           || _symId == SymId::articAccentStaccatoAbove || _symId == SymId::articAccentStaccatoBelow;
-}
+    m_categories.setFlag(ArticulationCategory::STACCATO,
+                         _symId == SymId::articStaccatoAbove || _symId == SymId::articStaccatoBelow
+                         || _symId == SymId::articMarcatoStaccatoAbove || _symId == SymId::articMarcatoStaccatoBelow
+                         || _symId == SymId::articTenutoStaccatoAbove || _symId == SymId::articTenutoStaccatoBelow
+                         || _symId == SymId::articAccentStaccatoAbove || _symId == SymId::articAccentStaccatoBelow);
 
-bool Articulation::isMarcato() const
-{
-    return _symId == SymId::articMarcatoAbove || _symId == SymId::articMarcatoBelow
-           || _symId == SymId::articMarcatoStaccatoAbove || _symId == SymId::articMarcatoStaccatoBelow
-           || _symId == SymId::articMarcatoTenutoAbove || _symId == SymId::articMarcatoTenutoBelow;
-}
+    m_categories.setFlag(ArticulationCategory::ACCENT,
+                         _symId == SymId::articAccentAbove || _symId == SymId::articAccentBelow
+                         || _symId == SymId::articAccentStaccatoAbove || _symId == SymId::articAccentStaccatoBelow);
 
-bool Articulation::isDouble() const
-{
-    return _symId == SymId::articMarcatoStaccatoAbove || _symId == SymId::articMarcatoStaccatoBelow
-           || _symId == SymId::articAccentStaccatoAbove || _symId == SymId::articAccentStaccatoBelow
-           || _symId == SymId::articMarcatoTenutoAbove || _symId == SymId::articMarcatoTenutoBelow;
-}
+    m_categories.setFlag(ArticulationCategory::MARCATO,
+                         _symId == SymId::articMarcatoAbove || _symId == SymId::articMarcatoBelow
+                         || _symId == SymId::articMarcatoStaccatoAbove || _symId == SymId::articMarcatoStaccatoBelow
+                         || _symId == SymId::articMarcatoTenutoAbove || _symId == SymId::articMarcatoTenutoBelow);
 
-//---------------------------------------------------------
-//   isLuteFingering
-//---------------------------------------------------------
-
-bool Articulation::isLuteFingering() const
-{
-    return _symId == SymId::stringsThumbPosition
-           || _symId == SymId::luteFingeringRHThumb
-           || _symId == SymId::luteFingeringRHFirst
-           || _symId == SymId::luteFingeringRHSecond
-           || _symId == SymId::luteFingeringRHThird;
+    m_categories.setFlag(ArticulationCategory::LUTE_FINGERING,
+                         _symId == SymId::stringsThumbPosition || _symId == SymId::luteFingeringRHThumb
+                         || _symId == SymId::luteFingeringRHFirst || _symId == SymId::luteFingeringRHSecond
+                         || _symId == SymId::luteFingeringRHThird);
 }
 
 //---------------------------------------------------------
@@ -852,6 +717,25 @@ void Articulation::setupShowOnTabStyles()
     if (_symId == SymId::guitarGolpe) {
         m_showOnTabStyles = { Sid::golpeShowTabCommon, Sid::golpeShowTabSimple };
     }
+}
+
+void Articulation::styleChanged()
+{
+    bool isGolpeThumb = _symId == SymId::guitarGolpe && _anchor == ArticulationAnchor::BOTTOM_STAFF;
+    EngravingItem::styleChanged();
+    if (isGolpeThumb) {
+        setAnchor(ArticulationAnchor::BOTTOM_STAFF);
+    }
+}
+
+bool Articulation::isOnCrossBeamSide() const
+{
+    ChordRest* cr = chordRest();
+    if (!cr || !cr->isChord()) {
+        return false;
+    }
+    Chord* chord = toChord(cr);
+    return chord->beam() && (chord->beam()->cross() || chord->staffMove() != 0) && (up() == chord->up());
 }
 
 struct ArticulationGroup

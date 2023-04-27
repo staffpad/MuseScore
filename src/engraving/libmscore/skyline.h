@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "draw/types/geometry.h"
+#include "shape.h"
 
 namespace mu::draw {
 class Painter;
@@ -33,7 +34,6 @@ class Painter;
 
 namespace mu::engraving {
 class Segment;
-class Shape;
 
 //---------------------------------------------------------
 //   SkylineSegment
@@ -68,8 +68,10 @@ public:
     SkylineLine(bool n)
         : north(n) {}
     void add(const Shape& s);
-    void add(const mu::RectF& r);
+    void add(const ShapeElement& r);
     void add(double x, double y, double w);
+    void add(const RectF& r) { add(ShapeElement(r)); }
+
     void clear() { seg.clear(); }
     void paint(mu::draw::Painter& painter) const;
     void dump() const;
@@ -100,7 +102,8 @@ public:
 
     void clear();
     void add(const Shape& s);
-    void add(const mu::RectF& r);
+    void add(const ShapeElement& r);
+    void add(const RectF& r) { add(ShapeElement(r)); }
 
     double minDistance(const Skyline&) const;
 

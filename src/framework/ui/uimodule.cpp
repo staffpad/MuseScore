@@ -27,6 +27,7 @@
 #include "modularity/ioc.h"
 
 #include "internal/uiengine.h"
+#include "internal/mainwindow.h"
 #include "internal/uiconfiguration.h"
 #include "internal/interactiveuriregister.h"
 #include "internal/uiactionsregister.h"
@@ -35,13 +36,16 @@
 
 #ifdef Q_OS_MAC
 #include "internal/platform/macos/macosplatformtheme.h"
-#include "view/platform/macos/macosmainwindowprovider.h"
+#include "view/platform/macos/macosmainwindowbridge.h"
 #elif defined(Q_OS_WIN)
 #include "internal/platform/windows/windowsplatformtheme.h"
-#include "view/mainwindowprovider.h"
+#include "view/mainwindowbridge.h"
+#elif defined(Q_OS_LINUX)
+#include "internal/platform/linux/linuxplatformtheme.h"
+#include "view/mainwindowbridge.h"
 #else
 #include "internal/platform/stub/stubplatformtheme.h"
-#include "view/mainwindowprovider.h"
+#include "view/mainwindowbridge.h"
 #endif
 
 #include "view/qmltooltip.h"
@@ -54,6 +58,9 @@
 #include "view/navigationevent.h"
 #include "view/qmlaccessible.h"
 #include "view/focuslistener.h"
+
+#include "view/internal/errordetailsmodel.h"
+#include "view/internal/progressdialogmodel.h"
 
 #include "dev/interactivetestsmodel.h"
 #include "dev/testdialog.h"
@@ -70,6 +77,8 @@ static std::shared_ptr<NavigationUiActions> s_keyNavigationUiActions = std::make
 static std::shared_ptr<MacOSPlatformTheme> s_platformTheme = std::make_shared<MacOSPlatformTheme>();
 #elif defined(Q_OS_WIN)
 static std::shared_ptr<WindowsPlatformTheme> s_platformTheme = std::make_shared<WindowsPlatformTheme>();
+#elif defined(Q_OS_LINUX)
+static std::shared_ptr<LinuxPlatformTheme> s_platformTheme = std::make_shared<LinuxPlatformTheme>();
 #else
 static std::shared_ptr<StubPlatformTheme> s_platformTheme = std::make_shared<StubPlatformTheme>();
 #endif
@@ -88,6 +97,7 @@ void UiModule::registerExports()
 {
     ioc()->registerExport<IUiConfiguration>(moduleName(), s_configuration);
     ioc()->registerExportNoDelete<IUiEngine>(moduleName(), UiEngine::instance());
+    ioc()->registerExport<IMainWindow>(moduleName(), new MainWindow());
     ioc()->registerExport<IInteractiveProvider>(moduleName(), UiEngine::instance()->interactiveProvider());
     ioc()->registerExport<IInteractiveUriRegister>(moduleName(), new InteractiveUriRegister());
     ioc()->registerExport<IPlatformTheme>(moduleName(), s_platformTheme);
@@ -136,10 +146,13 @@ void UiModule::registerUiTypes()
     qmlRegisterType<FocusListener>("MuseScore.Ui", 1, 0, "FocusListener");
 
 #ifdef Q_OS_MAC
-    qmlRegisterType<MacOSMainWindowProvider>("MuseScore.Ui", 1, 0, "MainWindowProvider");
+    qmlRegisterType<MacOSMainWindowBridge>("MuseScore.Ui", 1, 0, "MainWindowBridge");
 #else
-    qmlRegisterType<MainWindowProvider>("MuseScore.Ui", 1, 0, "MainWindowProvider");
+    qmlRegisterType<MainWindowBridge>("MuseScore.Ui", 1, 0, "MainWindowBridge");
 #endif
+
+    qmlRegisterType<ErrorDetailsModel>("MuseScore.Ui", 1, 0, "ErrorDetailsModel");
+    qmlRegisterType<ProgressDialogModel>("MuseScore.Ui", 1, 0, "ProgressDialogModel");
 
     qmlRegisterType<InteractiveTestsModel>("MuseScore.Ui", 1, 0, "InteractiveTestsModel");
     qRegisterMetaType<TestDialog>("TestDialog");
@@ -147,17 +160,30 @@ void UiModule::registerUiTypes()
     modularity::ioc()->resolve<ui::IUiEngine>(moduleName())->addSourceImportPath(ui_QML_IMPORT);
 }
 
-void UiModule::onInit(const framework::IApplication::RunMode&)
+void UiModule::onPreInit(const framework::IApplication::RunMode& mode)
 {
+    if (mode == framework::IApplication::RunMode::AudioPluginRegistration) {
+        return;
+    }
+
+    s_configuration->initSettings();
+}
+
+void UiModule::onInit(const framework::IApplication::RunMode& mode)
+{
+    if (mode != framework::IApplication::RunMode::GuiApp) {
+        return;
+    }
+
     QFontDatabase::addApplicationFont(":/fonts/mscore/MusescoreIcon.ttf"); // icons
 
-    s_configuration->init();
+    s_configuration->initThemes();
     s_keyNavigationController->init();
 }
 
 void UiModule::onAllInited(const framework::IApplication::RunMode& mode)
 {
-    if (framework::IApplication::RunMode::Editor != mode) {
+    if (framework::IApplication::RunMode::GuiApp != mode) {
         return;
     }
 

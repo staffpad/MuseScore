@@ -50,7 +50,7 @@ class MixerPanelModel : public QAbstractListModel, public async::Asyncable
 public:
     explicit MixerPanelModel(QObject* parent = nullptr);
 
-    Q_INVOKABLE void load(const QVariant& navigationSection);
+    Q_INVOKABLE void load(const QVariant& navigationSection, int navigationPanelOrderStart);
     Q_INVOKABLE QVariantMap get(int index);
 
     QVariant data(const QModelIndex& index, int role) const override;
@@ -66,7 +66,7 @@ private:
     };
 
     void loadItems();
-    void addItem(const audio::TrackId trackId, const engraving::InstrumentTrackId& instrumentTrackId);
+    void addItem(MixerChannelItem* item, int index);
     void removeItem(const audio::TrackId trackId);
     void updateItemsPanelsOrder();
     void clear();
@@ -75,12 +75,12 @@ private:
     int resolveInsertIndex(const engraving::InstrumentTrackId& instrumentTrackId) const;
     int indexOf(const audio::TrackId trackId) const;
 
-    MixerChannelItem* buildTrackChannelItem(const audio::TrackId trackId, const engraving::InstrumentTrackId& instrumentTrackId,
-                                            bool isPrimary = true);
+    MixerChannelItem* buildInstrumentChannelItem(const audio::TrackId trackId, const engraving::InstrumentTrackId& instrumentTrackId,
+                                                 bool isPrimary = true);
+    MixerChannelItem* buildAuxChannelItem(const audio::TrackId trackId);
     MixerChannelItem* buildMasterChannelItem();
 
-    TrackMixerChannelItem* trackChannelItem(const audio::TrackId& trackId) const;
-    TrackMixerChannelItem* trackChannelItem(const engraving::InstrumentTrackId& instrumentTrackId) const;
+    MixerChannelItem* findChannelItem(const audio::TrackId& trackId) const;
 
     project::INotationProjectPtr currentProject() const;
     project::IProjectAudioSettingsPtr audioSettings() const;
@@ -88,9 +88,11 @@ private:
     notation::INotationPartsPtr masterNotationParts() const;
 
     QList<MixerChannelItem*> m_mixerChannelList;
+    MixerChannelItem* m_masterChannelItem = nullptr;
     audio::TrackSequenceId m_currentTrackSequenceId = -1;
 
     ui::NavigationSection* m_itemsNavigationSection = nullptr;
+    int m_navigationPanelOrderStart = 0;
 };
 }
 

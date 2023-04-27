@@ -33,6 +33,8 @@ class Segment;
 class MeasureRepeat final : public Rest
 {
     OBJECT_ALLOCATOR(engraving, MeasureRepeat)
+    DECLARE_CLASSOF(ElementType::MEASURE_REPEAT)
+
 public:
     MeasureRepeat(Segment* parent);
     MeasureRepeat(const MeasureRepeat&) = default;
@@ -51,14 +53,12 @@ public:
     double numberPos() const { return m_numberPos; }
 
     Measure* firstMeasureOfGroup() const;
+    const Measure* referringMeasure() const;
 
     void draw(mu::draw::Painter*) const override;
     void layout() override;
     Fraction ticks() const override;
     Fraction actualTicks() const { return Rest::ticks(); }
-
-    void read(XmlReader&) override;
-    void write(XmlWriter& xml) const override;
 
     PropertyValue propertyDefault(Pid) const override;
     bool setProperty(Pid, const PropertyValue&) override;

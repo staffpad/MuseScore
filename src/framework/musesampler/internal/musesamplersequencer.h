@@ -23,12 +23,12 @@
 #ifndef MU_MUSESAMPLER_MUSESAMPLERSEQUENCER_H
 #define MU_MUSESAMPLER_MUSESAMPLERSEQUENCER_H
 
-#include "audio/abstracteventsequencer.h"
+#include "audio/internal/abstracteventsequencer.h"
 
 #include "internal/apitypes.h"
 #include "internal/libhandler.h"
 
-typedef typename std::variant<mu::mpe::NoteEvent, ms_AuditionStartNoteEvent, ms_AuditionStopNoteEvent> MuseSamplerEvent;
+typedef typename std::variant<mu::mpe::NoteEvent, ms_AuditionStartNoteEvent_2, ms_AuditionStopNoteEvent> MuseSamplerEvent;
 
 template<>
 struct std::less<MuseSamplerEvent>
@@ -40,8 +40,13 @@ struct std::less<MuseSamplerEvent>
             return first.index() < second.index();
         }
 
-        if (std::holds_alternative<ms_AuditionStartNoteEvent>(first)) {
-            return std::get<ms_AuditionStartNoteEvent>(first)._pitch < std::get<ms_AuditionStartNoteEvent>(second)._pitch;
+        if (std::holds_alternative<ms_AuditionStartNoteEvent_2>(first)) {
+            auto& e1 = std::get<ms_AuditionStartNoteEvent_2>(first);
+            auto& e2 = std::get<ms_AuditionStartNoteEvent_2>(second);
+            if (e1._pitch == e2._pitch) {
+                return e1._offset_cents < e2._offset_cents;
+            }
+            return e1._pitch < e2._pitch;
         }
 
         if (std::holds_alternative<ms_AuditionStopNoteEvent>(first)) {
@@ -53,7 +58,7 @@ struct std::less<MuseSamplerEvent>
 };
 
 namespace mu::musesampler {
-class MuseSamplerSequencer : public audio::AbstractEventSequencer<mu::mpe::NoteEvent, ms_AuditionStartNoteEvent, ms_AuditionStopNoteEvent>
+class MuseSamplerSequencer : public audio::AbstractEventSequencer<mu::mpe::NoteEvent, ms_AuditionStartNoteEvent_2, ms_AuditionStopNoteEvent>
 {
 public:
     void init(MuseSamplerLibHandlerPtr samplerLib, ms_MuseSampler sampler, ms_Track track);
@@ -65,8 +70,11 @@ public:
 private:
     void reloadTrack();
 
+    void loadNoteEvents(const mpe::PlaybackEventsMap& changes);
+    void loadDynamicEvents(const mpe::DynamicLevelMap& changes);
+
     void addNoteEvent(const mpe::NoteEvent& noteEvent);
-    int pitchIndex(const mpe::pitch_level_t pitchLevel) const;
+    void pitchAndTuning(const mpe::pitch_level_t nominalPitch, int& pitch, int& centsOffset) const;
     double dynamicLevelRatio(const mpe::dynamic_level_t level) const;
 
     ms_NoteArticulation convertArticulationType(mpe::ArticulationType articulation) const;

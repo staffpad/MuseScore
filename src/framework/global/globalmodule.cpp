@@ -27,13 +27,13 @@
 #include "log.h"
 #include "logremover.h"
 #include "thirdparty/haw_logger/logger/logdefdest.h"
-#include "version.h"
-#include "config.h"
+#include "muversion.h"
 
 #include "internal/application.h"
 #include "internal/interactive.h"
 #include "internal/invoker.h"
 #include "internal/cryptographichash.h"
+#include "internal/process.h"
 
 #include "runtime.h"
 #include "async/processevents.h"
@@ -43,8 +43,6 @@
 #include "io/internal/filesystem.h"
 
 #include "diagnostics/idiagnosticspathsregister.h"
-
-#include "config.h"
 
 using namespace mu::framework;
 using namespace mu::modularity;
@@ -66,9 +64,10 @@ void GlobalModule::registerExports()
     ioc()->registerExport<IInteractive>(moduleName(), new Interactive());
     ioc()->registerExport<IFileSystem>(moduleName(), new FileSystem());
     ioc()->registerExport<ICryptographicHash>(moduleName(), new CryptographicHash());
+    ioc()->registerExport<IProcess>(moduleName(), new Process());
 }
 
-void GlobalModule::onInit(const IApplication::RunMode& mode)
+void GlobalModule::onPreInit(const IApplication::RunMode& mode)
 {
     mu::runtime::mainThreadId(); //! NOTE Needs only call
     mu::runtime::setThreadName("main");
@@ -83,7 +82,7 @@ void GlobalModule::onInit(const IApplication::RunMode& mode)
     logger->clearDests();
 
     //! Console
-    if (mode == IApplication::RunMode::Editor || mu::runtime::isDebug()) {
+    if (mode == IApplication::RunMode::GuiApp || mu::runtime::isDebug()) {
         logger->addDest(new ConsoleLogDest(LogLayout("${time} | ${type|5} | ${thread} | ${tag|10} | ${message}")));
     }
 
@@ -103,14 +102,14 @@ void GlobalModule::onInit(const IApplication::RunMode& mode)
 
     logger->addDest(logFile);
 
-#ifdef LOGGER_DEBUGLEVEL_ENABLED
+#ifdef MUE_ENABLE_LOGGER_DEBUGLEVEL
     logger->setLevel(haw::logger::Debug);
 #else
     logger->setLevel(haw::logger::Normal);
 #endif
 
     LOGI() << "log path: " << logFile->filePath();
-    LOGI() << "=== Started MuseScore " << framework::Version::fullVersion() << ", build number " << BUILD_NUMBER << " ===";
+    LOGI() << "=== Started MuseScore " << framework::MUVersion::fullVersion() << ", build number " << MUSESCORE_BUILD_NUMBER << " ===";
 
     //! --- Setup profiler ---
     using namespace haw::profiler;
@@ -142,6 +141,7 @@ void GlobalModule::onInit(const IApplication::RunMode& mode)
     auto pr = ioc()->resolve<diagnostics::IDiagnosticsPathsRegister>(moduleName());
     if (pr) {
         pr->reg("appBinPath", s_globalConf->appBinPath());
+        pr->reg("appBinDirPath", s_globalConf->appBinDirPath());
         pr->reg("appDataPath", s_globalConf->appDataPath());
         pr->reg("appConfigPath", s_globalConf->appConfigPath());
         pr->reg("userAppDataPath", s_globalConf->userAppDataPath());
@@ -150,4 +150,19 @@ void GlobalModule::onInit(const IApplication::RunMode& mode)
         pr->reg("log file", logFile->filePath());
         pr->reg("settings file", settings()->filePath());
     }
+}
+
+void GlobalModule::onInit(const IApplication::RunMode&)
+{
+    s_globalConf->init();
+}
+
+void GlobalModule::onDeinit()
+{
+    invokeQueuedCalls();
+}
+
+void GlobalModule::invokeQueuedCalls()
+{
+    s_asyncInvoker.invokeQueuedCalls();
 }

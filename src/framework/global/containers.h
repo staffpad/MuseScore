@@ -175,6 +175,18 @@ inline T takeLast(std::list<T>& l)
     return v;
 }
 
+template<typename T>
+inline std::pair<bool, T> take(std::list<T>& l, const T& v)
+{
+    auto it = std::find(l.begin(), l.end(), v);
+    if (it == l.end()) {
+        return std::make_pair(false, T());
+    }
+    std::pair<bool, T> ret = std::make_pair(true, *it);
+    l.erase(it);
+    return ret;
+}
+
 // set
 template<typename T>
 inline bool contains(const std::set<T>& s, const T& v)
@@ -288,7 +300,7 @@ inline bool remove(Map& c, const T& v)
 template<typename Map, typename K>
 inline auto take(Map& m, const K& k) -> typename Map::mapped_type
 {
-    auto it = m.find(static_cast<int>(k));
+    auto it = m.find(k);
     if (it != m.end()) {
         auto v = it->second;
         m.erase(it);
@@ -317,6 +329,66 @@ inline auto values(const std::multimap<K, V>& mm, const K& key) -> std::vector<t
         result.push_back(it->second);
     }
     return result;
+}
+
+template<typename C>
+inline typename C::const_iterator findLessOrEqual(const C& c, const typename C::key_type& k)
+{
+    if (c.empty()) {
+        return c.cend();
+    }
+
+    auto it = c.upper_bound(k);
+    if (it == c.cbegin()) {
+        return c.cend();
+    }
+
+    return std::prev(it);
+}
+
+template<typename C>
+inline typename C::iterator findLessOrEqual(C& c, const typename C::key_type& k)
+{
+    if (c.empty()) {
+        return c.end();
+    }
+
+    auto it = c.upper_bound(k);
+    if (it == c.begin()) {
+        return c.end();
+    }
+
+    return std::prev(it);
+}
+
+template<typename C>
+inline typename C::const_iterator findLess(const C& c, const typename C::key_type& k)
+{
+    if (c.empty()) {
+        return c.cend();
+    }
+
+    auto it = c.lower_bound(k);
+    if (it == c.cbegin()) {
+        return c.cend();
+    }
+
+    return std::prev(it);
+}
+
+template<typename C>
+inline typename C::iterator findLess(C& c, const typename C::key_type& k)
+{
+    if (c.empty()) {
+        return c.end();
+    }
+
+    auto it = c.lower_bound(k);
+    if (it == c.begin()) {
+        return c.end();
+    }
+
+    return std::prev(it);
 }
 
 template<typename ForwardIterator>

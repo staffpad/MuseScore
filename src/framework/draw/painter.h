@@ -25,7 +25,6 @@
 #include <list>
 #include <stack>
 
-#include "config.h"
 #include "ipaintprovider.h"
 
 #include "types/string.h"
@@ -51,7 +50,7 @@ public:
 
 #ifndef NO_QT_SUPPORT
     Painter(QPaintDevice* dp, const std::string& name);
-    Painter(QPainter* qp, const std::string& name, bool overship = false);
+    Painter(QPainter* qp, const std::string& name, bool ownsQPainter = false);
 #endif
 
     ~Painter();
@@ -63,7 +62,7 @@ public:
     bool endDraw();
 
     //! NOTE These are methods for debugging and automated testing.
-    void beginObject(const std::string& name, const PointF& pagePos);
+    void beginObject(const std::string& name);
     void endObject();
 
     // state
@@ -168,6 +167,8 @@ public:
     void drawTiledPixmap(const RectF& rect, const QPixmap& pm, const PointF& offset = PointF());
 #endif
 
+    bool hasClipping() const;
+
     void setClipRect(const RectF& rect);
     void setClipping(bool enable);
 
@@ -190,7 +191,7 @@ private:
     void init();
     State& editableState();
     const State& state() const;
-    Transform makeViewTransform() const;
+    void updateViewTransform();
     void updateMatrix();
 
     bool endTarget(bool endDraw);
@@ -202,7 +203,7 @@ private:
 
 inline void Painter::setPen(const Color& color)
 {
-    setPen(Pen(color.isValid() ? color : Color::black));
+    setPen(Pen(color.isValid() ? color : Color::BLACK));
 }
 
 inline void Painter::translate(const PointF& offset)
@@ -267,33 +268,41 @@ inline void Painter::drawText(int x, int y, const String& text)
     drawText(PointF(x, y), text);
 }
 
-class PainterObjMarker
+class PainterItemMarker
 {
 public:
-    PainterObjMarker(Painter* p, const std::string& name, const PointF& objPagePos)
+    PainterItemMarker(Painter* p, const std::string& name)
         : m_painter(p)
     {
-        p->beginObject(name, objPagePos);
+        if (!enabled) {
+            return;
+        }
+        p->beginObject(name);
     }
 
-    ~PainterObjMarker()
+    ~PainterItemMarker()
     {
+        if (!enabled) {
+            return;
+        }
         m_painter->endObject();
     }
+
+    static bool enabled;
 
 private:
     Painter* m_painter = nullptr;
 };
 
-#ifdef TRACE_DRAW_OBJ_ENABLED
-    #define TRACE_OBJ_DRAW \
-    mu::draw::PainterObjMarker __drawObjMarker(painter, name(), pagePos())
+#ifdef MUE_ENABLE_DRAW_TRACE
+    #define TRACE_ITEM_DRAW \
+    mu::draw::PainterItemMarker __drawItemMarker(painter, typeName())
 
-    #define TRACE_OBJ_DRAW_C(painter, objName, objPagePos) \
-    mu::draw::PainterObjMarker __drawObjMarker(painter, objName, objPagePos)
+    #define TRACE_ITEM_DRAW_C(painter, itemName) \
+    mu::draw::PainterItemMarker __drawItemMarker(painter, itemName)
 #else
-    #define TRACE_OBJ_DRAW
-    #define TRACE_OBJ_DRAW_C(painter, objName, objPagePos)
+    #define TRACE_ITEM_DRAW
+    #define TRACE_ITEM_DRAW_C(painter, objName)
 #endif
 }
 

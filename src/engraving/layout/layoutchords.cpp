@@ -26,17 +26,22 @@
 #include "libmscore/accidental.h"
 #include "libmscore/beam.h"
 #include "libmscore/chord.h"
+#include "libmscore/fingering.h"
 #include "libmscore/glissando.h"
 #include "libmscore/hook.h"
 #include "libmscore/measure.h"
 #include "libmscore/note.h"
 #include "libmscore/part.h"
+#include "libmscore/rest.h"
 #include "libmscore/score.h"
 #include "libmscore/segment.h"
+#include "libmscore/shape.h"
 #include "libmscore/staff.h"
 #include "libmscore/stem.h"
 #include "libmscore/stemslash.h"
+#include "libmscore/system.h"
 #include "libmscore/tie.h"
+#include "libmscore/utils.h"
 
 using namespace mu::engraving;
 
@@ -48,7 +53,7 @@ static void layoutSegmentElements(Segment* segment, track_idx_t startTrack, trac
 {
     for (track_idx_t track = startTrack; track < endTrack; ++track) {
         if (EngravingItem* e = segment->element(track)) {
-            if (!e->isChord() || (e->isChord() && toChord(e)->vStaffIdx() == staffIdx)) {
+            if (e->vStaffIdx() == staffIdx) {
                 e->layout();
             }
         }
@@ -64,6 +69,7 @@ static void layoutSegmentElements(Segment* segment, track_idx_t startTrack, trac
 void LayoutChords::layoutChords1(Score* score, Segment* segment, staff_idx_t staffIdx)
 {
     const Staff* staff = score->Score::staff(staffIdx);
+    const bool isTab = staff->isTabStaff(segment->tick());
     const track_idx_t startTrack = staffIdx * VOICES;
     const track_idx_t endTrack   = startTrack + VOICES;
     const Fraction tick = segment->tick();
@@ -74,12 +80,13 @@ void LayoutChords::layoutChords1(Score* score, Segment* segment, staff_idx_t sta
     const track_idx_t partStartTrack = part ? part->startTrack() : startTrack;
     const track_idx_t partEndTrack = part ? part->endTrack() : endTrack;
 
-    if (staff->isTabStaff(tick)) {
+    if (staff && staff->isTabStaff(tick) && (!staff->staffType() || !staff->staffType()->stemThrough())) {
         layoutSegmentElements(segment, startTrack, endTrack, staffIdx);
         return;
     }
 
     bool crossBeamFound = false;
+    std::vector<Chord*> chords;
     std::vector<Note*> upStemNotes;
     std::vector<Note*> downStemNotes;
     int upVoices       = 0;
@@ -104,6 +111,7 @@ void LayoutChords::layoutChords1(Score* score, Segment* segment, staff_idx_t sta
         EngravingItem* e = segment->element(track);
         if (e && e->isChord() && toChord(e)->vStaffIdx() == staffIdx) {
             Chord* chord = toChord(e);
+            chords.push_back(chord);
             if (chord->beam() && chord->beam()->cross()) {
                 crossBeamFound = true;
             }
@@ -112,8 +120,8 @@ void LayoutChords::layoutChords1(Score* score, Segment* segment, staff_idx_t sta
                 if (c->isGraceBefore()) {
                     hasGraceBefore = true;
                 }
-                layoutChords2(c->notes(), c->up());               // layout grace note noteheads
-                layoutChords3(score->style(), c->notes(), staff, 0);              // layout grace note chords
+                layoutChords2(c->notes(), c->up()); // layout grace note noteheads
+                layoutChords3(score->style(), { c }, c->notes(), staff); // layout grace note chords
             }
             if (chord->up()) {
                 ++upVoices;
@@ -236,7 +244,7 @@ void LayoutChords::layoutChords1(Score* score, Segment* segment, staff_idx_t sta
 
         // handle conflict between upstem and downstem chords
 
-        if (upVoices && downVoices) {
+        if (upVoices && downVoices && !isTab) {
             Note* bottomUpNote = upStemNotes.front();
             Note* topDownNote  = downStemNotes.back();
             int separation;
@@ -252,12 +260,19 @@ void LayoutChords::layoutChords1(Score* score, Segment* segment, staff_idx_t sta
 
             if (separation == 1) {
                 // second
-                downOffset = maxUpWidth;
-                // align stems if present, leave extra room if not
-                if (topDownNote->chord()->stem() && bottomUpNote->chord()->stem()) {
-                    downOffset -= topDownNote->chord()->stem()->lineWidth();
+                if (upDots && !downDots) {
+                    upOffset = maxDownWidth + 0.1 * sp;
                 } else {
-                    downOffset += 0.1 * sp;
+                    downOffset = maxUpWidth;
+                    // align stems if present
+                    if (topDownNote->chord()->stem() && bottomUpNote->chord()->stem()) {
+                        downOffset -= topDownNote->chord()->stem()->lineWidth();
+                    } else if (topDownNote->chord()->durationType().headType() != NoteHeadType::HEAD_BREVIS
+                               && bottomUpNote->chord()->durationType().headType() != NoteHeadType::HEAD_BREVIS) {
+                        // stemless notes should be aligned as is they were stemmed
+                        // (except in case of brevis, cause the notehead has the side bars)
+                        downOffset -= score->styleMM(Sid::stemWidth) * topDownNote->chord()->mag();
+                    }
                 }
             } else if (separation < 1) {
                 // overlap (possibly unison)
@@ -363,6 +378,7 @@ void LayoutChords::layoutChords1(Score* score, Segment* segment, staff_idx_t sta
                     shareHeads = false;
                 }
 
+                bool conflict = conflictUnison || conflictSecondDownHigher || conflictSecondUpHigher;
                 // calculate offsets
                 if (shareHeads) {
                     for (int i = static_cast<int>(overlapNotes.size()) - 1; i >= 1; i -= 2) {
@@ -393,17 +409,19 @@ void LayoutChords::layoutChords1(Score* score, Segment* segment, staff_idx_t sta
                             // so better to solve the problem elsewhere
                         }
                     }
+                } else if (conflict && (upDots && !downDots)) {
+                    upOffset = maxDownWidth + 0.1 * sp;
                 } else if (conflictUnison && separation == 0 && (!downGrace || upGrace)) {
-                    downOffset = maxUpWidth + 0.3 * sp;
+                    downOffset = maxUpWidth + 0.15 * sp;
                 } else if (conflictUnison) {
-                    upOffset = maxDownWidth + 0.3 * sp;
+                    upOffset = maxDownWidth + 0.15 * sp;
                 } else if (conflictSecondUpHigher) {
-                    upOffset = maxDownWidth + 0.2 * sp;
+                    upOffset = maxDownWidth + 0.15 * sp;
                 } else if ((downHooks && !upHooks) && !(upDots && !downDots)) {
                     downOffset = maxUpWidth + 0.3 * sp;
                 } else if (conflictSecondDownHigher) {
                     if (downDots && !upDots) {
-                        downOffset = maxUpWidth + 0.3 * sp;
+                        downOffset = maxUpWidth + 0.2 * sp;
                     } else {
                         upOffset = maxDownWidth - 0.2 * sp;
                         if (downHooks) {
@@ -469,27 +487,29 @@ void LayoutChords::layoutChords1(Score* score, Segment* segment, staff_idx_t sta
         }
 
         // apply chord offsets
-        for (track_idx_t track = partStartTrack; track < partEndTrack; ++track) {
-            EngravingItem* e = segment->element(track);
-            if (e && e->isChord() && toChord(e)->vStaffIdx() == staffIdx) {
-                Chord* chord = toChord(e);
-                if (chord->up()) {
-                    if (upOffset != 0.0) {
-                        chord->movePosX(upOffset + centerAdjustUp + oversizeUp);
-                        if (downDots && !upDots) {
-                            chord->movePosX(dotAdjust);
+        if (!isTab) {
+            for (track_idx_t track = partStartTrack; track < partEndTrack; ++track) {
+                EngravingItem* e = segment->element(track);
+                if (e && e->isChord() && toChord(e)->vStaffIdx() == staffIdx) {
+                    Chord* chord = toChord(e);
+                    if (chord->up()) {
+                        if (!RealIsNull(upOffset)) {
+                            chord->movePosX(upOffset + centerAdjustUp + oversizeUp);
+                            if (downDots && !upDots) {
+                                chord->movePosX(dotAdjust);
+                            }
+                        } else {
+                            chord->movePosX(centerUp);
                         }
                     } else {
-                        chord->movePosX(centerUp);
-                    }
-                } else {
-                    if (downOffset != 0.0) {
-                        chord->movePosX(downOffset + centerAdjustDown);
-                        if (upDots && !downDots) {
-                            chord->movePosX(dotAdjust);
+                        if (!RealIsNull(downOffset)) {
+                            chord->movePosX(downOffset + centerAdjustDown);
+                            if (upDots && !downDots) {
+                                chord->movePosX(dotAdjust);
+                            }
+                        } else {
+                            chord->movePosX(centerDown);
                         }
-                    } else {
-                        chord->movePosX(centerDown);
                     }
                 }
             }
@@ -507,7 +527,7 @@ void LayoutChords::layoutChords1(Score* score, Segment* segment, staff_idx_t sta
             std::sort(notes.begin(), notes.end(),
                       [](Note* n1, const Note* n2) ->bool { return n1->line() > n2->line(); });
         }
-        layoutChords3(score->style(), notes, staff, segment);
+        layoutChords3(score->style(), chords, notes, staff);
     }
 
     layoutSegmentElements(segment, partStartTrack, partEndTrack, staffIdx);
@@ -593,6 +613,9 @@ double LayoutChords::layoutChords2(std::vector<Note*>& notes, bool up)
             }
         }
         note->setMirror(mirror);
+        if (chord->stem()) {
+            chord->stem()->layout(); // needed because mirroring can cause stem position to change
+        }
 
         // accumulate return value
         if (!mirror) {
@@ -754,9 +777,9 @@ static std::pair<double, double> layoutAccidental(const MStyle& style, AcEl* me,
             }
             // undercut note above if possible
             if (lnBottom - me->top <= me->ascent - pnd) {
-                lx = std::min(lx, ln->x() + ln->chord()->x() + lnLedgerAdjust + me->rightClear);
+                lx = std::min(lx, ln->x() + lnLedgerAdjust + me->rightClear);
             } else {
-                lx = std::min(lx, ln->x() + ln->chord()->x() + lnLedgerAdjust);
+                lx = std::min(lx, ln->x() + lnLedgerAdjust);
             }
         } else if (lnTop > me->bottom) {
             break;
@@ -789,7 +812,7 @@ static std::pair<double, double> layoutAccidental(const MStyle& style, AcEl* me,
 //    - calculate positions of notes, accidentals, dots
 //---------------------------------------------------------
 
-void LayoutChords::layoutChords3(const MStyle& style, std::vector<Note*>& notes, const Staff* staff, Segment* segment)
+void LayoutChords::layoutChords3(const MStyle& style, const std::vector<Chord*>& chords, std::vector<Note*>& notes, const Staff* staff)
 {
     //---------------------------------------------------
     //    layout accidentals
@@ -817,6 +840,7 @@ void LayoutChords::layoutChords3(const MStyle& style, std::vector<Note*>& notes,
     int nAcc = 0;
     int prevSubtype = 0;
     int prevLine = std::numeric_limits<int>::min();
+
     for (int i = nNotes - 1; i >= 0; --i) {
         Note* note     = notes[i];
         Accidental* ac = note->accidental();
@@ -825,11 +849,11 @@ void LayoutChords::layoutChords3(const MStyle& style, std::vector<Note*>& notes,
             // if we find one that is identical to the one before it, don't lay it out
             ac->setbbox(RectF());
             ac->setPos(PointF());
-        } else if (ac && !note->fixed()) {
+        } else if (ac) {
             prevLine = note->line();
             prevSubtype = ac->subtype();
             ac->layout();
-            if (!ac->visible()) {
+            if (!ac->visible() || note->fixed()) {
                 ac->setPos(ac->bbox().x() - ac->width(), 0.0);
             } else {
                 AcEl acel;
@@ -878,7 +902,7 @@ void LayoutChords::layoutChords3(const MStyle& style, std::vector<Note*>& notes,
         double overlapMirror;
         Stem* stem = chord->stem();
         if (stem) {
-            overlapMirror = stem->lineWidth();
+            overlapMirror = stem->lineWidth() * chord->mag();
         } else if (chord->durationType().headType() == NoteHeadType::HEAD_WHOLE) {
             overlapMirror = style.styleMM(Sid::stemWidth) * chord->mag();
         } else {
@@ -912,7 +936,7 @@ void LayoutChords::layoutChords3(const MStyle& style, std::vector<Note*>& notes,
         // a mirrored note that extends to left of segment X origin
         // will displace accidentals only if there is conflict
         double sx = x + chord->x();     // segment-relative X position of note
-        if (note->mirror() && !chord->up() && sx < 0.0) {
+        if (note->mirror() && !chord->up() && sx < -note->headBodyWidth() / 2) {
             leftNotes.push_back(note);
         } else if (sx < lx) {
             lx = sx;
@@ -980,12 +1004,35 @@ void LayoutChords::layoutChords3(const MStyle& style, std::vector<Note*>& notes,
         lx = notes.front()->chord()->stemPosX();
     }
 
-    if (segment) {
-        // align all dots for segment/staff
-        // it would be possible to dots for up & down chords separately
-        // this would require space to have been allocated previously
-        // when calculating chord offsets
-        segment->setDotPosX(staff->idx(), std::max(upDotPosX, downDotPosX));
+    // Look for conflicts in up-stem and down-stemmed chords. If conflicts, all dots are aligned
+    // to the same vertical line. If no conflicts, each chords aligns the dots individually.
+    bool conflict = false;
+    for (Chord* chord1 : chords) {
+        for (Chord* chord2 : chords) {
+            if ((chord1 != chord2)
+                && ((chord1->up() && !chord2->up() && chord2->upNote()->line() - chord1->downNote()->line() < 2)
+                    || (!chord1->up() && chord2->up() && chord1->upNote()->line() - chord2->downNote()->line() < 2))) {
+                conflict = true;
+                break;
+            }
+        }
+        if (conflict) {
+            break;
+        }
+    }
+    if (conflict) {
+        double maxPosX = std::max(upDotPosX, downDotPosX);
+        for (Chord* chord : chords) {
+            chord->setDotPosX(maxPosX);
+        }
+    } else {
+        for (Chord* chord : chords) {
+            if (chord->up()) {
+                chord->setDotPosX(upDotPosX);
+            } else {
+                chord->setDotPosX(downDotPosX);
+            }
+        }
     }
 
     if (nAcc == 0) {
@@ -1199,7 +1246,14 @@ void LayoutChords::updateGraceNotes(Measure* measure)
             EngravingItem* e = s.preAppendedItem(track);
             if (e && e->isGraceNotesGroup()) {
                 s.clearPreAppended(track);
-                s.createShape(track2staff(track));
+                std::set<staff_idx_t> stavesToReShape;
+                for (Chord* grace : *toGraceNotesGroup(e)) {
+                    stavesToReShape.insert(grace->staffIdx());
+                    stavesToReShape.insert(grace->vStaffIdx());
+                }
+                for (staff_idx_t staffToReshape : stavesToReShape) {
+                    s.createShape(staffToReshape);
+                }
             }
         }
     }
@@ -1221,7 +1275,7 @@ void LayoutChords::updateGraceNotes(Measure* measure)
             if (e && e->isGraceNotesGroup()) {
                 GraceNotesGroup* gng = toGraceNotesGroup(e);
                 gng->layout();
-                s.staffShape(track2staff(track)).add(gng->shape().translated(gng->pos()));
+                gng->addToShape();
             }
         }
     }
@@ -1284,7 +1338,7 @@ void LayoutChords::repositionGraceNotesAfter(Segment* segment)
     }
 }
 
-void LayoutChords::updateLineAttachPoints(Measure* measure)
+void LayoutChords::clearLineAttachPoints(Measure* measure)
 {
     for (Segment& s : measure->segments()) {
         if (!s.isChordRestType()) {
@@ -1305,32 +1359,12 @@ void LayoutChords::updateLineAttachPoints(Measure* measure)
             }
         }
     }
-    bool isFirstChordRestInMeasure = true;
-    for (Segment& s : measure->segments()) {
-        if (!s.isChordRestType()) {
-            continue;
-        }
-        for (EngravingItem* e : s.elist()) {
-            if (!e || !e->isChord()) {
-                continue;
-            }
-            Chord* c = toChord(e);
-            doUpdateLineAttachPoints(c, isFirstChordRestInMeasure);
-            for (Chord* gn : c->graceNotes()) {
-                doUpdateLineAttachPoints(gn, false);
-            }
-        }
-        isFirstChordRestInMeasure = false;
-    }
-    for (Segment& s : measure->segments()) {
-        s.createShapes();
-    }
 }
 
 /* We perform a pre-layout of ties and glissandi to obtain the attach points and attach them to
  * the notes of the chord. Will be needed for spacing calculation, particularly to
  * enforce minTieLength. The true layout of ties and glissandi is done much later. */
-void LayoutChords::doUpdateLineAttachPoints(Chord* chord, bool isFirstInMeasure)
+void LayoutChords::updateLineAttachPoints(Chord* chord, bool isFirstInMeasure)
 {
     if (chord->endsGlissando()) {
         for (Note* note : chord->notes()) {
@@ -1363,5 +1397,260 @@ void LayoutChords::doUpdateLineAttachPoints(Chord* chord, bool isFirstInMeasure)
                 tie->layoutFor(note->findMeasure()->system()); // line attach points are updated here
             }
         }
+    }
+}
+
+void LayoutChords::resolveVerticalRestConflicts(Score* score, Segment* segment, staff_idx_t staffIdx)
+{
+    std::vector<Rest*> rests;
+    std::vector<Chord*> chords;
+
+    collectChordsAndRest(segment, staffIdx, chords, rests);
+
+    for (Rest* rest : rests) {
+        rest->verticalClearance().reset();
+    }
+
+    if (rests.empty()) {
+        return;
+    }
+
+    if (!chords.empty()) {
+        resolveRestVSChord(rests, chords, score, segment, staffIdx);
+    }
+
+    if (rests.size() < 2) {
+        return;
+    }
+
+    resolveRestVSRest(rests, score, segment, staffIdx);
+}
+
+void LayoutChords::resolveRestVSChord(std::vector<Rest*>& rests, std::vector<Chord*>& chords, Score* score, Segment* segment,
+                                      staff_idx_t staffIdx)
+{
+    Fraction tick = segment->tick();
+    Staff* staff = score->staff(staffIdx);
+    int lines = staff->lines(tick);
+    double spatium = staff->spatium(tick);
+    double lineDistance = staff->lineDistance(tick) * spatium;
+    const double minRestToChordClearance = 0.35 * spatium;
+
+    for (Rest* rest : rests) {
+        if (!rest->visible() || !rest->autoplace()) {
+            continue;
+        }
+        RestVerticalClearance& restVerticalClearance = rest->verticalClearance();
+        for (Chord* chord : chords) {
+            if (!chord->visible() || !chord->autoplace()) {
+                continue;
+            }
+            bool restAbove = rest->voice() < chord->voice() || (chord->slash() && !(rest->voice() % 2));
+            int upSign = restAbove ? -1 : 1;
+            double restYOffset = rest->offset().y();
+            bool ignoreYOffset = (restAbove && restYOffset > 0) || (!restAbove && restYOffset < 0);
+            PointF offset = ignoreYOffset ? PointF(0, restYOffset) : PointF(0, 0);
+            Shape restShape = rest->shape().translated(rest->pos() - offset);
+            Shape chordShape = chord->shape().translated(chord->pos());
+            double clearance = restAbove ? restShape.verticalClearance(chordShape) : chordShape.verticalClearance(restShape);
+            double margin = clearance - minRestToChordClearance;
+            int marginInSteps = floor(margin / lineDistance);
+            if (restAbove) {
+                restVerticalClearance.setBelow(marginInSteps);
+            } else {
+                restVerticalClearance.setAbove(marginInSteps);
+            }
+            if (margin > 0) {
+                continue;
+            }
+            rest->verticalClearance().setLocked(true);
+            bool isWholeOrHalf = rest->isWholeRest() || rest->durationType() == DurationType::V_HALF;
+            bool outAboveStaff = restAbove && restShape.bottom() + margin < minRestToChordClearance;
+            bool outBelowStaff = !restAbove && restShape.top() - margin > (lines - 1) * lineDistance - minRestToChordClearance;
+            bool useHalfSpaceSteps = (outAboveStaff || outBelowStaff) && !isWholeOrHalf;
+            double yMove;
+            if (useHalfSpaceSteps) {
+                int steps = ceil(abs(margin) / (lineDistance / 2));
+                yMove = steps * lineDistance / 2 * upSign;
+                rest->movePosY(yMove);
+            } else {
+                int steps = ceil(abs(margin) / lineDistance);
+                yMove = steps * lineDistance * upSign;
+                rest->movePosY(yMove);
+            }
+            for (Rest* mergedRest : rest->mergedRests()) {
+                mergedRest->movePosY(yMove);
+            }
+            if (isWholeOrHalf) {
+                double y = rest->pos().y();
+                int line = y < 0 ? floor(y / lineDistance) : floor(y / lineDistance);
+                rest->updateSymbol(line, lines); // Because it may need to use the symbol with ledger line now
+            }
+        }
+    }
+}
+
+void LayoutChords::resolveRestVSRest(std::vector<Rest*>& rests, Score* score, Segment* segment, staff_idx_t staffIdx, bool considerBeams)
+{
+    if (rests.empty()) {
+        return;
+    }
+
+    Fraction tick = segment->tick();
+    Staff* staff = score->staff(staffIdx);
+    double spatium = staff->spatium(tick);
+    double lineDistance = staff->lineDistance(tick) * spatium;
+    int lines = staff->lines(tick);
+    const double minRestToRestClearance = 0.35 * spatium;
+
+    for (size_t i = 0; i < rests.size() - 1; ++i) {
+        Rest* rest1 = rests[i];
+        if (!rest1->visible() || !rest1->autoplace()) {
+            continue;
+        }
+        RestVerticalClearance& rest1Clearance = rest1->verticalClearance();
+        Shape shape1 = rest1->shape().translated(rest1->pos() - rest1->offset());
+
+        Rest* rest2 = rests[i + 1];
+        if (!rest2->visible() || !rest2->autoplace()) {
+            continue;
+        }
+
+        if (mu::contains(rest1->mergedRests(), rest2) || mu::contains(rest2->mergedRests(), rest1)) {
+            continue;
+        }
+
+        Shape shape2 = rest2->shape().translated(rest2->pos() - rest2->offset());
+        RestVerticalClearance& rest2Clearance = rest2->verticalClearance();
+
+        double clearance;
+        bool firstAbove = rest1->voice() < rest2->voice();
+        if (firstAbove) {
+            clearance = shape1.verticalClearance(shape2);
+        } else {
+            clearance = shape2.verticalClearance(shape1);
+        }
+        double margin = clearance - minRestToRestClearance;
+        int marginInSteps = floor(margin / lineDistance);
+        if (firstAbove) {
+            rest1Clearance.setBelow(marginInSteps);
+            rest2Clearance.setAbove(marginInSteps);
+        } else {
+            rest1Clearance.setAbove(marginInSteps);
+            rest2Clearance.setBelow(marginInSteps);
+        }
+
+        if (margin > 0) {
+            continue;
+        }
+
+        int steps = ceil(abs(margin) / lineDistance);
+        // Move the two rests away from each other
+        int step1 = floor(double(steps) / 2);
+        int step2 = ceil(double(steps) / 2);
+        int maxStep1 = firstAbove ? rest1Clearance.above() : rest1Clearance.below();
+        int maxStep2 = firstAbove ? rest2Clearance.below() : rest2Clearance.above();
+        maxStep1 = std::max(maxStep1, 0);
+        maxStep2 = std::max(maxStep2, 0);
+        if (step1 > maxStep1) {
+            step2 += step1 - maxStep1; // First rest is locked, try move the second more
+        }
+        if (step2 > maxStep2) {
+            step1 += step2 - maxStep2; // Second rest is locked, try move the first more
+        }
+        step1 = std::min(step1, maxStep1);
+        step2 = std::min(step2, maxStep2);
+        rest1->movePosY(step1 * lineDistance * (firstAbove ? -1 : 1));
+        rest2->movePosY(step2 * lineDistance * (firstAbove ? 1 : -1));
+
+        Beam* beam1 = rest1->beam();
+        Beam* beam2 = rest2->beam();
+        if (beam1 && beam2 && considerBeams) {
+            shape1 = rest1->shape().translated(rest1->pos() - rest1->offset());
+            shape2 = rest2->shape().translated(rest2->pos() - rest2->offset());
+
+            ChordRest* beam1Start = beam1->elements().front();
+            ChordRest* beam1End = beam1->elements().back();
+            double y1Start = beam1->chordBeamAnchorY(beam1Start) - beam1Start->pagePos().y();
+            double y1End = beam1->chordBeamAnchorY(beam1End) - beam1End->pagePos().y();
+            double beam1Ymid = 0.5 * (y1Start + y1End);
+
+            ChordRest* beam2Start = beam2->elements().front();
+            ChordRest* beam2End = beam2->elements().back();
+            double y2Start = beam2->chordBeamAnchorY(beam2Start) - beam2Start->pagePos().y();
+            double y2End = beam2->chordBeamAnchorY(beam2End) - beam2End->pagePos().y();
+            double beam2Ymid = 0.5 * (y2Start + y2End);
+
+            double centerY = 0.5 * (beam1Ymid + beam2Ymid);
+
+            double upperBound = shape1.bottom();
+            double lowerBound = shape2.top();
+            int steps = 0;
+            if (centerY < upperBound) {
+                steps = floor((centerY - upperBound) / lineDistance);
+            } else if (centerY > lowerBound) {
+                steps = ceil((centerY - lowerBound) / lineDistance);
+            }
+            double moveY = steps * lineDistance;
+            rest1->movePosY(moveY);
+            rest2->movePosY(moveY);
+            shape1.translate(PointF(0.0, moveY));
+            shape2.translate(PointF(0.0, moveY));
+
+            double halfLineDistance = 0.5 * lineDistance;
+            if (shape1.bottom() < -halfLineDistance) {
+                rest1->movePosY(halfLineDistance);
+            } else if (centerY >= (lines - 1) * lineDistance + halfLineDistance) {
+                rest2->movePosY(-halfLineDistance);
+            }
+
+            rest1->verticalClearance().setLocked(true);
+            rest2->verticalClearance().setLocked(true);
+            beam1->layout();
+            beam2->layout();
+        }
+    }
+}
+
+void LayoutChords::layoutChordBaseFingering(Chord* chord, System* system)
+{
+    std::set<staff_idx_t> shapesToRecreate;
+    std::list<Note*> notes;
+    Segment* segment = chord->segment();
+    for (auto gc : chord->graceNotes()) {
+        for (auto n : gc->notes()) {
+            notes.push_back(n);
+        }
+    }
+    for (auto n : chord->notes()) {
+        notes.push_back(n);
+    }
+    std::list<Fingering*> fingerings;
+    for (Note* note : notes) {
+        for (EngravingItem* el : note->el()) {
+            if (el->isFingering()) {
+                Fingering* f = toFingering(el);
+                if (f->layoutType() == ElementType::CHORD && !f->isOnCrossBeamSide()) {
+                    // Fingering on top of cross-staff beams must be laid out later
+                    if (f->placeAbove()) {
+                        fingerings.push_back(f);
+                    } else {
+                        fingerings.push_front(f);
+                    }
+                }
+            }
+        }
+    }
+    for (Fingering* f : fingerings) {
+        f->layout();
+        if (f->addToSkyline()) {
+            Note* n = f->note();
+            RectF r = f->bbox().translated(f->pos() + n->pos() + n->chord()->pos() + segment->pos() + segment->measure()->pos());
+            system->staff(f->note()->chord()->vStaffIdx())->skyline().add(r);
+        }
+        shapesToRecreate.insert(f->staffIdx());
+    }
+    for (staff_idx_t staffIdx : shapesToRecreate) {
+        segment->createShape(staffIdx);
     }
 }

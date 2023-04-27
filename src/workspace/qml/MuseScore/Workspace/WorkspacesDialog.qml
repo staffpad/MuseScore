@@ -43,12 +43,11 @@ StyledDialogView {
         workspacesModel.load()
     }
 
-    onOpened: {
-        activateNavigation()
+    onNavigationActivateRequested: {
+        view.focusOnSelected()
     }
 
-    function activateNavigation() {
-        view.focusOnSelected()
+    onAccessibilityActivateRequested: {
         topPanel.readInfo()
     }
 
@@ -87,7 +86,7 @@ StyledDialogView {
         WorkspacesView {
             id: view
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.preferredHeight: root.height - 190
             Layout.leftMargin: -parent.anchors.leftMargin
             Layout.rightMargin: -parent.anchors.rightMargin
             leftPadding: parent.anchors.leftMargin

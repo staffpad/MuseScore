@@ -28,6 +28,7 @@
 #include "global/iglobalconfiguration.h"
 #include "ui/iuiconfiguration.h"
 #include "accessibility/iaccessibilityconfiguration.h"
+#include "importexport/guitarpro/iguitarproconfiguration.h"
 
 #include "../iengravingconfiguration.h"
 
@@ -37,6 +38,7 @@ class EngravingConfiguration : public IEngravingConfiguration, public async::Asy
     INJECT(engraving, mu::framework::IGlobalConfiguration, globalConfiguration)
     INJECT(engraving, mu::ui::IUiConfiguration, uiConfiguration)
     INJECT(engraving, mu::accessibility::IAccessibilityConfiguration, accessibilityConfiguration)
+    INJECT(engraving, iex::guitarpro::IGuitarProConfiguration, guitarProConfiguration);
 
 public:
     EngravingConfiguration() = default;
@@ -50,6 +52,8 @@ public:
 
     io::path_t partStyleFilePath() const override;
     void setPartStyleFilePath(const io::path_t& path) override;
+
+    SizeF defaultPageSize() const override;
 
     String iconsFontFamily() const override;
 
@@ -84,11 +88,22 @@ public:
 
     bool isAccessibleEnabled() const override;
 
+    bool guitarProImportExperimental() const override;
+    bool negativeFretsAllowed() const override;
+    bool tablatureParenthesesZIndexWorkaround() const override;
+    bool crossNoteHeadAlwaysBlack() const override;
+    bool enableExperimentalFretCircle() const override;
+    void setGuitarProMultivoiceEnabled(bool multiVoice) override;
+    bool guitarProMultivoiceEnabled() const override;
+    bool minDistanceForPartialSkylineCalculated() const override;
+
 private:
     async::Channel<voice_idx_t, draw::Color> m_voiceColorChanged;
     async::Notification m_scoreInversionChanged;
 
     ValNt<DebuggingOptions> m_debuggingOptions;
+
+    bool m_multiVoice = false;
 };
 }
 

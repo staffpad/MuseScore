@@ -159,8 +159,7 @@ enum class DragMode
 {
     BothXY = 0,
     OnlyX,
-    OnlyY,
-    LassoList
+    OnlyY
 };
 
 enum class MoveDirection
@@ -268,8 +267,10 @@ struct NoteInputState
     bool withSlur = false;
     engraving::voice_idx_t currentVoiceIndex = 0;
     engraving::track_idx_t currentTrack = 0;
+    int currentString = 0;
     const Drumset* drumset = nullptr;
     StaffGroup staffGroup = StaffGroup::STANDARD;
+    const Staff* staff = nullptr;
     Segment* segment = nullptr;
 };
 
@@ -345,6 +346,11 @@ struct InstrumentKey
     ID partId;
     Fraction tick = mu::engraving::Fraction(0, 1);
 };
+
+inline bool isMainInstrumentForPart(const InstrumentKey& instrumentKey, const Part* part)
+{
+    return instrumentKey.instrumentId == part->instrumentId() && instrumentKey.tick == Part::MAIN_INSTRUMENT_TICK;
+}
 
 inline QString formatInstrumentTitle(const QString& instrumentName, const InstrumentTrait& trait)
 {
@@ -563,6 +569,17 @@ struct ScoreConfig
     bool isShowFrames = false;
     bool isShowPageMargins = false;
     bool isMarkIrregularMeasures = false;
+
+    bool operator==(const ScoreConfig& conf) const
+    {
+        bool equal = (isShowInvisibleElements == conf.isShowInvisibleElements);
+        equal &= (isShowUnprintableElements == conf.isShowUnprintableElements);
+        equal &= (isShowFrames == conf.isShowFrames);
+        equal &= (isShowPageMargins == conf.isShowPageMargins);
+        equal &= (isMarkIrregularMeasures == conf.isMarkIrregularMeasures);
+
+        return equal;
+    }
 };
 
 inline QString staffTypeToString(StaffTypeId type)

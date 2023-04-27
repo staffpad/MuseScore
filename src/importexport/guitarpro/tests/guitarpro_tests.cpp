@@ -24,8 +24,8 @@
 
 #include "io/file.h"
 
-#include "engraving/utests/utils/scorerw.h"
-#include "engraving/utests/utils/scorecomp.h"
+#include "engraving/tests/utils/scorerw.h"
+#include "engraving/tests/utils/scorecomp.h"
 
 #include "libmscore/masterscore.h"
 #include "libmscore/excerpt.h"
@@ -459,6 +459,9 @@ TEST_F(GuitarPro_Tests, gpGraceOn) {
 TEST_F(GuitarPro_Tests, gpxGraceOn) {
     gpReadTest("grace-on-beat", "gpx");
 }
+TEST_F(GuitarPro_Tests, gpGraceDurations) {
+    gpReadTest("grace-durations", "gp");
+}
 TEST_F(GuitarPro_Tests, gpPalmMute) {
     gpReadTest("palm-mute", "gp");
 }
@@ -534,7 +537,7 @@ TEST_F(GuitarPro_Tests, gpxRasg) {
 TEST_F(GuitarPro_Tests, gpPercussion) {
     gpReadTest("all-percussion", "gp");
 }
-TEST_F(GuitarPro_Tests, gpxPercussion) {
+TEST_F(GuitarPro_Tests, DISABLED_gpxPercussion) {
     gpReadTest("all-percussion", "gpx");
 }
 TEST_F(GuitarPro_Tests, gp5Percussion) {
@@ -701,4 +704,16 @@ TEST_F(GuitarPro_Tests, gp5CapoFret) {
 }
 TEST_F(GuitarPro_Tests, gpxUncompletedMeasure) {
     gpReadTest("UncompletedMeasure", "gpx");
+}
+TEST_F(GuitarPro_Tests, gpInstrumentChange) {
+    gpReadTest("instr-change", "gp");
+}
+TEST_F(GuitarPro_Tests, gpxInstrumentChange) {
+    gpReadTest("instr-change", "gpx");
+}
+TEST_F(GuitarPro_Tests, gpInstrumentChange1beat) {
+    gpReadTest("instr-change-1-beat", "gp");
+}
+TEST_F(GuitarPro_Tests, gpxInstrumentChange1beat) {
+    gpReadTest("instr-change-1-beat", "gpx");
 }

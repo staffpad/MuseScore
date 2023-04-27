@@ -40,7 +40,8 @@ class UiConfiguration : public IUiConfiguration, public async::Asyncable
     INJECT(ui, IPlatformTheme, platformTheme)
 
 public:
-    void init();
+    void initSettings();
+    void initThemes();
     void load();
     void deinit();
 
@@ -58,7 +59,7 @@ public:
     async::Notification currentThemeChanged() const override;
     void setCurrentTheme(const ThemeCode& codeKey) override;
     void setCurrentThemeStyleValue(ThemeStyleKey key, const Val& val) override;
-    void resetCurrentThemeToDefault(const ThemeCode& codeKey) override;
+    void resetThemes() override;
 
     bool isFollowSystemThemeAvailable() const override;
     ValNt<bool> isFollowSystemTheme() const override;
@@ -81,6 +82,8 @@ public:
     std::string defaultFontFamily() const override;
     int defaultFontSize() const override;
 
+    void resetFonts() override;
+
     double guiScaling() const override;
     double physicalDpi() const override;
     double logicalDpi() const override;
@@ -93,6 +96,8 @@ public:
     QByteArray windowGeometry() const override;
     void setWindowGeometry(const QByteArray& geometry) override;
     async::Notification windowGeometryChanged() const override;
+
+    bool isGlobalMenuAvailable() const override;
 
     void applyPlatformStyle(QWindow* window) override;
 
@@ -107,7 +112,6 @@ public:
     int flickableMaxVelocity() const override;
 
 private:
-    void initThemes();
     void notifyAboutCurrentThemeChanged();
     void updateCurrentTheme();
     void updateThemes();

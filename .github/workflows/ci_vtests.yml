@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
     - master
+    - 4.0.2
 
 jobs:
   setup:
@@ -15,11 +16,18 @@ jobs:
       artifact_name: ${{ steps.output_data.outputs.artifact_name }}
     steps:
     - name: Cancel Previous Runs
-      uses: styfle/cancel-workflow-action@0.9.1
+      uses: styfle/cancel-workflow-action@0.11.0
       with:
         access_token: ${{ github.token }}
     - name: Clone repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
+    - name: "Configure workflow"
+      run: |
+        sudo bash ./build/ci/tools/make_build_number.sh
+        BUILD_NUMBER=$(cat ./build.artifacts/env/build_number.env)
+
+        echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+        echo "BUILD_NUMBER: $BUILD_NUMBER"
     - name: Get reference commit for PR
       if: github.event_name == 'pull_request'
       env:
@@ -43,24 +51,24 @@ jobs:
       env:
         pr_info: ${{ env.PR_INFO }}
       run: |
-        echo "::set-output name=do_run::${{ env.DO_RUN }}"
+        echo "do_run=${{ env.DO_RUN }}" >> $GITHUB_OUTPUT
         echo "DO_RUN=${{ env.DO_RUN }}"
-        echo "::set-output name=reference_sha::${{ env.REFERENCE_SHA }}"
+        echo "reference_sha=${{ env.REFERENCE_SHA }}" >> $GITHUB_OUTPUT
         echo "REFERENCE_SHA=${{ env.REFERENCE_SHA }}"
-        UPLOAD_ARTIFACT_NAME="$(tr '":<>|*?/\\' '_' <<<"VTests Comparison ${{ github.run_id }}${pr_info}")"
-        echo "::set-output name=artifact_name::$UPLOAD_ARTIFACT_NAME"
+        UPLOAD_ARTIFACT_NAME="$(tr '":<>|*?/\\' '_' <<<"VTests Comparison ${{ env.BUILD_NUMBER }}${pr_info}")"
+        echo "artifact_name=$UPLOAD_ARTIFACT_NAME"  >> $GITHUB_OUTPUT
         echo "UPLOAD_ARTIFACT_NAME=$UPLOAD_ARTIFACT_NAME"
 
-  generate_current_pngs:
-    name: "Generate current PNGs"
+  build_current:
+    name: "Build current"
     runs-on: ubuntu-20.04
     needs: setup
     if: needs.setup.outputs.do_run == 'true' # Can't use env: see https://github.com/actions/runner/issues/480
     steps:
     - name: Clone repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Ccache cache files
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/.ccache
         key: ${{github.workflow}}-ccache-$(date -u +"%F-%T")
@@ -71,33 +79,27 @@ jobs:
     - name: Setup environment
       run: |
         bash ./build/ci/linux/setup.sh
-    - name: Build
+    - name: Build and Pack
       run: |
-        source $HOME/build_tools/environment.sh
-        mkdir -p "$HOME/musescore_install"
-        bash ninja_build.sh -t clean
-        MUSESCORE_INSTALL_DIR="$HOME/musescore_install" bash ninja_build.sh -t installdebug
-    - name: Generate current PNGs
-      run: |
-        xvfb-run ./vtest/vtest-generate-pngs.sh -o ./current_pngs -m $HOME/musescore_install/bin/mscore
-    - name: Upload PNGs
-      uses: actions/upload-artifact@v2
+        bash ./build/ci/vtests/build_and_pack.sh
+    - name: Upload
+      uses: actions/upload-artifact@v3
       with:
-        name: Current PNGs
-        path: ./current_pngs
+        name: current_build
+        path: ./build.artifacts/
 
-  generate_reference_pngs:
-    name: "Generate reference PNGs"
+  build_reference:
+    name: "Build reference"
     runs-on: ubuntu-20.04
     needs: setup
     if: needs.setup.outputs.do_run == 'true'
     steps:
     - name: Clone repository and checkout reference commit
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         ref: ${{ needs.setup.outputs.reference_sha }}
     - name: Ccache cache files
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/.ccache
         key: ${{github.workflow}}-ccache-$(date -u +"%F-%T")
@@ -108,59 +110,64 @@ jobs:
     - name: Setup environment
       run: |
         bash ./build/ci/linux/setup.sh
-    - name: Build
+    - name: Build and Pack
       run: |
-        source $HOME/build_tools/environment.sh
-        mkdir -p "$HOME/musescore_install"
-        bash ninja_build.sh -t clean
-        MUSESCORE_INSTALL_DIR="$HOME/musescore_install" bash ninja_build.sh -t installdebug
-    - name: Checkout current commit
-      uses: actions/checkout@v2
-    - name: Generate reference PNGs
-      run: |
-        xvfb-run ./vtest/vtest-generate-pngs.sh -o ./reference_pngs -m $HOME/musescore_install/bin/mscore
-    - name: Upload PNGs
-      uses: actions/upload-artifact@v2
+        bash ./build/ci/vtests/build_and_pack.sh
+    - name: Upload
+      uses: actions/upload-artifact@v3
       with:
-        name: Reference PNGs
-        path: ./reference_pngs
+        name: reference_build
+        path: ./build.artifacts/
 
-  compare_pngs:
-    name: "Compare PNGs"
+  generate_and_compare:
+    name: "Generate and Compare"
     runs-on: ubuntu-20.04
-    needs: [setup, generate_current_pngs, generate_reference_pngs]
+    needs: [setup, build_current, build_reference]
     if: needs.setup.outputs.do_run == 'true'
     steps:
     - name: Clone repository
-      uses: actions/checkout@v2
-    - name: Download current PNGs
-      uses: actions/download-artifact@v2
+      uses: actions/checkout@v3
+    - name: Download current
+      uses: actions/download-artifact@v3
       with:
-        name: Current PNGs
-        path: ./current_pngs
-    - name: Download reference PNGs
-      uses: actions/download-artifact@v2
+        name: current_build
+        path: ./musescore_current
+    - name: Download reference
+      uses: actions/download-artifact@v3
       with:
-        name: Reference PNGs
-        path: ./reference_pngs
+        name: reference_build
+        path: ./musescore_reference
+    - name: Generate PNGs   
+      run: |
+        xvfb-run ./build/ci/vtests/generate_pngs.sh
+      env: 
+        ASAN_OPTIONS: "detect_leaks=0"
     - name: Compare PNGs
       run: |
         echo "VTEST_DIFF_FOUND=false" >> $GITHUB_ENV
         ./vtest/vtest-compare-pngs.sh
     - name: Upload comparison
       if: env.VTEST_DIFF_FOUND == 'true'
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: ${{ needs.setup.outputs.artifact_name }}
         path: ./comparison
-    - name: Skip failure signal if PR is labeled 'vtests'
-      if: github.event_name == 'pull_request' && contains( env.VTEST_DIFF_FOUND, 'true') && contains(github.event.pull_request.labels.*.name, 'vtests')
-      run: |
-        echo "This PR appears to change some of the visual tests."
-        echo "Please carefully review the new visual test results in the uploaded artifact that can be found here: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        echo "Failure signal skipped because 'vtests' label is applied to the PR"
-        export VTEST_DIFF_FOUND=false
-        echo "VTEST_DIFF_FOUND=$VTEST_DIFF_FOUND" >> $GITHUB_ENV
+    #- name: Generate ref drawdata
+    #  run: |
+    #    chmod +x ./musescore_reference/app/bin/mscore4portable
+    #    xvfb-run ./vtest/gen-ref-data.sh -m ./musescore_reference/app/bin/mscore4portable
+    #- name: DrawData VTest
+    #  run: |
+    #    chmod +x ./musescore_current/app/bin/mscore4portable
+    #    xvfb-run ./vtest/vtest.sh -m ./musescore_current/app/bin/mscore4portable
+    # - name: Skip failure signal if PR is labeled 'vtests'
+    #   if: github.event_name == 'pull_request' && contains( env.VTEST_DIFF_FOUND, 'true') && contains(github.event.pull_request.labels.*.name, 'vtests')
+    #   run: |
+    #     echo "This PR appears to change some of the visual tests."
+    #     echo "Please carefully review the new visual test results in the uploaded artifact that can be found here: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+    #     echo "Failure signal skipped because 'vtests' label is applied to the PR"
+    #     export VTEST_DIFF_FOUND=false
+    #     echo "VTEST_DIFF_FOUND=$VTEST_DIFF_FOUND" >> $GITHUB_ENV
     - name: Emit failure signal for PR if differences are found
       if: github.event_name == 'pull_request' && contains( env.VTEST_DIFF_FOUND, 'true')
       run: |
@@ -177,4 +184,4 @@ jobs:
           [here][1]
 
           [1]: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}    

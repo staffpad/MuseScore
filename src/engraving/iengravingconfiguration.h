@@ -48,6 +48,8 @@ public:
     virtual io::path_t partStyleFilePath() const = 0;
     virtual void setPartStyleFilePath(const io::path_t& path) = 0;
 
+    virtual SizeF defaultPageSize() const = 0;
+
     virtual String iconsFontFamily() const = 0;
 
     virtual draw::Color defaultColor() const = 0;
@@ -75,10 +77,12 @@ public:
     virtual draw::Color highlightSelectionColor(voice_idx_t voiceIndex = 0) const = 0;
 
     struct DebuggingOptions {
-        bool showSkylines = false;
+        bool showElementBoundingRects = false;
+        bool colorElementShapes = false;
         bool showSegmentShapes = false;
-        bool showBoundingRect = false;
-        bool showSystemBoundingRect = false;
+        bool colorSegmentShapes = false;
+        bool showSkylines = false;
+        bool showSystemBoundingRects = false;
         bool showCorruptedMeasures = true;
     };
 
@@ -87,6 +91,16 @@ public:
     virtual async::Notification debuggingOptionsChanged() const = 0;
 
     virtual bool isAccessibleEnabled() const = 0;
+
+    /// these configurations will be removed after solving https://github.com/musescore/MuseScore/issues/14294
+    virtual bool guitarProImportExperimental() const = 0;
+    virtual bool negativeFretsAllowed() const = 0;
+    virtual bool tablatureParenthesesZIndexWorkaround() const = 0;
+    virtual bool crossNoteHeadAlwaysBlack() const = 0;
+    virtual bool enableExperimentalFretCircle() const = 0;
+    virtual void setGuitarProMultivoiceEnabled(bool multiVoice) = 0;
+    virtual bool guitarProMultivoiceEnabled() const = 0;
+    virtual bool minDistanceForPartialSkylineCalculated() const = 0;
 };
 }
 

@@ -29,7 +29,6 @@
 #include "types/string.h"
 #include "types/propertyvalue.h"
 #include "libmscore/property.h"
-#include "config.h"
 
 namespace mu::engraving {
 // Needs to be duplicated here and in symid.h since moc doesn't handle macros from #include'd files
@@ -215,6 +214,9 @@ enum class Sid {
     staffLineWidth,
     ledgerLineWidth,
     ledgerLineLength,
+    stemSlashPosition,
+    stemSlashAngle,
+    stemSlashThickness,
     accidentalDistance,
     accidentalNoteDistance,
     bracketedAccidentalPadding,
@@ -268,6 +270,8 @@ enum class Sid {
     hairpinCrescContText,
     hairpinDecrescContText,
     hairpinLineStyle,
+    hairpinDashLineLen,
+    hairpinDashGapLen,
     hairpinLineLineStyle,
     hairpinLineDashLineLen,
     hairpinLineDashGapLen,
@@ -311,7 +315,6 @@ enum class Sid {
     harmonyPlacement,
     romanNumeralPlacement,
     nashvilleNumberPlacement,
-    harmonyPlay,
     harmonyVoiceLiteral,
     harmonyVoicing,
     harmonyDuration,
@@ -442,6 +445,7 @@ enum class Sid {
     chordModifierMag,
     chordModifierAdjust,
     concertPitch,
+    multiVoiceRestTwoSpaceOffset,
     createMultiMeasureRests,
     minEmptyMeasures,
     minMMRestWidth,
@@ -459,6 +463,7 @@ enum class Sid {
     enableIndentationOnFirstSystem,
     firstSystemIndentationValue,
     alwaysShowBracketsWhenEmptyStavesAreHidden,
+    alwaysShowSquareBracketsWhenEmptyStavesAreHidden,
     hideInstrumentNameIfOneInstrument,
     gateTime,
     tenutoGateTime,
@@ -901,6 +906,25 @@ enum class Sid {
     tempoFrameRound,
     tempoFrameFgColor,
     tempoFrameBgColor,
+
+    tempoChangeFontFace,
+    tempoChangeFontSize,
+    tempoChangeLineSpacing,
+    tempoChangeFontSpatiumDependent,
+    tempoChangeFontStyle,
+    tempoChangeColor,
+    tempoChangeAlign,
+    tempoChangeSystemFlag,
+    tempoChangePlacement,
+    tempoChangePosAbove,
+    tempoChangePosBelow,
+    tempoChangeMinDistance,
+    tempoChangeFrameType,
+    tempoChangeFramePadding,
+    tempoChangeFrameWidth,
+    tempoChangeFrameRound,
+    tempoChangeFrameFgColor,
+    tempoChangeFrameBgColor,
     tempoChangeLineWidth,
     tempoChangeLineStyle,
     tempoChangeDashLineLen,

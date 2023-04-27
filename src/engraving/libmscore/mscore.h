@@ -100,6 +100,16 @@ inline constexpr track_idx_t trackZeroVoice(track_idx_t track)
     return track != mu::nidx ? (track / VOICES) * VOICES : mu::nidx;
 }
 
+inline constexpr bool isUpVoice(voice_idx_t voiceIdx)
+{
+    return !(voiceIdx & 1);
+}
+
+inline constexpr bool isDownVoice(voice_idx_t voiceIdx)
+{
+    return voiceIdx & 1;
+}
+
 static constexpr int MAX_TAGS = 32;
 
 static constexpr int MAX_HEADERS = 3;
@@ -236,10 +246,6 @@ public:
     static bool warnPitchRange;
     static int pedalEventsMinTicks;
 
-    static bool harmonyPlayDisableCompatibility;
-    static bool harmonyPlayDisableNew;
-    static bool playRepeats;
-    static int playbackSpeedIncrement;
     static double nudgeStep;
     static double nudgeStep10;
     static double nudgeStep50;
@@ -272,6 +278,8 @@ public:
     static double horizontalPageGapOdd;
 
     static void setError(MsError e) { _error = e; }
+
+    static std::string errorToString(MsError err);
 };
 } // namespace mu::engraving
 

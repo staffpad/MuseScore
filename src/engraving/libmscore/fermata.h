@@ -42,9 +42,10 @@ class System;
 class Fermata final : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, Fermata)
+    DECLARE_CLASSOF(ElementType::FERMATA)
 
     SymId _symId;
-    double _timeStretch;
+    double _timeStretch = -1.0;
     bool _play;
 
     friend class Factory;
@@ -63,16 +64,12 @@ public:
     double mag() const override;
 
     SymId symId() const { return _symId; }
-    void setSymId(SymId id) { _symId  = id; }
+    void setSymId(SymId id);
     FermataType fermataType() const;
     int subtype() const override;
     TranslatableString typeUserName() const override;
 
     void layout() override;
-
-    void read(XmlReader&) override;
-    void write(XmlWriter& xml) const override;
-    bool readProperties(XmlReader&) override;
 
     std::vector<mu::LineF> dragAnchorLines() const override;
 

@@ -34,7 +34,7 @@
 
 #include "undo.h"
 
-#include "infrastructure/symbolfonts.h"
+#include "iengravingfont.h"
 
 #include "bend.h"
 #include "bracket.h"
@@ -299,12 +299,26 @@ UndoStack::~UndoStack()
     DeleteAll(list);
 }
 
+bool UndoStack::locked() const
+{
+    return isLocked;
+}
+
+void UndoStack::setLocked(bool val)
+{
+    isLocked = val;
+}
+
 //---------------------------------------------------------
 //   beginMacro
 //---------------------------------------------------------
 
 void UndoStack::beginMacro(Score* score)
 {
+    if (isLocked) {
+        return;
+    }
+
     if (curCmd) {
         LOGW("already active");
         return;
@@ -417,25 +431,15 @@ void UndoStack::pop()
 }
 
 //---------------------------------------------------------
-//   rollback
-//---------------------------------------------------------
-
-void UndoStack::rollback()
-{
-    LOG_UNDO() << "called";
-    assert(curCmd == 0);
-    assert(curIdx > 0);
-    size_t idx = curIdx - 1;
-    list[idx]->unwind();
-    remove(idx);
-}
-
-//---------------------------------------------------------
 //   endMacro
 //---------------------------------------------------------
 
 void UndoStack::endMacro(bool rollback)
 {
+    if (isLocked) {
+        return;
+    }
+
     if (curCmd == 0) {
         LOGW("not active");
         return;
@@ -463,6 +467,10 @@ void UndoStack::endMacro(bool rollback)
 
 void UndoStack::reopen()
 {
+    if (isLocked) {
+        return;
+    }
+
     LOG_UNDO() << "curIdx: " << curIdx << ", size: " << list.size();
     assert(curCmd == 0);
     assert(curIdx > 0);
@@ -472,15 +480,6 @@ void UndoStack::reopen()
     for (auto i : curCmd->commands()) {
         LOG_UNDO() << "   " << i->name();
     }
-}
-
-//---------------------------------------------------------
-//   setClean
-//---------------------------------------------------------
-
-void UndoStack::setClean()
-{
-    cleanState = state();
 }
 
 //---------------------------------------------------------
@@ -1095,40 +1094,44 @@ bool RemoveElement::isFiltered(UndoCommand::Filter f, const EngravingItem* targe
 //   InsertPart
 //---------------------------------------------------------
 
-InsertPart::InsertPart(Part* p, int i)
+InsertPart::InsertPart(Part* p, size_t targetPartIdx)
 {
-    part = p;
-    idx  = i;
+    m_part = p;
+    m_targetPartIdx = targetPartIdx;
 }
 
 void InsertPart::undo(EditData*)
 {
-    part->score()->removePart(part);
+    m_part->score()->removePart(m_part);
 }
 
 void InsertPart::redo(EditData*)
 {
-    part->score()->insertPart(part, idx);
+    m_part->score()->insertPart(m_part, m_targetPartIdx);
 }
 
 //---------------------------------------------------------
 //   RemovePart
 //---------------------------------------------------------
 
-RemovePart::RemovePart(Part* p, staff_idx_t i)
+RemovePart::RemovePart(Part* p, size_t partIdx)
 {
-    part = p;
-    idx  = i;
+    m_part = p;
+    m_partIdx = partIdx;
+
+    if (m_partIdx == mu::nidx) {
+        m_partIdx = mu::indexOf(m_part->score()->parts(), m_part);
+    }
 }
 
 void RemovePart::undo(EditData*)
 {
-    part->score()->insertPart(part, idx);
+    m_part->score()->insertPart(m_part, m_partIdx);
 }
 
 void RemovePart::redo(EditData*)
 {
-    part->score()->removePart(part);
+    m_part->score()->removePart(m_part);
 }
 
 //---------------------------------------------------------
@@ -1179,11 +1182,15 @@ RemoveStaff::RemoveStaff(Staff* p)
 {
     staff = p;
     ridx  = staff->rstaff();
+    wasSystemObjectStaff = staff->score()->isSystemObjectStaff(staff);
 }
 
 void RemoveStaff::undo(EditData*)
 {
     staff->score()->insertStaff(staff, ridx);
+    if (wasSystemObjectStaff) {
+        staff->score()->addSystemObjectStaff(staff);
+    }
 }
 
 void RemoveStaff::redo(EditData*)
@@ -1255,47 +1262,6 @@ void SortStaves::redo(EditData*)
 void SortStaves::undo(EditData*)
 {
     score->sortStaves(rlist);
-}
-
-//---------------------------------------------------------
-//   MapExcerptTracks
-//---------------------------------------------------------
-
-MapExcerptTracks::MapExcerptTracks(Score* s, const std::vector<staff_idx_t>& l)
-{
-    score = s;
-
-    /*
-     *    In list l [x] represents the previous index of the staffIdx x.
-     *    If the a staff x is a newly added staff, l[x] = -1.
-     *    For the "undo" all staves which value -1 are *not* remapped since
-     *    it is assumed this staves are removed later.
-     */
-    staff_idx_t maxIndex = 0;
-    for (staff_idx_t i : l) {
-        maxIndex = std::max(i, maxIndex);
-    }
-
-    for (staff_idx_t i = 0; i <= maxIndex; ++i) {
-        rlist.push_back(mu::nidx);
-    }
-
-    for (staff_idx_t i = 0; i < l.size(); ++i) {
-        if (l[i] != mu::nidx) {
-            rlist[l[i]] = i;
-        }
-    }
-    list = l;
-}
-
-void MapExcerptTracks::redo(EditData*)
-{
-    score->mapExcerptTracks(list);
-}
-
-void MapExcerptTracks::undo(EditData*)
-{
-    score->mapExcerptTracks(rlist);
 }
 
 //---------------------------------------------------------
@@ -1848,7 +1814,7 @@ void ChangeStyle::flip(EditData*)
         score->cmdConcertPitchChanged(style.value(Sid::concertPitch).toBool());
     }
     if (score->styleV(Sid::MusicalSymbolFont) != style.value(Sid::MusicalSymbolFont)) {
-        score->setSymbolFont(SymbolFonts::fontByName(style.styleSt(Sid::MusicalSymbolFont)));
+        score->setEngravingFont(engravingFonts()->fontByName(style.styleSt(Sid::MusicalSymbolFont).toStdString()));
     }
 
     score->setStyle(style, overlap);
@@ -1942,19 +1908,16 @@ void ChangeChordStaffMove::flip(EditData*)
 //   ChangeVelocity
 //---------------------------------------------------------
 
-ChangeVelocity::ChangeVelocity(Note* n, VeloType t, int o)
-    : note(n), veloType(t), veloOffset(o)
+ChangeVelocity::ChangeVelocity(Note* n, int o)
+    : note(n), userVelocity(o)
 {
 }
 
 void ChangeVelocity::flip(EditData*)
 {
-    VeloType t = note->veloType();
-    int o       = note->veloOffset();
-    note->setVeloType(veloType);
-    note->setVeloOffset(veloOffset);
-    veloType   = t;
-    veloOffset = o;
+    int v = note->userVelocity();
+    note->setUserVelocity(userVelocity);
+    userVelocity = v;
 }
 
 //---------------------------------------------------------
@@ -2123,6 +2086,28 @@ void InsertRemoveMeasures::removeMeasures()
 
     Fraction tick1 = fm->tick();
     Fraction tick2 = lm->endTick();
+
+    // remove beams from chordrests in affected area, they will be rebuilt later but we need
+    // to avoid situations where notes from deleted measures remain in beams
+    // when undoing, we need to check the previous measure as well as there could be notes in there
+    // that need to have their beams recalculated (esp. when adding time signature)
+    MeasureBase* prev = fm->prev();
+    Segment* first = toMeasure(prev && prev->isMeasure() ? prev : fm)->first();
+    for (Segment* s = first; s && s != toMeasure(lm)->last(); s = s->next1()) {
+        if (!s) {
+            break;
+        }
+        if (!s->isChordRestType()) {
+            continue;
+        }
+
+        for (track_idx_t track = 0; track < score->ntracks(); ++track) {
+            EngravingItem* e = s->element(track);
+            if (e && e->isChordRest()) {
+                toChordRest(e)->removeDeleteBeam(false);
+            }
+        }
+    }
 
     std::list<System*> systemList;
     for (MeasureBase* mb = lm;; mb = mb->prev()) {

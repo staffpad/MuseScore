@@ -22,8 +22,6 @@
 
 #include "groups.h"
 
-#include "rw/xml.h"
-
 #include "chordrest.h"
 #include "durationtype.h"
 #include "staff.h"
@@ -234,39 +232,6 @@ const Groups& Groups::endings(const Fraction& f)
         g.endings.addNode(n);
     }
     return noteGroups.back().endings;
-}
-
-//---------------------------------------------------------
-//   write
-//---------------------------------------------------------
-
-void Groups::write(XmlWriter& xml) const
-{
-    xml.startElement("Groups");
-    for (const GroupNode& n : m_nodes) {
-        xml.tag("Node", { { "pos", n.pos }, { "action", n.action } });
-    }
-    xml.endElement();
-}
-
-//---------------------------------------------------------
-//   read
-//---------------------------------------------------------
-
-void Groups::read(XmlReader& e)
-{
-    while (e.readNextStartElement()) {
-        const AsciiStringView tag(e.name());
-        if (tag == "Node") {
-            GroupNode n;
-            n.pos    = e.intAttribute("pos");
-            n.action = e.intAttribute("action");
-            m_nodes.push_back(n);
-            e.skipCurrentElement();
-        } else {
-            e.unknown();
-        }
-    }
 }
 
 //---------------------------------------------------------

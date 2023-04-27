@@ -22,6 +22,11 @@
 
 #include "skyline.h"
 
+#include "arpeggio.h"
+#include "beam.h"
+#include "chord.h"
+#include "stem.h"
+
 #include "draw/painter.h"
 
 #include "shape.h"
@@ -47,10 +52,46 @@ static const double MINIMUM_Y = -1000000.0;
 //   add
 //---------------------------------------------------------
 
-void Skyline::add(const RectF& r)
+void Skyline::add(const ShapeElement& r)
 {
-    _north.add(r.x(), r.top(), r.width());
-    _south.add(r.x(), r.bottom(), r.width());
+    const EngravingItem* item = r.toItem;
+    bool crossSouth = false;
+    bool crossNorth = false;
+    if (item && item->isStem()) {
+        Chord* chord = toStem(item)->chord();
+        if (chord) {
+            Beam* beam = chord->beam();
+            if (beam && beam->cross()) {
+                int thisStaffMove = chord->staffMove();
+                if (thisStaffMove < 0) {
+                    crossNorth = true;
+                } else if (thisStaffMove > 0) {
+                    crossSouth = true;
+                }
+                for (ChordRest* element : beam->elements()) {
+                    int staffMove = element->staffMove();
+                    if (staffMove < thisStaffMove) {
+                        crossNorth = true;
+                    }
+                    if (staffMove > thisStaffMove) {
+                        crossSouth = true;
+                    }
+                }
+            }
+        }
+    }
+    if (item && item->isArpeggio()) {
+        const Arpeggio* arpeggio = toArpeggio(item);
+        if (arpeggio->span() > 1) {
+            crossSouth = true;
+        }
+    }
+    if (!crossNorth) {
+        _north.add(r.x(), r.top(), r.width());
+    }
+    if (!crossSouth) {
+        _south.add(r.x(), r.bottom(), r.width());
+    }
 }
 
 //---------------------------------------------------------
@@ -106,7 +147,7 @@ void SkylineLine::add(const Shape& s)
     }
 }
 
-void SkylineLine::add(const RectF& r)
+void SkylineLine::add(const ShapeElement& r)
 {
     if (north) {
         add(r.x(), r.top(), r.width());

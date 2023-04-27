@@ -22,13 +22,13 @@
 
 #include "ledgerline.h"
 
-#include "rw/xml.h"
-
 #include "chord.h"
 #include "measure.h"
 #include "score.h"
 #include "staff.h"
 #include "system.h"
+
+#include "log.h"
 
 using namespace mu;
 
@@ -90,7 +90,7 @@ void LedgerLine::layout()
         movePosY(staffType()->yoffset().val() * spatium());
     }
 
-    if (vertical) {
+    if (m_vertical) {
         bbox().setRect(-w2, 0, w2, _len);
     } else {
         bbox().setRect(0, -w2, _len, w2);
@@ -103,13 +103,13 @@ void LedgerLine::layout()
 
 void LedgerLine::draw(mu::draw::Painter* painter) const
 {
-    TRACE_OBJ_DRAW;
+    TRACE_ITEM_DRAW;
     using namespace mu::draw;
     if (chord()->crossMeasure() == CrossMeasure::SECOND) {
         return;
     }
     painter->setPen(Pen(curColor(), _width, PenStyle::SolidLine, PenCapStyle::FlatCap));
-    if (vertical) {
+    if (m_vertical) {
         painter->drawLine(LineF(0.0, 0.0, 0.0, _len));
     } else {
         painter->drawLine(LineF(0.0, 0.0, _len, 0.0));
@@ -125,38 +125,5 @@ void LedgerLine::spatiumChanged(double oldValue, double newValue)
     _width = (_width / oldValue) * newValue;
     _len   = (_len / oldValue) * newValue;
     layout();
-}
-
-//---------------------------------------------------------
-//   writeProperties
-//---------------------------------------------------------
-
-void LedgerLine::writeProperties(XmlWriter& xml) const
-{
-    xml.tag("lineWidth", _width / spatium());
-    xml.tag("lineLen", _len / spatium());
-    if (!vertical) {
-        xml.tag("vertical", vertical);
-    }
-}
-
-//---------------------------------------------------------
-//   readProperties
-//---------------------------------------------------------
-
-bool LedgerLine::readProperties(XmlReader& e)
-{
-    const AsciiStringView tag(e.name());
-
-    if (tag == "lineWidth") {
-        _width = e.readDouble() * spatium();
-    } else if (tag == "lineLen") {
-        _len = e.readDouble() * spatium();
-    } else if (tag == "vertical") {
-        vertical = e.readInt();
-    } else {
-        return false;
-    }
-    return true;
 }
 }

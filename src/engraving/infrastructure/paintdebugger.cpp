@@ -73,9 +73,9 @@ bool PaintDebugger::isActive() const
     return m_real->isActive();
 }
 
-void PaintDebugger::beginObject(const std::string& name, const PointF& pagePos)
+void PaintDebugger::beginObject(const std::string& name)
 {
-    m_real->beginObject(name, pagePos);
+    m_real->beginObject(name);
 }
 
 void PaintDebugger::endObject()
@@ -91,6 +91,16 @@ void PaintDebugger::setAntialiasing(bool arg)
 void PaintDebugger::setCompositionMode(CompositionMode mode)
 {
     m_real->setCompositionMode(mode);
+}
+
+void PaintDebugger::setWindow(const RectF& window)
+{
+    m_real->setWindow(window);
+}
+
+void PaintDebugger::setViewport(const RectF& viewport)
+{
+    m_real->setViewport(viewport);
 }
 
 void PaintDebugger::setFont(const Font& f)
@@ -206,6 +216,11 @@ void PaintDebugger::drawTiledPixmap(const RectF& rect, const QPixmap& pm, const 
 }
 
 #endif
+
+bool PaintDebugger::hasClipping() const
+{
+    return m_real->hasClipping();
+}
 
 void PaintDebugger::setClipRect(const RectF& rect)
 {

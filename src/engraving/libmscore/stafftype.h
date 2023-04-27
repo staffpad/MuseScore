@@ -38,8 +38,6 @@ namespace mu::engraving {
 class Chord;
 class ChordRest;
 class Staff;
-class XmlReader;
-class XmlWriter;
 
 // all in spatium units
 #define STAFFTYPE_TAB_DEFAULTSTEMLEN_UP   3.0
@@ -176,7 +174,8 @@ enum class StaffTypes : signed char {
     TAB_5SIMPLE, TAB_5COMMON, TAB_5FULL,
     TAB_UKULELE, TAB_BALALAJKA, TAB_DULCIMER,
     TAB_ITALIAN, TAB_FRENCH,
-    TAB_7COMMON, TAB_8COMMON,
+    TAB_7COMMON, TAB_8COMMON, TAB_9COMMON, TAB_10COMMON,
+    TAB_7SIMPLE, TAB_8SIMPLE, TAB_9SIMPLE, TAB_10SIMPLE,
     STAFF_TYPES,
     // some useful shorthands:
     PERC_DEFAULT = StaffTypes::PERC_5LINE,
@@ -292,6 +291,7 @@ public:
     bool operator==(const StaffType&) const;
 
     StaffGroup group() const { return _group; }
+    void setGroup(StaffGroup g) { _group = g; }
     StaffTypes type() const;
     const String& name() const { return _name; }
     const String& xmlName() const { return _xmlName; }
@@ -323,9 +323,6 @@ public:
     void setYoffset(Spatium val) { _yoffset = val; }
     double spatium(Score*) const;
 
-    void write(XmlWriter& xml) const;
-    void read(XmlReader&);
-
     void setStemless(bool val) { _stemless = val; }
     bool stemless() const { return _stemless; }
     bool genTimesig() const { return _genTimesig; }
@@ -353,6 +350,7 @@ public:
     int     visualStringToPhys(int line) const;                   // return the string in physical order from visual string
     double   physStringToYOffset(int strg) const;                  // return the string Y offset (in sp, chord-relative)
     String tabBassStringPrefix(int strg, bool* hasFret) const;   // return a string with the prefix, if any, identifying a bass string
+    void    drawInputStringMarks(mu::draw::Painter* p, int string, voice_idx_t voice, const RectF& rect) const;
     int     numOfTabLedgerLines(int string) const;
 
     // properties getters (some getters require updated metrics)

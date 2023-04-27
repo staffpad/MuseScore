@@ -47,6 +47,7 @@ enum class ImageType : char {
 class Image final : public BSymbol
 {
     OBJECT_ALLOCATOR(engraving, Image)
+    DECLARE_CLASSOF(ElementType::IMAGE)
 
     INJECT(engraving, mu::draw::IImageProvider, imageProvider)
 
@@ -57,8 +58,7 @@ public:
 
     Image* clone() const override { return new Image(*this); }
 
-    void write(XmlWriter& xml) const override;
-    void read(XmlReader&) override;
+    bool load(); // after set paths
     bool load(const io::path_t& s);
     bool loadFromData(const io::path_t& name, const mu::ByteArray&);
     void layout() override;
@@ -79,6 +79,12 @@ public:
     ImageStoreItem* storeItem() const { return _storeItem; }
     bool sizeIsSpatium() const { return _sizeIsSpatium; }
     void setSizeIsSpatium(bool val) { _sizeIsSpatium = val; }
+
+    String storePath() const { return _storePath; }
+    void setStorePath(const String& p) { _storePath = p; }
+    String linkPath() const { return _linkPath; }
+    void setLinkPath(const String& p) { _linkPath = p; }
+    bool linkIsValid() const { return _linkIsValid; }
 
     PropertyValue getProperty(Pid) const override;
     bool setProperty(Pid propertyId, const PropertyValue&) override;
