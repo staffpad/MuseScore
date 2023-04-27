@@ -2163,7 +2163,7 @@ void Note::layout()
         if (_fixed) {
             _fretString = u"/";
         } else {
-            _fretString = tab->fretString(fabs(_fret), _string, _deadNote);
+            _fretString = tab->fretString(std::abs(_fret), _string, _deadNote);
 
             if (negativeFretUsed()) {
                 _fretString = u"-" + _fretString;

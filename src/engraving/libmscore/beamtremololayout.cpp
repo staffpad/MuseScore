@@ -553,8 +553,8 @@ bool BeamTremoloLayout::calculateAnchors(const std::vector<ChordRest*>& chordRes
     int beamCountD = strokeCount(isStartDictator ? startChord : endChord);
     int beamCountP = strokeCount(isStartDictator ? endChord : startChord);
 
-    int stemLengthStart = abs(round((startAnchorBase - m_startAnchor.y()) / m_spatium * 4));
-    int stemLengthEnd = abs(round((endAnchorBase - m_endAnchor.y()) / m_spatium * 4));
+    int stemLengthStart = std::abs(round((startAnchorBase - m_startAnchor.y()) / m_spatium * 4));
+    int stemLengthEnd = std::abs(round((endAnchorBase - m_endAnchor.y()) / m_spatium * 4));
     int stemLengthDictator = isStartDictator ? stemLengthStart : stemLengthEnd;
     bool isSmall = m_element->mag() < 1. || m_isGrace;
     if (endAnchor.x() > startAnchor.x()) {

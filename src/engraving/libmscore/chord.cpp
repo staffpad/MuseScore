@@ -1540,7 +1540,7 @@ double Chord::calcDefaultStemLength()
     // extraHeight represents the extra vertical distance between notehead and stem start
     // eg. slashed noteheads etc
     double extraHeight = (_up ? upNote()->stemUpSE().y() : downNote()->stemDownNW().y()) / intrinsicMag() / _spatium;
-    int shortestStem = score()->styleB(Sid::useWideBeams) ? 12 : (score()->styleD(Sid::shortestStem) + abs(extraHeight)) * 4;
+    int shortestStem = score()->styleB(Sid::useWideBeams) ? 12 : (score()->styleD(Sid::shortestStem) + std::abs(extraHeight)) * 4;
     int quarterSpacesPerLine = std::floor(lineDistance * 2);
     int chordHeight = (downLine() - upLine()) * quarterSpacesPerLine; // convert to quarter spaces
     int stemLength = defaultStemLength;
@@ -3852,7 +3852,7 @@ void Chord::layoutArticulations2(bool layoutOnCrossBeamSide)
         } else {
             if (!a->layoutCloseToNote()) {
                 a->layout();
-                a->setPos(x, chordBotY + abs(a->bbox().top()));
+                a->setPos(x, chordBotY + std::abs(a->bbox().top()));
                 a->doAutoplace();
             }
             if (a->visible()) {

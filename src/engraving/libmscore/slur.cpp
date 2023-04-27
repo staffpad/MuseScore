@@ -490,7 +490,7 @@ void SlurSegment::avoidCollisions(PointF& pp1, PointF& p2, PointF& p3, PointF& p
     }
 
     // Collision clearance at the center of the slur
-    double slurLength = abs(p2.x() / spatium());
+    double slurLength = std::abs(p2.x() / spatium());
     double clearance;
     if (slurLength < 4) {
         clearance = 0.15 * spatium();
@@ -592,9 +592,9 @@ void SlurSegment::avoidCollisions(PointF& pp1, PointF& p2, PointF& p3, PointF& p
             double shapeRightStep = (1 - rightBalance) * step;
             if (collision.left) {
                 // Move left Bezier point up(/down) and outwards
-                p3 += PointF(-abs(shapeLeftStep), shapeLeftStep);
+                p3 += PointF(-std::abs(shapeLeftStep), shapeLeftStep);
                 // and a bit also the right point to compensate asymmetry
-                p4 += PointF(abs(shapeLeftStep), shapeLeftStep) / 2.0;
+                p4 += PointF(std::abs(shapeLeftStep), shapeLeftStep) / 2.0;
             }
             if (collision.mid) {     // Move both Bezier points up(/down)
                 p3 += PointF(0.0, (shapeLeftStep + shapeRightStep) / 2);
@@ -602,9 +602,9 @@ void SlurSegment::avoidCollisions(PointF& pp1, PointF& p2, PointF& p3, PointF& p
             }
             if (collision.right) {
                 // Move right Bezier point up(/down) and outwards
-                p4 += PointF(abs(shapeRightStep), shapeRightStep);
+                p4 += PointF(std::abs(shapeRightStep), shapeRightStep);
                 // and a bit also the left point to compensate asymmetry
-                p3 += PointF(-abs(shapeRightStep), shapeRightStep) / 2.0;
+                p3 += PointF(-std::abs(shapeRightStep), shapeRightStep) / 2.0;
             }
         } else if (!isEndPointsEdited()) {
             // In the odd iterations, adjust the end points
@@ -638,7 +638,7 @@ void SlurSegment::avoidCollisions(PointF& pp1, PointF& p2, PointF& p3, PointF& p
         }
         // Enforce non-ugliness rules
         // 1) Slur cannot be taller than it is wide
-        const double maxRelativeHeight = abs(p2.x());
+        const double maxRelativeHeight = std::abs(p2.x());
         p3 = slur()->up() ? PointF(p3.x(), std::max(p3.y(), -maxRelativeHeight)) : PointF(p3.x(), std::min(p3.y(), maxRelativeHeight));
         p4 = slur()->up() ? PointF(p4.x(), std::max(p4.y(), -maxRelativeHeight)) : PointF(p4.x(), std::min(p4.y(), maxRelativeHeight));
         // 2) Tangent rule: p3 and p4 cannot be further left than p1 nor further right than p2
@@ -824,7 +824,7 @@ void SlurSegment::computeBezier(mu::PointF p6offset)
     _shape.clear();
     PointF start = pp1;
     int nbShapes  = 32;
-    double minH    = abs(2 * w);
+    double minH    = std::abs(2 * w);
     const CubicBezier b(ups(Grip::START).pos(), ups(Grip::BEZIER1).pos(), ups(Grip::BEZIER2).pos(), ups(Grip::END).pos());
     for (int i = 1; i <= nbShapes; i++) {
         const PointF point = b.pointAtPercent(i / float(nbShapes));
@@ -1639,7 +1639,7 @@ SpannerSegment* Slur::layoutSystem(System* system)
                 tie = sc->notes()[0]->tieBack();
                 if (!tie->segmentsEmpty()) {
                     endPoint = tie->segmentAt(static_cast<int>(tie->nsegments()) - 1)->ups(Grip::END).pos();
-                    if (abs(endPoint.y() - p1.y()) < tieClearance) {
+                    if (std::abs(endPoint.y() - p1.y()) < tieClearance) {
                         p1.rx() += horizontalTieClearance;
                     }
                 }

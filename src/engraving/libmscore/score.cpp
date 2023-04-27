@@ -3350,7 +3350,7 @@ void Score::padToggle(Pad p, const EditData& ed)
     }
 }
 
-static void onFocusedItemChanged(EngravingItem* item)
+static void onFocusedItemChanged(EngravingItem* /*item*/)
 {
 #ifndef ENGRAVING_NO_ACCESSIBILITY
     if (!item || !item->selected()) {
