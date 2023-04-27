@@ -28,6 +28,7 @@
 #include <string>
 
 namespace mu {
+#ifndef __clang__
 #define OBJECT_ALLOCATOR(Module, ClassName) \
 public: \
     static ObjectAllocator& allocator() { \
@@ -58,6 +59,9 @@ public: \
         } \
     } \
 private:
+#else
+#define OBJECT_ALLOCATOR(Module, ClassName)
+#endif
 
 class ObjectAllocator
 {
