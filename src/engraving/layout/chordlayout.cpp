@@ -2060,11 +2060,11 @@ void ChordLayout::resolveRestVSChord(std::vector<Rest*>& rests, std::vector<Chor
             bool useHalfSpaceSteps = (outAboveStaff || outBelowStaff) && !isWholeOrHalf;
             double yMove;
             if (useHalfSpaceSteps) {
-                int steps = ceil(abs(margin) / (lineDistance / 2));
+                int steps = ceil(std::abs(margin) / (lineDistance / 2));
                 yMove = steps * lineDistance / 2 * upSign;
                 rest->movePosY(yMove);
             } else {
-                int steps = ceil(abs(margin) / lineDistance);
+                int steps = ceil(std::abs(margin) / lineDistance);
                 yMove = steps * lineDistance * upSign;
                 rest->movePosY(yMove);
             }
@@ -2134,7 +2134,7 @@ void ChordLayout::resolveRestVSRest(std::vector<Rest*>& rests, Score* score, Seg
             continue;
         }
 
-        int steps = ceil(abs(margin) / lineDistance);
+        int steps = ceil(std::abs(margin) / lineDistance);
         // Move the two rests away from each other
         int step1 = floor(double(steps) / 2);
         int step2 = ceil(double(steps) / 2);
