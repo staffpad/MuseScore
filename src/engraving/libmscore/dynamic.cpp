@@ -23,9 +23,11 @@
 
 #include "types/translatablestring.h"
 #include "types/typesconv.h"
+#include "layout/tlayout.h"
 
 #include "chord.h"
 #include "dynamichairpingroup.h"
+#include "expression.h"
 #include "measure.h"
 #include "mscore.h"
 #include "rest.h"
@@ -112,6 +114,9 @@ static Dyn dynList[] = {
 static const ElementStyle dynamicsStyle {
     { Sid::dynamicsPlacement, Pid::PLACEMENT },
     { Sid::dynamicsMinDistance, Pid::MIN_DISTANCE },
+    { Sid::avoidBarLines, Pid::AVOID_BARLINES },
+    { Sid::dynamicsSize, Pid::DYNAMICS_SIZE },
+    { Sid::centerOnNotehead, Pid::CENTER_ON_NOTEHEAD },
 };
 
 //---------------------------------------------------------
@@ -137,6 +142,9 @@ Dynamic::Dynamic(const Dynamic& d)
     _dynRange    = d._dynRange;
     _changeInVelocity = d._changeInVelocity;
     _velChangeSpeed = d._velChangeSpeed;
+    _avoidBarLines = d._avoidBarLines;
+    _dynamicsSize = d._dynamicsSize;
+    _centerOnNotehead = d._centerOnNotehead;
 }
 
 //---------------------------------------------------------
@@ -231,55 +239,41 @@ bool Dynamic::isVelocityChangeAvailable() const
 
 void Dynamic::layout()
 {
-    const StaffType* stType = staffType();
+    LayoutContext ctx(score());
+    v0::TLayout::layout(this, ctx);
+}
 
-    _skipDraw = false;
-    if (stType && stType->isHiddenElementOnTab(score(), Sid::dynamicsShowTabCommon, Sid::dynamicsShowTabSimple)) {
-        _skipDraw = true;
-        return;
+double Dynamic::customTextOffset()
+{
+    if (!_centerOnNotehead || _dynamicType == DynamicType::OTHER) {
+        return 0.0;
     }
 
-    TextBase::layout();
+    String referenceString = String::fromUtf8(dynList[int(_dynamicType)].text);
+    if (xmlText() == referenceString) {
+        return 0.0;
+    }
 
-    Segment* s = segment();
-    if (s) {
-        track_idx_t t = track() & ~0x3;
-        for (voice_idx_t voice = 0; voice < VOICES; ++voice) {
-            EngravingItem* e = s->element(t + voice);
-            if (!e || (e->isRest() && toRest(e)->ticks() >= measure()->ticks() && measure()->hasVoices(e->staffIdx()))) {
-                continue;
-            }
-            if (e->isChord() && (align() == AlignH::HCENTER)) {
-                SymId symId = TConv::symId(dynamicType());
-
-                // FIRST: move it at the center of the notehead width
-                // Note: the simplest way to get the correct notehead width (accounting for all
-                // the various spatium changes, staff scaling, note scaling...) is to just look
-                // at the first note of the chord and get it from there.
-                Note* note = toChord(e)->notes().at(0);
-                double noteHeadWidth = note->headWidth();// * dynamicMag;
-                movePosX(noteHeadWidth * .5);
-                // SECOND: center around the SMUFL optical center, rather than using the geometrical
-                // center of the bounding box
-                double opticalCenter = symSmuflAnchor(symId, SmuflAnchorId::opticalCenter).x();
-                if (symId != SymId::noSym && opticalCenter) {
-                    double symWidth = symBbox(symId).width();
-                    double offset = symWidth / 2 - opticalCenter + symBbox(symId).left();
-                    // Account for scaling factors
-                    double spatiumScaling = spatium() / score()->spatium();
-                    static const double DEFAULT_DYNAMIC_FONT_SIZE = 10.0;
-                    double fontScaling = size() / DEFAULT_DYNAMIC_FONT_SIZE;
-                    offset *= spatiumScaling * fontScaling;
-                    movePosX(offset);
-                }
-            } else {
-                movePosX(e->width() * .5);
-            }
-            break;
+    Dynamic referenceDynamic(*this);
+    referenceDynamic.setXmlText(referenceString);
+    toTextBase(&referenceDynamic)->layout();
+    TextFragment referenceFragment;
+    if (!referenceDynamic.textBlockList().empty()) {
+        TextBlock referenceBlock = referenceDynamic.textBlockList().front();
+        if (!referenceBlock.fragments().empty()) {
+            referenceFragment = referenceDynamic.textBlockList().front().fragments().front();
         }
-    } else {
-        setPos(PointF());
     }
+
+    for (TextBlock block : textBlockList()) {
+        for (TextFragment fragment : block.fragments()) {
+            if (fragment.text == referenceFragment.text) {
+                return fragment.pos.x() - referenceFragment.pos.x();
+            }
+        }
+    }
+
+    return 0.0;
 }
 
 //-------------------------------------------------------------------
@@ -317,6 +311,95 @@ void Dynamic::doAutoplace()
     }
 }
 
+//--------------------------------------------------------------------------
+//   manageBarlineCollisions
+//      If necessary, offset dynamic left/right to clear barline collisions
+//--------------------------------------------------------------------------
+
+void Dynamic::manageBarlineCollisions()
+{
+    if (!_avoidBarLines || score()->nstaves() <= 1) {
+        return;
+    }
+
+    Segment* thisSegment = segment();
+    if (!thisSegment) {
+        return;
+    }
+
+    System* system = measure()->system();
+    if (!system) {
+        return;
+    }
+
+    staff_idx_t barLineStaff = mu::nidx;
+    if (placeAbove()) {
+        // need to find the barline from the staff above
+        // taking into account there could be invisible staves
+        if (staffIdx() == 0) {
+            return;
+        }
+        for (int staffIndex = static_cast<int>(staffIdx()) - 1; staffIndex >= 0; --staffIndex) {
+            if (system->staff(staffIndex)->show()) {
+                barLineStaff = staffIndex;
+                break;
+            }
+        }
+    } else {
+        barLineStaff = staffIdx();
+    }
+
+    if (barLineStaff == mu::nidx) {
+        return;
+    }
+
+    if (score()->staff(barLineStaff)->barLineSpan() < 1) {
+        return; // Barline doesn't extend through staves
+    }
+
+    const double minBarLineDistance = 0.25 * spatium();
+
+    // Check barlines to the left
+    Segment* leftBarLineSegment = nullptr;
+    for (Segment* segment = thisSegment; segment && segment->measure()->system() == system; segment = segment->prev1()) {
+        if (segment->segmentType() & SegmentType::BarLineType) {
+            leftBarLineSegment = segment;
+            break;
+        }
+    }
+    if (leftBarLineSegment) {
+        EngravingItem* e = leftBarLineSegment->elementAt(barLineStaff * VOICES);
+        if (e) {
+            double leftMargin = bbox().translated(pagePos() - offset()).left() - e->bbox().translated(e->pagePos()).right()
+                                - minBarLineDistance;
+            if (leftMargin < 0) {
+                movePosX(-leftMargin);
+                return;
+            }
+        }
+    }
+
+    // Check barlines to the right
+    Segment* rightBarLineSegment = nullptr;
+    for (Segment* segment = thisSegment; segment && segment->measure()->system() == system; segment = segment->next1()) {
+        if (segment->segmentType() & SegmentType::BarLineType) {
+            rightBarLineSegment = segment;
+            break;
+        }
+    }
+    if (rightBarLineSegment) {
+        EngravingItem* e = rightBarLineSegment->elementAt(barLineStaff * VOICES);
+        if (e) {
+            double rightMargin = e->bbox().translated(e->pagePos()).left() - bbox().translated(pagePos() - offset()).right()
+                                 - minBarLineDistance;
+            if (rightMargin < 0) {
+                movePosX(rightMargin);
+                return;
+            }
+        }
+    }
+}
+
 //---------------------------------------------------------
 //   setDynamicType
 //---------------------------------------------------------
@@ -340,6 +423,29 @@ void Dynamic::setDynamicType(const String& tag)
 String Dynamic::dynamicText(DynamicType t)
 {
     return String::fromUtf8(dynList[int(t)].text);
+}
+
+bool Dynamic::acceptDrop(EditData& ed) const
+{
+    ElementType droppedType = ed.dropElement->type();
+    return droppedType == ElementType::DYNAMIC || droppedType == ElementType::EXPRESSION;
+}
+
+EngravingItem* Dynamic::drop(EditData& ed)
+{
+    EngravingItem* item = ed.dropElement;
+    if (!(item->isDynamic() || item->isExpression())) {
+        return nullptr;
+    }
+
+    item->setTrack(track());
+    item->setParent(segment());
+    score()->undoAddElement(item);
+    item->undoChangeProperty(Pid::PLACEMENT, placement(), PropertyFlags::UNSTYLED);
+    if (item->isDynamic()) {
+        score()->undoRemoveElement(this); // swap this dynamic for the newly added one
+    }
+    return item;
 }
 
 TranslatableString Dynamic::subtypeUserName() const
@@ -368,7 +474,7 @@ void Dynamic::startEdit(EditData& ed)
 void Dynamic::endEdit(EditData& ed)
 {
     TextBase::endEdit(ed);
-    if (xmlText() != String::fromUtf8(dynList[int(_dynamicType)].text)) {
+    if (!xmlText().contains(String::fromUtf8(dynList[int(_dynamicType)].text))) {
         _dynamicType = DynamicType::OTHER;
     }
 }
@@ -392,6 +498,9 @@ std::unique_ptr<ElementGroup> Dynamic::getDragGroup(std::function<bool(const Eng
         return g;
     }
     if (auto g = DynamicNearHairpinsDragGroup::detectFor(this, isDragged)) {
+        return g;
+    }
+    if (auto g = DynamicExpressionDragGroup::detectFor(this, isDragged)) {
         return g;
     }
     return TextBase::getDragGroup(isDragged);
@@ -435,7 +544,7 @@ mu::RectF Dynamic::drag(EditData& ed)
 
 void Dynamic::undoSetDynRange(DynamicRange v)
 {
-    undoChangeProperty(Pid::DYNAMIC_RANGE, v);
+    TextBase::undoChangeProperty(Pid::DYNAMIC_RANGE, v);
 }
 
 //---------------------------------------------------------
@@ -461,6 +570,12 @@ PropertyValue Dynamic::getProperty(Pid propertyId) const
         }
     case Pid::VELO_CHANGE_SPEED:
         return _velChangeSpeed;
+    case Pid::AVOID_BARLINES:
+        return avoidBarLines();
+    case Pid::DYNAMICS_SIZE:
+        return _dynamicsSize;
+    case Pid::CENTER_ON_NOTEHEAD:
+        return _centerOnNotehead;
     default:
         return TextBase::getProperty(propertyId);
     }
@@ -492,6 +607,15 @@ bool Dynamic::setProperty(Pid propertyId, const PropertyValue& v)
         break;
     case Pid::VELO_CHANGE_SPEED:
         _velChangeSpeed = v.value<DynamicSpeed>();
+        break;
+    case Pid::AVOID_BARLINES:
+        setAvoidBarLines(v.toBool());
+        break;
+    case Pid::DYNAMICS_SIZE:
+        _dynamicsSize = v.toDouble();
+        break;
+    case Pid::CENTER_ON_NOTEHEAD:
+        _centerOnNotehead = v.toBool();
         break;
     default:
         if (!TextBase::setProperty(propertyId, v)) {
@@ -526,6 +650,17 @@ PropertyValue Dynamic::propertyDefault(Pid id) const
         return DynamicSpeed::NORMAL;
     default:
         return TextBase::propertyDefault(id);
+    }
+}
+
+void Dynamic::undoChangeProperty(Pid id, const PropertyValue& v, PropertyFlags ps)
+{
+    TextBase::undoChangeProperty(id, v, ps);
+    if (_snappedExpression) {
+        if ((id == Pid::OFFSET && _snappedExpression->offset() != v.value<PointF>())
+            || (id == Pid::PLACEMENT && _snappedExpression->placement() != v.value<PlacementV>())) {
+            _snappedExpression->undoChangeProperty(id, v, ps);
+        }
     }
 }
 

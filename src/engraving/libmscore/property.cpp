@@ -342,6 +342,11 @@ static constexpr PropertyMetaData propertyList[] = {
     { Pid::END_FONT_STYLE,          false, "endFontStyle",          P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName",  "end font style") },
     { Pid::END_TEXT_OFFSET,         false, "endTextOffset",         P_TYPE::POINT,          DUMMY_QT_TR_NOOP("propertyName", "end text offset") },
 
+    { Pid::AVOID_BARLINES,          false, "avoidBarLines",         P_TYPE::BOOL,           DUMMY_QT_TR_NOOP("propertyName", "avoid bar lines") },
+    { Pid::DYNAMICS_SIZE,           false, "dynamicsSize",          P_TYPE::REAL,           DUMMY_QT_TR_NOOP("propertyName", "dynamic size") },
+    { Pid::CENTER_ON_NOTEHEAD,      false, "centerOnNotehead",      P_TYPE::BOOL,           DUMMY_QT_TR_NOOP("propertyName", "use text alignment") },
+    { Pid::SNAP_TO_DYNAMICS,         false, "snapToDynamics",        P_TYPE::BOOL,           DUMMY_QT_TR_NOOP("propertyName", "snap expression") },
+
     { Pid::POS_ABOVE,               false, "posAbove",              P_TYPE::MILLIMETRE,     DUMMY_QT_TR_NOOP("propertyName", "position above") },
 
     { Pid::LOCATION_STAVES,         false, "staves",                P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "staves distance") },
@@ -356,6 +361,8 @@ static constexpr PropertyMetaData propertyList[] = {
 
     { Pid::CLEF_TYPE_CONCERT,       true,  "concertClefType",       P_TYPE::CLEF_TYPE,      DUMMY_QT_TR_NOOP("propertyName", "concert clef type") },
     { Pid::CLEF_TYPE_TRANSPOSING,   true,  "transposingClefType",   P_TYPE::CLEF_TYPE,      DUMMY_QT_TR_NOOP("propertyName", "transposing clef type") },
+    { Pid::CLEF_TO_BARLINE_POS,     true,  "clefToBarlinePos",      P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "clef to barline position") },
+    { Pid::IS_HEADER,               true,  "isHeader",              P_TYPE::BOOL,           DUMMY_QT_TR_NOOP("propertyName", "is header")},
     { Pid::KEY,                     true,  "accidental",            P_TYPE::INT,            DUMMY_QT_TR_NOOP("propertyName", "key") },
     { Pid::ACTION,                  false, "action",                P_TYPE::STRING,         0 },
     { Pid::MIN_DISTANCE,            false, "minDistance",           P_TYPE::SPATIUM,        DUMMY_QT_TR_NOOP("propertyName", "autoplace minimum distance") },

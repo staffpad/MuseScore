@@ -156,12 +156,14 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/layout/layoutlyrics.h
     ${CMAKE_CURRENT_LIST_DIR}/layout/layoutmeasure.cpp
     ${CMAKE_CURRENT_LIST_DIR}/layout/layoutmeasure.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutbeams.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutbeams.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/beamlayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/beamlayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/beamtremololayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/beamtremololayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/chordlayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/chordlayout.h
     ${CMAKE_CURRENT_LIST_DIR}/layout/layouttuplets.cpp
     ${CMAKE_CURRENT_LIST_DIR}/layout/layouttuplets.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutchords.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutchords.h
     ${CMAKE_CURRENT_LIST_DIR}/layout/verticalgapdata.cpp
     ${CMAKE_CURRENT_LIST_DIR}/layout/verticalgapdata.h
     ${CMAKE_CURRENT_LIST_DIR}/layout/layoutsystem.cpp

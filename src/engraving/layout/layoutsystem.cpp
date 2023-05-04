@@ -46,8 +46,8 @@
 #include "libmscore/tuplet.h"
 #include "libmscore/volta.h"
 
-#include "layoutbeams.h"
-#include "layoutchords.h"
+#include "beamlayout.h"
+#include "chordlayout.h"
 #include "layoutharmonies.h"
 #include "layoutlyrics.h"
 #include "layoutmeasure.h"
@@ -376,7 +376,7 @@ System* LayoutSystem::collectSystem(const LayoutOptions& options, LayoutContext&
                     m->computeWidth(m->system()->minSysTicks(), m->system()->maxSysTicks(), oldStretch);
                     m->stretchToTargetWidth(oldWidth);
                     m->layoutMeasureElements();
-                    LayoutBeams::restoreBeams(m);
+                    BeamLayout::restoreBeams(m);
                     if (m == nm || !m->noBreak()) {
                         break;
                     }
@@ -396,7 +396,7 @@ System* LayoutSystem::collectSystem(const LayoutOptions& options, LayoutContext&
     // Create end barlines
     if (ctx.prevMeasure && ctx.prevMeasure->isMeasure()) {
         Measure* pm = toMeasure(ctx.prevMeasure);
-        LayoutBeams::breakCrossMeasureBeams(ctx, pm);
+        BeamLayout::breakCrossMeasureBeams(ctx, pm);
         pm->createEndBarLines(true);
     }
 
@@ -719,7 +719,7 @@ void LayoutSystem::layoutSystemElements(const LayoutOptions& options, LayoutCont
         if (!s->isChordRestType()) {
             continue;
         }
-        LayoutBeams::layoutNonCrossBeams(s);
+        BeamLayout::layoutNonCrossBeams(s);
         // Must recreate the shapes because stem lengths may have been changed!
         s->createShapes();
     }
@@ -732,7 +732,7 @@ void LayoutSystem::layoutSystemElements(const LayoutOptions& options, LayoutCont
             Rest* rest = toRest(item);
             Beam* beam = rest->beam();
             if (beam && !beam->cross()) {
-                LayoutBeams::verticalAdjustBeamedRests(rest, beam);
+                BeamLayout::verticalAdjustBeamedRests(rest, beam);
             }
         }
     }
@@ -820,7 +820,7 @@ void LayoutSystem::layoutSystemElements(const LayoutOptions& options, LayoutCont
                         // add beams to skline
                         if (e->isChordRest()) {
                             ChordRest* cr = toChordRest(e);
-                            if (LayoutBeams::isTopBeam(cr)) {
+                            if (BeamLayout::isTopBeam(cr)) {
                                 Beam* b = cr->beam();
                                 b->addSkyline(skyline);
                             }
@@ -843,7 +843,7 @@ void LayoutSystem::layoutSystemElements(const LayoutOptions& options, LayoutCont
             Chord* c = toChord(e);
             c->layoutArticulations();
             c->layoutArticulations2();
-            LayoutChords::layoutChordBaseFingering(c, system);
+            ChordLayout::layoutChordBaseFingering(c, system);
             for (Note* note : c->notes()) {
                 for (EngravingItem* item : note->el()) {
                     if (item && item->isStretchedBend()) {
@@ -957,8 +957,8 @@ void LayoutSystem::layoutSystemElements(const LayoutOptions& options, LayoutCont
             if (e->isDynamic()) {
                 Dynamic* d = toDynamic(e);
                 d->layout();
-
                 if (d->autoplace()) {
+                    d->manageBarlineCollisions();
                     d->autoplaceSegmentElement(false);
                     dynamics.push_back(d);
                 }
@@ -970,7 +970,6 @@ void LayoutSystem::layoutSystemElements(const LayoutOptions& options, LayoutCont
     }
 
     // add dynamics shape to skyline
-
     for (Dynamic* d : dynamics) {
         if (!d->addToSkyline()) {
             continue;
@@ -979,6 +978,21 @@ void LayoutSystem::layoutSystemElements(const LayoutOptions& options, LayoutCont
         Segment* s = d->segment();
         Measure* m = s->measure();
         system->staff(si)->skyline().add(d->shape().translate(d->pos() + s->pos() + m->pos()));
+    }
+
+    //-------------------------------------------------------------
+    // Expressions
+    // Must be done after dynamics. Remember that expressions may
+    // also snap into alignment with dynamics.
+    //-------------------------------------------------------------
+    for (Segment* s : sl) {
+        Measure* m = s->measure();
+        for (EngravingItem* e : s->annotations()) {
+            if (e->isExpression()) {
+                e->layout();
+                system->staff(e->staffIdx())->skyline().add(e->shape().translate(e->pos() + s->pos() + m->pos()));
+            }
+        }
     }
 
     //-------------------------------------------------------------
@@ -1335,6 +1349,41 @@ void LayoutSystem::processLines(System* system, std::vector<Spanner*> lines, boo
             }
         }
     }
+    //
+    // Fix harmonic marks and vibrato overlaps
+    //
+    SpannerSegment* prevSegment = nullptr;
+    bool fixed = false;
+
+    for (SpannerSegment* ss : segments) {
+        if (fixed) {
+            fixed = false;
+            prevSegment = ss;
+            continue;
+        }
+        if (prevSegment) {
+            if (prevSegment->visible()
+                && ss->visible()
+                && prevSegment->isHarmonicMarkSegment()
+                && ss->isVibratoSegment()
+                && prevSegment->x() == ss->x()) {
+                double diff = ss->bbox().bottom() - prevSegment->bbox().bottom() + prevSegment->bbox().top();
+                prevSegment->movePosY(diff);
+                fixed = true;
+            }
+            if (prevSegment->visible()
+                && ss->visible()
+                && prevSegment->isVibratoSegment()
+                && ss->isHarmonicMarkSegment()
+                && prevSegment->x() == ss->x()) {
+                double diff = prevSegment->bbox().bottom() - ss->bbox().bottom() + ss->bbox().top();
+                ss->movePosY(diff);
+                fixed = true;
+            }
+        }
+
+        prevSegment = ss;
+    }
 
     //
     // add shapes to skyline
@@ -1423,7 +1472,7 @@ void LayoutSystem::updateCrossBeams(System* system, const LayoutContext& ctx)
                     chord->computeUp();
                     if (chord->up() != prevUp) {
                         // If the chord has changed direction needs to be re-laid out
-                        LayoutChords::layoutChords1(chord->score(), &seg, chord->vStaffIdx());
+                        ChordLayout::layoutChords1(chord->score(), &seg, chord->vStaffIdx());
                         seg.createShape(chord->vStaffIdx());
                     }
                 } else if (chord->tremolo() && chord->tremolo()->twoNotes()) {
@@ -1434,7 +1483,7 @@ void LayoutSystem::updateCrossBeams(System* system, const LayoutContext& ctx)
                         bool prevUp = chord->up();
                         chord->computeUp();
                         if (chord->up() != prevUp) {
-                            LayoutChords::layoutChords1(chord->score(), &seg, chord->vStaffIdx());
+                            ChordLayout::layoutChords1(chord->score(), &seg, chord->vStaffIdx());
                             seg.createShape(chord->vStaffIdx());
                         }
                     }

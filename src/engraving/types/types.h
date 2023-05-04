@@ -96,6 +96,7 @@ enum class ElementType {
     FERMATA,
     CHORDLINE,
     DYNAMIC,
+    EXPRESSION,
     BEAM,
     BEAM_SEGMENT,
     HOOK,
@@ -525,6 +526,12 @@ enum class ClefType : signed char {
     MAX
 };
 
+enum class ClefToBarlinePosition : char {
+    AUTO,
+    BEFORE,
+    AFTER
+};
+
 // P_TYPE::DYNAMIC_TYPE
 enum class DynamicType : char {
     OTHER,
@@ -887,6 +894,10 @@ enum class ArticulationTextType {
 
 enum class LyricsSyllabic : char {
     SINGLE, BEGIN, END, MIDDLE
+};
+
+enum class SpannerSegmentType {
+    SINGLE, BEGIN, MIDDLE, END
 };
 
 //---------------------------------------------------------

@@ -31,6 +31,54 @@ class Ambitus;
 class Arpeggio;
 class Articulation;
 
+class BagpipeEmbellishment;
+class BarLine;
+class Beam;
+class Bend;
+
+class Box;
+class HBox;
+class VBox;
+class FBox;
+class TBox;
+
+class Bracket;
+class Breath;
+
+class Chord;
+class ChordLine;
+class Clef;
+
+class DeadSlapped;
+class Dynamic;
+
+class Expression;
+
+class Fermata;
+class FiguredBassItem;
+class Fingering;
+class FretDiagram;
+class FretCircle;
+
+class Glissando;
+class GlissandoSegment;
+class GraceNotesGroup;
+class GradualTempoChangeSegment;
+
+class HairpinSegment;
+class Hairpin;
+class HarmonicMarkSegment;
+class Harmony;
+class Hook;
+
+class Image;
+class InstrumentChange;
+class Jump;
+
+class KeySig;
+}
+
+namespace mu::engraving::v0 {
 class TLayout
 {
 public:
@@ -41,9 +89,66 @@ public:
     static void layout(Arpeggio* item, LayoutContext& ctx);
     static void layout(Articulation* item, LayoutContext& ctx);
 
+    static void layout(BagpipeEmbellishment* item, LayoutContext& ctx);
+    static void layout(BarLine* item, LayoutContext& ctx);
+    static void layout2(BarLine* item, LayoutContext& ctx);
+    static void layout(Beam* item, LayoutContext& ctx);
+    static void layout1(Beam* item, LayoutContext& ctx);
+    static void layout(Bend* item, LayoutContext& ctx);
+
+    static void layout(Box* item, LayoutContext& ctx);    // factory
+    static void layoutBox(Box* item, LayoutContext& ctx); // base
+    static void layout(HBox* item, LayoutContext& ctx);
+    static void layout(VBox* item, LayoutContext& ctx);
+    static void layout(FBox* item, LayoutContext& ctx);
+    static void layout(TBox* item, LayoutContext& ctx);
+
+    static void layout(Bracket* item, LayoutContext& ctx);
+    static void layout(Breath* item, LayoutContext& ctx);
+
+    static void layout(Chord* item, LayoutContext& ctx);
+    static void layout(ChordLine* item, LayoutContext& ctx);
+    static void layout(Clef* item, LayoutContext& ctx);
+
+    static void layout(DeadSlapped* item, LayoutContext& ctx);
+    static void layout(Dynamic* item, LayoutContext& ctx);
+
+    static void layout(Expression* item, LayoutContext& ctx);
+
+    static void layout(Fermata* item, LayoutContext& ctx);
+    static void layout(FiguredBassItem* item, LayoutContext& ctx);
+    static void layout(Fingering* item, LayoutContext& ctx);
+    static void layout(FretDiagram* item, LayoutContext& ctx);
+    static void layout(FretCircle* item, LayoutContext& ctx);
+
+    static void layout(Glissando* item, LayoutContext& ctx);
+    static void layout(GlissandoSegment* item, LayoutContext& ctx);
+    static void layout(GraceNotesGroup* item, LayoutContext& ctx);
+    static void layout(GradualTempoChangeSegment* item, LayoutContext& ctx);
+
+    static void layout(HairpinSegment* item, LayoutContext& ctx);
+    static void layout(Hairpin* item, LayoutContext& ctx);
+    static void layout(HarmonicMarkSegment* item, LayoutContext& ctx);
+    static void layout(Harmony* item, LayoutContext& ctx);
+    static void layout1(Harmony* item, LayoutContext& ctx);
+    static void layout(Hook* item, LayoutContext& ctx);
+
+    static void layout(Image* item, LayoutContext& ctx);
+    static void layout(InstrumentChange* item, LayoutContext& ctx);
+
+    static void layout(Jump* item, LayoutContext& ctx);
+
+    static void layout(KeySig* item, LayoutContext& ctx);
+
 private:
     static void layoutSingleGlyphAccidental(Accidental* item, LayoutContext& ctx);
     static void layoutMultiGlyphAccidental(Accidental* item, LayoutContext& ctx);
+
+    static void adjustLayoutWithoutImages(VBox* item, LayoutContext& ctx);
+
+    static PointF calculateBoundingRect(Harmony* item);
+
+    static void keySigAddLayout(KeySig* item, SymId sym, int line);
 };
 }
 

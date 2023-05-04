@@ -585,6 +585,7 @@ void Segment::add(EngravingItem* el)
 
     case ElementType::TEMPO_TEXT:
     case ElementType::DYNAMIC:
+    case ElementType::EXPRESSION:
     case ElementType::HARMONY:
     case ElementType::SYMBOL:
     case ElementType::FRET_DIAGRAM:
@@ -751,6 +752,7 @@ void Segment::remove(EngravingItem* el)
         break;
 
     case ElementType::DYNAMIC:
+    case ElementType::EXPRESSION:
     case ElementType::FIGURED_BASS:
     case ElementType::FRET_DIAGRAM:
     case ElementType::HARMONY:
@@ -1767,6 +1769,7 @@ EngravingItem* Segment::nextElement(staff_idx_t activeStaff)
     switch (e->type()) {
     case ElementType::DYNAMIC:
     case ElementType::HARMONY:
+    case ElementType::EXPRESSION:
     case ElementType::SYMBOL:
     case ElementType::FERMATA:
     case ElementType::FRET_DIAGRAM:
@@ -1909,6 +1912,7 @@ EngravingItem* Segment::prevElement(staff_idx_t activeStaff)
     }
     switch (e->type()) {
     case ElementType::DYNAMIC:
+    case ElementType::EXPRESSION:
     case ElementType::HARMONY:
     case ElementType::SYMBOL:
     case ElementType::FERMATA:
@@ -2289,6 +2293,7 @@ void Segment::createShape(staff_idx_t staffIdx)
                    && !e->isHarmony()
                    && !e->isTempoText()
                    && !e->isDynamic()
+                   && !e->isExpression()
                    && !e->isFiguredBass()
                    && !e->isSymbol()
                    && !e->isFSymbol()
@@ -2857,5 +2862,37 @@ double Segment::computeDurationStretch(Segment* prevSeg, Fraction minTicks, Frac
     }
 
     return durStretch;
+}
+
+bool Segment::goesBefore(const Segment* nextSegment) const
+{
+    bool thisIsClef = isClefType();
+    bool nextIsClef = nextSegment->isClefType();
+    bool thisIsBarline = isType(SegmentType::BarLine | SegmentType::EndBarLine | SegmentType::StartRepeatBarLine);
+    bool nextIsBarline = nextSegment->isType(SegmentType::BarLine | SegmentType::EndBarLine | SegmentType::StartRepeatBarLine);
+
+    if (thisIsClef && nextIsBarline) {
+        ClefToBarlinePosition clefPos = ClefToBarlinePosition::AUTO;
+        for (EngravingItem* item : elist()) {
+            if (item && item->isClef()) {
+                clefPos = toClef(item)->clefToBarlinePosition();
+                break;
+            }
+        }
+        return clefPos != ClefToBarlinePosition::AFTER;
+    }
+
+    if (thisIsBarline && nextIsClef) {
+        ClefToBarlinePosition clefPos = ClefToBarlinePosition::AUTO;
+        for (EngravingItem* item : nextSegment->elist()) {
+            if (item && item->isClef()) {
+                clefPos = toClef(item)->clefToBarlinePosition();
+                break;
+            }
+        }
+        return clefPos == ClefToBarlinePosition::AFTER;
+    }
+
+    return segmentType() < nextSegment->segmentType();
 }
 } // namespace mu::engraving

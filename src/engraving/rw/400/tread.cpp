@@ -21,8 +21,6 @@
  */
 #include "tread.h"
 
-#include "global/defer.h"
-
 #include "../../types/typesconv.h"
 #include "../../types/symnames.h"
 #include "../../infrastructure/rtti.h"
@@ -40,7 +38,7 @@
 
 #include "../../libmscore/drumset.h"
 #include "../../libmscore/dynamic.h"
-
+#include "../../libmscore/expression.h"
 #include "../../libmscore/harmony.h"
 #include "../../libmscore/harmonicmark.h"
 #include "../../libmscore/chordlist.h"
@@ -147,7 +145,7 @@ using namespace mu::engraving::rw400;
 using ReadTypes = rtti::TypeList<Accidental, ActionIcon, Ambitus, Arpeggio, Articulation,
                                  BagpipeEmbellishment, BarLine, Beam, Bend, StretchedBend,  HBox, VBox, FBox, TBox, Bracket, Breath,
                                  Chord, ChordLine, Clef,
-                                 Dynamic,
+                                 Dynamic, Expression,
                                  Fermata, FiguredBass, Fingering, FretDiagram,
                                  Glissando, GradualTempoChange,
                                  Hairpin, Harmony, HarmonicMark, Hook,
@@ -444,7 +442,7 @@ bool TRead::readItemProperties(EngravingItem* item, XmlReader& e, ReadContext&)
             }
         }
 #endif
-        assert(!item->links()->contains(item));
+        DO_ASSERT(!item->links()->contains(item));
         item->links()->push_back(item);
     } else if (tag == "tick") {
         int val = e.readInt();
@@ -598,8 +596,23 @@ void TRead::read(Dynamic* d, XmlReader& e, ReadContext& ctx)
             d->setChangeInVelocity(e.readInt());
         } else if (tag == "veloChangeSpeed") {
             d->setVelChangeSpeed(TConv::fromXml(e.readAsciiText(), DynamicSpeed::NORMAL));
+        } else if (readProperty(d, tag, e, ctx, Pid::AVOID_BARLINES)) {
+        } else if (readProperty(d, tag, e, ctx, Pid::DYNAMICS_SIZE)) {
+        } else if (readProperty(d, tag, e, ctx, Pid::CENTER_ON_NOTEHEAD)) {
         } else if (!readProperties(static_cast<TextBase*>(d), e, ctx)) {
             e.unknown();
+        }
+    }
+}
+
+void TRead::read(Expression* expr, XmlReader& xml, ReadContext& ctx)
+{
+    while (xml.readNextStartElement()) {
+        const AsciiStringView tag = xml.name();
+        if (tag == "snapToDynamics") {
+            readProperty(expr, xml, ctx, Pid::SNAP_TO_DYNAMICS);
+        } else if (!readProperties(static_cast<TextBase*>(expr), xml, ctx)) {
+            xml.unknown();
         }
     }
 }
@@ -899,9 +912,6 @@ bool TRead::readProperties(Instrument* item, XmlReader& e, Part* part, bool* cus
 void TRead::read(InstrChannel* item, XmlReader& e, Part* part, const InstrumentTrackId& instrId)
 {
     item->setNotifyAboutChangedEnabled(false);
-    DEFER {
-        item->setNotifyAboutChangedEnabled(true);
-    };
 
     // synti = 0;
     item->setName(e.attribute("name"));
@@ -988,6 +998,8 @@ void TRead::read(InstrChannel* item, XmlReader& e, Part* part, const InstrumentT
     if (e.context()) {
         e.context()->addPartAudioSettingCompat(partAudioSetting);
     }
+
+    item->setNotifyAboutChangedEnabled(true);
 
     if ((midiPort != -1 || midiChannel != -1) && part && part->score()->isMaster()) {
         part->masterScore()->addMidiMapping(item, part, midiPort, midiChannel);
@@ -2391,7 +2403,7 @@ bool TRead::readProperties(ChordRest* ch, XmlReader& e, ReadContext& ctx)
             }
         } else {
             if (mscVersion <= 114) {
-                SigEvent event = ch->score()->sigmap()->timesig(e.context()->tick());
+                SigEvent event = ctx.compatTimeSigMap()->timesig(e.context()->tick());
                 ch->setTicks(event.timesig());
             }
         }
@@ -2410,7 +2422,7 @@ bool TRead::readProperties(ChordRest* ch, XmlReader& e, ReadContext& ctx)
     } else if (tag == "duration") {
         ch->setTicks(e.readFraction());
     } else if (tag == "ticklen") {      // obsolete (version < 1.12)
-        int mticks = ch->score()->sigmap()->timesig(e.context()->tick()).timesig().ticks();
+        int mticks = ctx.compatTimeSigMap()->timesig(e.context()->tick()).timesig().ticks();
         int i = e.readInt();
         if (i == 0) {
             i = mticks;
@@ -2525,6 +2537,10 @@ void TRead::read(Clef* c, XmlReader& e, ReadContext& ctx)
             c->setShowCourtesy(e.readInt());
         } else if (tag == "forInstrumentChange") {
             c->setForInstrumentChange(e.readBool());
+        } else if (tag == "clefToBarlinePos") {
+            c->setClefToBarlinePosition(ClefToBarlinePosition(e.readInt()));
+        } else if (tag == "isHeader") {
+            c->setIsHeader(e.readBool());
         } else if (!readItemProperties(c, e, ctx)) {
             e.unknown();
         }

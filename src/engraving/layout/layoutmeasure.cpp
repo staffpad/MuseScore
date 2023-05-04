@@ -38,8 +38,8 @@
 #include "libmscore/undo.h"
 
 #include "layoutcontext.h"
-#include "layoutbeams.h"
-#include "layoutchords.h"
+#include "beamlayout.h"
+#include "chordlayout.h"
 #include "layouttremolo.h"
 
 #include "log.h"
@@ -824,7 +824,7 @@ void LayoutMeasure::getNextMeasure(const LayoutOptions& options, LayoutContext& 
         }
     }
 
-    LayoutBeams::createBeams(score, ctx, measure);
+    BeamLayout::createBeams(score, ctx, measure);
     /* HACK: The real beam layout is computed at much later stage (you can't do the beams until you know
      * horizontal spacing). However, horizontal spacing needs to know stems extensions to avoid collision
      * with stems, and stems extensions depend on beams. Solution: we compute dummy beams here, *before*
@@ -834,14 +834,14 @@ void LayoutMeasure::getNextMeasure(const LayoutOptions& options, LayoutContext& 
         if (!s.isChordRestType()) {
             continue;
         }
-        LayoutBeams::layoutNonCrossBeams(&s);
+        BeamLayout::layoutNonCrossBeams(&s);
     }
 
     for (staff_idx_t staffIdx = 0; staffIdx < score->nstaves(); ++staffIdx) {
         for (Segment& segment : measure->segments()) {
             if (segment.isChordRestType()) {
-                LayoutChords::layoutChords1(score, &segment, staffIdx);
-                LayoutChords::resolveVerticalRestConflicts(score, &segment, staffIdx);
+                ChordLayout::layoutChords1(score, &segment, staffIdx);
+                ChordLayout::resolveVerticalRestConflicts(score, &segment, staffIdx);
                 for (voice_idx_t voice = 0; voice < VOICES; ++voice) {
                     ChordRest* cr = segment.cr(staffIdx * VOICES + voice);
                     if (cr) {
@@ -896,7 +896,7 @@ void LayoutMeasure::getNextMeasure(const LayoutOptions& options, LayoutContext& 
         s.createShapes();
     }
 
-    LayoutChords::updateGraceNotes(measure);
+    ChordLayout::updateGraceNotes(measure);
 
     measure->computeTicks(); // Must be called *after* Segment::createShapes() because it relies on the
     // Segment::visible() property, which is determined by Segment::createShapes().
@@ -934,7 +934,7 @@ void LayoutMeasure::computePreSpacingItems(Measure* m)
 {
     // Compute chord properties
     bool isFirstChordInMeasure = true;
-    LayoutChords::clearLineAttachPoints(m);
+    ChordLayout::clearLineAttachPoints(m);
     for (Segment& seg : m->segments()) {
         if (!seg.isChordRestType()) {
             continue;
@@ -945,9 +945,9 @@ void LayoutMeasure::computePreSpacingItems(Measure* m)
             }
             Chord* chord = toChord(e);
 
-            LayoutChords::updateLineAttachPoints(chord, isFirstChordInMeasure);
+            ChordLayout::updateLineAttachPoints(chord, isFirstChordInMeasure);
             for (Chord* gn : chord->graceNotes()) {
-                LayoutChords::updateLineAttachPoints(gn, false);
+                ChordLayout::updateLineAttachPoints(gn, false);
             }
 
             chord->layoutArticulations();

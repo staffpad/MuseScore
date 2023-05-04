@@ -91,10 +91,12 @@ class Clef final : public EngravingItem
     OBJECT_ALLOCATOR(engraving, Clef)
     DECLARE_CLASSOF(ElementType::CLEF)
 
-    SymId symId;
+    SymId m_symId;
     bool _showCourtesy = true;
     bool m_isSmall = false;
     bool _forInstrumentChange = false;
+    M_PROPERTY(ClefToBarlinePosition, clefToBarlinePosition, setClefToBarlinePosition)
+    M_PROPERTY(bool, isHeader, setIsHeader)
 
     ClefTypeList _clefTypes { ClefType::INVALID };
 
@@ -117,6 +119,9 @@ public:
     void draw(mu::draw::Painter*) const override;
 
     bool isEditable() const override { return false; }
+
+    SymId symId() const { return m_symId; }
+    void setSymId(SymId s) { m_symId = s; }
 
     bool isSmall() const { return m_isSmall; }
     void setSmall(bool val);
@@ -148,6 +153,11 @@ public:
     EngravingItem* prevSegmentElement() override;
     String accessibleInfo() const override;
     void clear();
+
+    void changeClefToBarlinePos(ClefToBarlinePosition newPos);
+
+    void undoChangeProperty(Pid id, const PropertyValue& v) { EngravingObject::undoChangeProperty(id, v); }
+    void undoChangeProperty(Pid id, const PropertyValue& v, PropertyFlags ps) override;
 };
 } // namespace mu::engraving
 #endif

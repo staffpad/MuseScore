@@ -26,6 +26,7 @@
 
 #include "style/style.h"
 #include "types/typesconv.h"
+#include "layout/tlayout.h"
 
 #include "actionicon.h"
 #include "articulation.h"
@@ -242,6 +243,7 @@ EngravingItem* ChordRest::drop(EditData& data)
     // fall through
     case ElementType::TEMPO_TEXT:
     case ElementType::DYNAMIC:
+    case ElementType::EXPRESSION:
     case ElementType::FRET_DIAGRAM:
     case ElementType::TREMOLOBAR:
     case ElementType::SYMBOL:
@@ -372,10 +374,15 @@ EngravingItem* ChordRest::drop(EditData& data)
     {
         KeySig* ks    = toKeySig(e);
         KeySigEvent k = ks->keySigEvent();
-        delete ks;
 
-        // apply only to this stave
-        score()->undoChangeKeySig(staff(), tick(), k);
+        if (data.modifiers & ControlModifier) {
+            // apply only to this stave, before the selected chordRest
+            score()->undoChangeKeySig(staff(), tick(), k);
+            delete ks;
+        } else {
+            // apply to all staves, at the beginning of the measure
+            return m->drop(data);
+        }
     }
     break;
 
@@ -571,7 +578,8 @@ void ChordRest::removeDeleteBeam(bool beamed)
         if (b->empty()) {
             score()->undoRemoveElement(b);
         } else {
-            b->layout1();
+            LayoutContext ctx(score());
+            v0::TLayout::layout1(b, ctx);
         }
     }
     if (!beamed && isChord()) {

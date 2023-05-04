@@ -63,7 +63,7 @@
 
 #include "../../libmscore/drumset.h"
 #include "../../libmscore/dynamic.h"
-
+#include "../../libmscore/expression.h"
 #include "../../libmscore/fermata.h"
 #include "../../libmscore/figuredbass.h"
 #include "../../libmscore/fingering.h"
@@ -162,7 +162,7 @@ using namespace mu::engraving::rw400;
 using WriteTypes = rtti::TypeList<Accidental, ActionIcon, Ambitus, Arpeggio, Articulation,
                                   BagpipeEmbellishment, BarLine, Beam, Bend, StretchedBend,  HBox, VBox, FBox, TBox, Bracket, Breath,
                                   Chord, ChordLine, Clef,
-                                  Dynamic,
+                                  Dynamic, Expression,
                                   Fermata, FiguredBass, Fingering, FretDiagram,
                                   Glissando, GradualTempoChange,
                                   Hairpin, Harmony, HarmonicMark, Hook,
@@ -289,7 +289,7 @@ void TWrite::writeItemProperties(const EngravingItem* item, XmlWriter& xml, Writ
         }
 
         EngravingItem* me = static_cast<EngravingItem*>(item->links()->mainElement());
-        assert(item->type() == me->type());
+        DO_ASSERT(item->type() == me->type());
         Staff* s = item->staff();
         if (!s) {
             s = item->score()->staff(xml.context()->curTrack() / VOICES);
@@ -840,6 +840,8 @@ void TWrite::write(const Clef* item, XmlWriter& xml, WriteContext& ctx)
     xml.startElement(item);
     writeProperty(item, xml, Pid::CLEF_TYPE_CONCERT);
     writeProperty(item, xml, Pid::CLEF_TYPE_TRANSPOSING);
+    writeProperty(item, xml, Pid::CLEF_TO_BARLINE_POS);
+    writeProperty(item, xml, Pid::IS_HEADER);
     if (!item->showCourtesy()) {
         xml.tag("showCourtesyClef", item->showCourtesy());
     }
@@ -859,13 +861,26 @@ void TWrite::write(const Dynamic* item, XmlWriter& xml, WriteContext& ctx)
     writeProperty(item, xml, Pid::DYNAMIC_TYPE);
     writeProperty(item, xml, Pid::VELOCITY);
     writeProperty(item, xml, Pid::DYNAMIC_RANGE);
+    writeProperty(item, xml, Pid::AVOID_BARLINES);
+    writeProperty(item, xml, Pid::DYNAMICS_SIZE);
+    writeProperty(item, xml, Pid::CENTER_ON_NOTEHEAD);
 
     if (item->isVelocityChangeAvailable()) {
         writeProperty(item, xml, Pid::VELO_CHANGE);
         writeProperty(item, xml, Pid::VELO_CHANGE_SPEED);
     }
 
-    writeProperties(static_cast<const TextBase*>(item), xml, ctx, item->dynamicType() == DynamicType::OTHER);
+    writeProperties(static_cast<const TextBase*>(item), xml, ctx, toDynamic(item)->hasCustomText());
+    xml.endElement();
+}
+
+void TWrite::write(const Expression* item, XmlWriter& xml, WriteContext& ctx)
+{
+    if (!ctx.canWrite(item)) {
+        return;
+    }
+    xml.startElement(item);
+    writeProperties(static_cast<const TextBase*>(item), xml, ctx, true);
     xml.endElement();
 }
 
@@ -1783,7 +1798,7 @@ void TWrite::write(const Location* item, XmlWriter& xml, WriteContext&)
 {
     static constexpr Location relDefaults = Location::relative();
 
-    assert(item->isRelative());
+    DO_ASSERT(item->isRelative());
     xml.startElement("location");
     xml.tag("staves", item->staff(), relDefaults.staff());
     xml.tag("voices", item->voice(), relDefaults.voice());

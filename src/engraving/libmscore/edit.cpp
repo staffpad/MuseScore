@@ -2215,6 +2215,7 @@ void Score::cmdFlip()
                    || e->isSticking()
                    || e->isFingering()
                    || e->isDynamic()
+                   || e->isExpression()
                    || e->isHarmony()
                    || e->isFretDiagram()
                    || e->isHairpin()
@@ -4870,6 +4871,12 @@ void Score::undoChangeClef(Staff* ostaff, EngravingItem* e, ClefType ct, bool fo
         } else {
             st = SegmentType::HeaderClef;
         }
+    } else if (e->rtick() == Fraction(0, 1)) {
+        Measure* curMeasure = e->findMeasure();
+        Measure* prevMeasure = curMeasure ? curMeasure->prevMeasure() : nullptr;
+        if (prevMeasure && !prevMeasure->sectionBreak()) {
+            moveClef = true;
+        }
     } else if (e->isClef()) {
         Clef* clef = toClef(e);
         if (clef->segment()->isHeaderClefType()) {
@@ -4961,6 +4968,7 @@ void Score::undoChangeClef(Staff* ostaff, EngravingItem* e, ClefType ct, bool fo
             clef->setTrack(track);
             clef->setClefType(ct);
             clef->setParent(destSeg);
+            clef->setIsHeader(st == SegmentType::HeaderClef);
             score->undo(new AddElement(clef));
             clef->layout();
         }
@@ -5613,6 +5621,7 @@ void Score::undoAddElement(EngravingItem* element, bool addToLinkedStaves, bool 
             && et != ElementType::PEDAL
             && et != ElementType::BREATH
             && et != ElementType::DYNAMIC
+            && et != ElementType::EXPRESSION
             && et != ElementType::STAFF_TEXT
             && et != ElementType::SYSTEM_TEXT
             && et != ElementType::TRIPLET_FEEL
@@ -5683,6 +5692,7 @@ void Score::undoAddElement(EngravingItem* element, bool addToLinkedStaves, bool 
                            || element->isImage()
                            || element->isTremoloBar()
                            || element->isDynamic()
+                           || element->isExpression()
                            || element->isStaffText()
                            || element->isPlayTechAnnotation()
                            || element->isSticking()
@@ -5716,6 +5726,7 @@ void Score::undoAddElement(EngravingItem* element, bool addToLinkedStaves, bool 
                     case ElementType::HARMONY:
                     case ElementType::FIGURED_BASS:
                     case ElementType::DYNAMIC:
+                    case ElementType::EXPRESSION:
                     case ElementType::LYRICS:                   // not normally segment-attached
                         continue;
                     default:
@@ -5809,6 +5820,7 @@ void Score::undoAddElement(EngravingItem* element, bool addToLinkedStaves, bool 
                      || element->isImage()
                      || element->isTremoloBar()
                      || element->isDynamic()
+                     || element->isExpression()
                      || element->isStaffText()
                      || element->isPlayTechAnnotation()
                      || element->isSticking()

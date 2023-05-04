@@ -32,6 +32,7 @@
 #include "../libmscore/breath.h"
 #include "../libmscore/chord.h"
 #include "../libmscore/dynamic.h"
+#include "../libmscore/expression.h"
 #include "../libmscore/factory.h"
 #include "../libmscore/fermata.h"
 #include "../libmscore/keysig.h"
@@ -100,8 +101,8 @@ void MeasureRW::readMeasure(Measure* measure, XmlReader& e, ReadContext& ctx, in
                               "MSCX error at line %1: invalid measure length: %2").arg(e.lineNumber()).arg(measure->_len.toString()));
             return;
         }
-        ctx.sigmap()->add(measure->tick().ticks(), SigEvent(measure->_len, measure->m_timesig));
-        ctx.sigmap()->add((measure->tick() + measure->ticks()).ticks(), SigEvent(measure->m_timesig));
+        ctx.compatTimeSigMap()->add(measure->tick().ticks(), SigEvent(measure->_len, measure->m_timesig));
+        ctx.compatTimeSigMap()->add((measure->tick() + measure->ticks()).ticks(), SigEvent(measure->m_timesig));
     } else {
         irregular = false;
     }
@@ -354,32 +355,41 @@ void MeasureRW::readVoice(Measure* measure, XmlReader& e, ReadContext& ctx, int 
             segment->add(mr);
             ctx.incTick(measure->ticks());
         } else if (tag == "Clef") {
-            // there may be more than one clef segment for same tick position
-            // the first clef may be missing and is added later in layout
-
-            bool header;
-            if (ctx.tick() != measure->tick()) {
-                header = false;
-            } else if (!segment) {
-                header = true;
-            } else {
-                header = true;
-                for (Segment* s = measure->m_segments.first(); s && s->rtick().isZero(); s = s->next()) {
-                    if (s->isKeySigType() || s->isTimeSigType()) {
-                        // hack: there may be other segment types which should
-                        // generate a clef at current position
-                        header = false;
-                        break;
-                    }
-                }
-            }
-            segment = measure->getSegment(header ? SegmentType::HeaderClef : SegmentType::Clef, ctx.tick());
-            Clef* clef = Factory::createClef(segment);
+            Clef* clef = Factory::createClef(ctx.dummy()->segment());
             clef->setTrack(ctx.track());
             TRead::read(clef, e, ctx);
             clef->setGenerated(false);
 
+            bool header = false;
+            if (ctx.score()->mscVersion() < 410) {
+                /***********************************************************************
+                 * LEGACY: we used to try to guess if the clef is a header based
+                 * on context, which is very unreliable. After 4.1, we just TAG it.
+                 * *********************************************************************/
+                // there may be more than one clef segment for same tick position
+                // the first clef may be missing and is added later in layout
+                if (ctx.tick() != measure->tick()) {
+                    header = false;
+                } else if (!segment) {
+                    header = true;
+                } else {
+                    header = true;
+                    for (Segment* s = measure->m_segments.first(); s && s->rtick().isZero(); s = s->next()) {
+                        if (s->isKeySigType() || s->isTimeSigType()) {
+                            // hack: there may be other segment types which should
+                            // generate a clef at current position
+                            header = false;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                header = clef->isHeader();
+            }
+
+            segment = measure->getSegment(header ? SegmentType::HeaderClef : SegmentType::Clef, ctx.tick());
             segment->add(clef);
+            clef->setIsHeader(header);
         } else if (tag == "TimeSig") {
             TimeSig* ts = Factory::createTimeSig(ctx.dummy()->segment());
             ts->setTrack(ctx.track());
@@ -399,12 +409,8 @@ void MeasureRW::readVoice(Measure* measure, XmlReader& e, ReadContext& ctx, int 
                 timeStretch = ts->stretch().reduced();
                 measure->m_timesig = ts->sig() / timeStretch;
 
-                if (irregular) {
-                    ctx.sigmap()->add(measure->tick().ticks(), SigEvent(measure->_len, measure->m_timesig));
-                    ctx.sigmap()->add((measure->tick() + measure->ticks()).ticks(), SigEvent(measure->m_timesig));
-                } else {
+                if (!irregular) {
                     measure->_len = measure->m_timesig;
-                    ctx.sigmap()->add(measure->tick().ticks(), SigEvent(measure->m_timesig));
                 }
             }
         } else if (tag == "KeySig") {
@@ -439,6 +445,12 @@ void MeasureRW::readVoice(Measure* measure, XmlReader& e, ReadContext& ctx, int 
             dyn->setTrack(ctx.track());
             TRead::read(dyn, e, ctx);
             segment->add(dyn);
+        } else if (tag == "Expression") {
+            segment = measure->getSegment(SegmentType::ChordRest, ctx.tick());
+            Expression* expr = Factory::createExpression(segment);
+            expr->setTrack(ctx.track());
+            TRead::read(expr, e, ctx);
+            segment->add(expr);
         } else if (tag == "Harmony") {
             // hack - getSegment needed because tick tags are unreliable in 1.3 scores
             // for symbols attached to anything but a measure
@@ -503,13 +515,23 @@ void MeasureRW::readVoice(Measure* measure, XmlReader& e, ReadContext& ctx, int 
             // for symbols attached to anything but a measure
             segment = measure->getSegment(SegmentType::ChordRest, ctx.tick());
             StaffText* el = Factory::createStaffText(segment);
-
             el->setTrack(ctx.track());
             TRead::read(el, e, ctx);
-            if (el->systemFlag() && el->isTopSystemObject()) {
-                el->setTrack(0); // original system object always goes on top
+            if (el->textStyleType() != TextStyleType::EXPRESSION) {
+                if (el->systemFlag() && el->isTopSystemObject()) {
+                    el->setTrack(0); // original system object always goes on top
+                }
+                segment->add(el);
+            } else {
+                // Starting from version 4.1, Expressions have their own class.
+                // Map "old" expression objects into the "new" expression object.
+                Expression* expression = Factory::createExpression(segment);
+                expression->setTrack(ctx.track());
+                expression->setXmlText(el->xmlText());
+                expression->mapPropertiesFromOldExpressions(el);
+                segment->add(expression);
+                delete el;
             }
-            segment->add(el);
         } else if (tag == "Sticking"
                    || tag == "SystemText"
                    || tag == "PlayTechAnnotation"

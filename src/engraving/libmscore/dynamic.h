@@ -49,7 +49,15 @@ public:
     };
 
 private:
+
+    friend class v0::TLayout;
+
     DynamicType _dynamicType;
+    Expression* _snappedExpression = nullptr;
+
+    M_PROPERTY(bool, avoidBarLines, setAvoidBarLines)
+    M_PROPERTY(double, dynamicsSize, setDynamicsSize)
+    M_PROPERTY(bool, centerOnNotehead, setCenterOnNotehead)
 
     mutable mu::PointF dragOffset;
     int _velocity;       // associated midi velocity 0-127
@@ -76,6 +84,7 @@ public:
     String translatedSubtypeUserName() const override;
 
     void layout() override;
+    double customTextOffset();
 
     bool isEditable() const override { return true; }
     void startEdit(EditData&) override;
@@ -99,14 +108,23 @@ public:
     PropertyValue getProperty(Pid propertyId) const override;
     bool setProperty(Pid propertyId, const PropertyValue&) override;
     PropertyValue propertyDefault(Pid id) const override;
+    void undoChangeProperty(Pid id, const PropertyValue& v, PropertyFlags ps) override;
 
     std::unique_ptr<ElementGroup> getDragGroup(std::function<bool(const EngravingItem*)> isDragged) override;
 
     String accessibleInfo() const override;
     String screenReaderInfo() const override;
     void doAutoplace();
+    void manageBarlineCollisions();
 
     static String dynamicText(DynamicType t);
+    bool hasCustomText() const { return dynamicText(_dynamicType) != xmlText(); }
+
+    void setSnappedExpression(Expression* e) { _snappedExpression = e; }
+    Expression* snappedExpression() const { return _snappedExpression; }
+
+    bool acceptDrop(EditData& ed) const override;
+    EngravingItem* drop(EditData& ed) override;
 };
 } // namespace mu::engraving
 

@@ -2367,6 +2367,7 @@ void Score::splitStaff(staff_idx_t staffIdx, int splitPoint)
     clef->setClefType(ClefType::F);
     clef->setTrack((staffIdx + 1) * VOICES);
     clef->setParent(seg);
+    clef->setIsHeader(true);
     undoAddElement(clef);
     clef->layout();
 
@@ -5588,6 +5589,11 @@ void Score::addSystemObjectStaff(Staff* staff)
 bool Score::isSystemObjectStaff(Staff* staff) const
 {
     return mu::contains(m_systemObjectStaves, staff);
+}
+
+const std::vector<Part*>& Score::parts() const
+{
+    return _parts;
 }
 
 int Score::visiblePartCount() const
