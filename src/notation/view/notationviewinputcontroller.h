@@ -71,6 +71,10 @@ public:
     virtual void showContextMenu(const ElementType& elementType, const QPointF& pos, bool activateFocus = false) = 0;
     virtual void hideContextMenu() = 0;
 
+    virtual void showElementPopup(const ElementType& elementType, const QPointF& pos, const RectF& size, bool activateFocus) = 0;
+    virtual void hideElementPopup() = 0;
+    virtual void toggleElementPopup(const ElementType& elementType, const QPointF& pos, const RectF& size, bool activateFocus = false) = 0;
+
     virtual INotationInteractionPtr notationInteraction() const = 0;
     virtual INotationPlaybackPtr notationPlayback() const = 0;
 
@@ -79,10 +83,10 @@ public:
 
 class NotationViewInputController : public actions::Actionable, public async::Asyncable
 {
-    INJECT(notation, INotationConfiguration, configuration)
-    INJECT(notation, actions::IActionsDispatcher, dispatcher)
-    INJECT(notation, playback::IPlaybackController, playbackController)
-    INJECT(notation, context::IGlobalContext, globalContext)
+    INJECT(INotationConfiguration, configuration)
+    INJECT(actions::IActionsDispatcher, dispatcher)
+    INJECT(playback::IPlaybackController, playbackController)
+    INJECT(context::IGlobalContext, globalContext)
 
 public:
     NotationViewInputController(IControlledView* view);

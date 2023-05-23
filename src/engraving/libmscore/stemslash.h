@@ -38,21 +38,24 @@ class StemSlash final : public EngravingItem
     OBJECT_ALLOCATOR(engraving, StemSlash)
     DECLARE_CLASSOF(ElementType::STEM_SLASH)
 
-    mu::LineF line;
-
-    friend class Factory;
-    StemSlash(Chord* parent = 0);
-    double _width;
-    KerningType doComputeKerningType(const EngravingItem* nextItem) const override;
-
 public:
 
     double mag() const override { return parentItem()->mag(); }
 
     StemSlash* clone() const override { return new StemSlash(*this); }
     void draw(mu::draw::Painter*) const override;
-    void layout() override;
+
     Chord* chord() const { return (Chord*)explicitParent(); }
+
+private:
+    friend class layout::v0::TLayout;
+    friend class Factory;
+    StemSlash(Chord* parent = 0);
+
+    KerningType doComputeKerningType(const EngravingItem* nextItem) const override;
+
+    mu::LineF m_line;
+    double m_width = 0;
 };
 } // namespace mu::engraving
 #endif

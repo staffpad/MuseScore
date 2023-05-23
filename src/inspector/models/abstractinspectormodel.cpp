@@ -20,6 +20,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "abstractinspectormodel.h"
+#include "libmscore/dynamic.h"
 
 #include "types/texttypes.h"
 
@@ -74,6 +75,8 @@ static const QMap<mu::engraving::ElementType, InspectorModelType> NOTATION_ELEME
     { mu::engraving::ElementType::VBOX, InspectorModelType::TYPE_VERTICAL_FRAME },// vertical frame
     { mu::engraving::ElementType::HBOX, InspectorModelType::TYPE_HORIZONTAL_FRAME },// horizontal frame
     { mu::engraving::ElementType::ARTICULATION, InspectorModelType::TYPE_ARTICULATION },
+    { mu::engraving::ElementType::ORNAMENT, InspectorModelType::TYPE_ORNAMENT },
+    { mu::engraving::ElementType::TRILL_SEGMENT, InspectorModelType::TYPE_ORNAMENT },
     { mu::engraving::ElementType::IMAGE, InspectorModelType::TYPE_IMAGE },
     { mu::engraving::ElementType::HARMONY, InspectorModelType::TYPE_CHORD_SYMBOL },
     { mu::engraving::ElementType::AMBITUS, InspectorModelType::TYPE_AMBITUS },
@@ -91,7 +94,9 @@ static const QMap<mu::engraving::ElementType, InspectorModelType> NOTATION_ELEME
     { mu::engraving::ElementType::GRADUAL_TEMPO_CHANGE_SEGMENT, InspectorModelType::TYPE_GRADUAL_TEMPO_CHANGE },
     { mu::engraving::ElementType::INSTRUMENT_NAME, InspectorModelType::TYPE_INSTRUMENT_NAME },
     { mu::engraving::ElementType::LYRICS, InspectorModelType::TYPE_LYRICS },
-    { mu::engraving::ElementType::REST, InspectorModelType::TYPE_REST }
+    { mu::engraving::ElementType::REST, InspectorModelType::TYPE_REST },
+    { mu::engraving::ElementType::DYNAMIC, InspectorModelType::TYPE_DYNAMIC },
+    { mu::engraving::ElementType::EXPRESSION, InspectorModelType::TYPE_EXPRESSION }
 };
 
 static QMap<mu::engraving::HairpinType, InspectorModelType> HAIRPIN_ELEMENT_MODEL_TYPES = {
@@ -193,12 +198,6 @@ InspectorModelType AbstractInspectorModel::modelTypeByElementKey(const ElementKe
                                                       InspectorModelType::TYPE_UNDEFINED);
     }
 
-    if (elementKey.type == mu::engraving::ElementType::ARTICULATION) {
-        if (mu::engraving::Articulation::isOrnament(elementKey.subtype)) {
-            return InspectorModelType::TYPE_ORNAMENT;
-        }
-    }
-
     return NOTATION_ELEMENT_MODEL_TYPES.value(elementKey.type, InspectorModelType::TYPE_UNDEFINED);
 }
 
@@ -213,7 +212,25 @@ InspectorModelTypeSet AbstractInspectorModel::modelTypesByElementKeys(const Elem
     return types;
 }
 
-InspectorSectionTypeSet AbstractInspectorModel::sectionTypesByElementKeys(const ElementKeySet& elementKeySet, bool isRange)
+static bool isPureDynamics(const QList<mu::engraving::EngravingItem*>& selectedElementList)
+{
+    for (EngravingItem* item : selectedElementList) {
+        if (!item->isTextBase()) {
+            continue;
+        }
+        if (!item->isDynamic()) {
+            return false;
+        }
+        Dynamic* dynamic = toDynamic(item);
+        if (dynamic->hasCustomText()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+InspectorSectionTypeSet AbstractInspectorModel::sectionTypesByElementKeys(const ElementKeySet& elementKeySet, bool isRange,
+                                                                          const QList<mu::engraving::EngravingItem*>& selectedElementList)
 {
     InspectorSectionTypeSet types;
 
@@ -223,7 +240,8 @@ InspectorSectionTypeSet AbstractInspectorModel::sectionTypesByElementKeys(const 
             types << InspectorSectionType::SECTION_NOTATION;
         }
 
-        if (TEXT_ELEMENT_TYPES.contains(key.type)) {
+        // Don't show the "Text" inspector panel for "pure" dynamics (i.e. without custom text)
+        if (TEXT_ELEMENT_TYPES.contains(key.type) && !isPureDynamics(selectedElementList)) {
             types << InspectorSectionType::SECTION_TEXT;
         }
 

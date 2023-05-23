@@ -61,7 +61,7 @@ class Clef;
 
 class DurationElement;
 class Dynamic;
-
+class Expression;
 class Fermata;
 class FiguredBass;
 class FiguredBassItem;
@@ -75,6 +75,7 @@ class Groups;
 class Hairpin;
 class Harmony;
 class HarmonicMark;
+class HarpPedalDiagram;
 class Hook;
 
 class Image;
@@ -105,7 +106,7 @@ class NoteEvent;
 class NoteDot;
 class NoteHead;
 class NoteLine;
-
+class Ornament;
 class Ottava;
 
 class Page;
@@ -165,7 +166,7 @@ class WhammyBar;
 namespace mu::engraving::rw400 {
 class TWrite
 {
-    INJECT_STATIC(engraving, IEngravingConfiguration, engravingConfiguration)
+    INJECT_STATIC(IEngravingConfiguration, engravingConfiguration)
 
 public:
     TWrite() = default;
@@ -198,7 +199,7 @@ public:
     static void write(const Clef* item, XmlWriter& xml, WriteContext& ctx);
 
     static void write(const Dynamic* item, XmlWriter& xml, WriteContext& ctx);
-
+    static void write(const Expression* item, XmlWriter& xml, WriteContext& ctx);
     static void write(const Fermata* item, XmlWriter& xml, WriteContext& ctx);
     static void write(const FiguredBass* item, XmlWriter& xml, WriteContext& ctx);
     static void write(const FiguredBassItem* item, XmlWriter& xml, WriteContext& ctx);
@@ -212,6 +213,7 @@ public:
     static void write(const Hairpin* item, XmlWriter& xml, WriteContext& ctx);
     static void write(const Harmony* item, XmlWriter& xml, WriteContext& ctx);
     static void write(const HarmonicMark* item, XmlWriter& xml, WriteContext& ctx);
+    static void write(const HarpPedalDiagram* item, XmlWriter& xml, WriteContext& ctx);
     static void write(const Hook* item, XmlWriter& xml, WriteContext& ctx);
 
     static void write(const Image* item, XmlWriter& xml, WriteContext& ctx);
@@ -242,7 +244,7 @@ public:
     static void write(const NoteDot* item, XmlWriter& xml, WriteContext& ctx);
     static void write(const NoteHead* item, XmlWriter& xml, WriteContext& ctx);
     static void write(const NoteLine* item, XmlWriter& xml, WriteContext& ctx);
-
+    static void write(const Ornament* item, XmlWriter& xml, WriteContext& ctx);
     static void write(const Ottava* item, XmlWriter& xml, WriteContext& ctx);
 
     static void write(const Page* item, XmlWriter& xml, WriteContext& ctx);
@@ -300,6 +302,7 @@ private:
 
     static void writeItemProperties(const EngravingItem* item, XmlWriter& xml, WriteContext& ctx);
     static void writeBoxProperties(const Box* item, XmlWriter& xml, WriteContext& ctx);
+    static void writeProperties(const Articulation* item, XmlWriter& xml, WriteContext& ctx);
     static void writeProperties(const Box* item, XmlWriter& xml, WriteContext& ctx);
     static void writeProperties(const HBox* item, XmlWriter& xml, WriteContext& ctx);
 

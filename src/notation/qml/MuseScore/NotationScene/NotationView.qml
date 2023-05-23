@@ -42,6 +42,8 @@ FocusScope {
 
     property alias defaultNavigationControl: fakeNavCtrl
 
+    property NavigationPanel navigationPanel: notationView.navigationPanel // first panel
+
     NavigationSection {
         id: navSec
         name: "NotationView"
@@ -70,7 +72,8 @@ FocusScope {
             id: tabPanel
             Layout.fillWidth: true
 
-            navigationSection: navSec
+            navigationPanel.section: navSec
+            navigationPanel.order: notationView.navigationPanel.order + 1
         }
 
         SeparatorLine { visible: tabPanel.visible }
@@ -91,13 +94,12 @@ FocusScope {
                     id: notationView
                     anchors.fill: parent
 
-                    NavigationPanel {
-                        id: navPanel
+                    property NavigationPanel navigationPanel: NavigationPanel {
                         name: "ScoreView"
                         section: navSec
                         enabled: notationView.enabled && notationView.visible
                         direction: NavigationPanel.Both
-                        order: 2
+                        order: 1
                     }
 
                     NavigationControl {
@@ -105,14 +107,14 @@ FocusScope {
                         name: "Score"
                         enabled: notationView.enabled && notationView.visible
 
-                        panel: navPanel
+                        panel: navigationPanel
                         order: 1
 
                         onActiveChanged: {
                             if (fakeNavCtrl.active) {
                                 notationView.forceFocusIn()
 
-                                if (navPanel.highlight) {
+                                if (navigationPanel.highlight) {
                                     notationView.selectOnNavigationActive()
                                 }
                             } else {
@@ -139,6 +141,14 @@ FocusScope {
                         contextMenuLoader.close()
                     }
 
+                    onShowElementPopupRequested: function (popupType, viewPos, elemSize) {
+                        popUpLoader.show(popupType, viewPos, elemSize)
+                    }
+
+                    onHideElementPopupRequested: {
+                        popUpLoader.close()
+                    }
+
                     onViewportChanged: {
                         notationNavigator.setCursorRect(viewport)
                     }
@@ -149,6 +159,16 @@ FocusScope {
                         onHandleMenuItem: function(itemId) {
                             contextMenuModel.handleMenuItem(itemId)
                         }
+                    }
+
+                    ElementPopupLoader {
+                        id: popUpLoader
+
+                        navigationSection: navSec
+                        navigationOrderStart: 2
+
+                        onOpened: paintView.setIsPopupOpen(true)
+                        onClosed: paintView.setIsPopupOpen(false)
                     }
                 }
             }
@@ -228,7 +248,7 @@ FocusScope {
             Layout.fillWidth: true
 
             navigationPanel.section: navSec
-            navigationPanel.order: 3
+            navigationPanel.order: tabPanel.navigationPanel.order + 1
 
             onClosed: {
                 fakeNavCtrl.requestActive()

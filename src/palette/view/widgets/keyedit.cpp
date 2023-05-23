@@ -40,6 +40,7 @@
 #include "engraving/libmscore/factory.h"
 #include "engraving/style/defaultstyle.h"
 #include "engraving/compat/dummyelement.h"
+#include "engraving/layout/v0/tlayout.h"
 
 #include "types/symnames.h"
 
@@ -151,7 +152,9 @@ void KeyCanvas::paintEvent(QPaintEvent*)
         painter.restore();
     }
     clef->setPos(0.0, 0.0);
-    clef->layout();
+    layout::v0::LayoutContext lctx(clef->score());
+    layout::v0::TLayout::layoutItem(clef, lctx);
+
     painter.translate(clef->pagePos());
     clef->draw(&painter);
 }
@@ -228,7 +231,8 @@ void KeyCanvas::dragEnterEvent(QDragEnterEvent* event)
         dragElement->resetExplicitParent();
         rw400::TRead::readItem(dragElement, e, *e.context());
 
-        dragElement->layout();
+        layout::v0::LayoutContext lctx(dragElement->score());
+        layout::v0::TLayout::layoutItem(dragElement, lctx);
     } else {
         if (MScore::debugMode) {
             LOGD("KeyCanvas::dragEnterEvent: formats:");

@@ -49,7 +49,7 @@ class Image final : public BSymbol
     OBJECT_ALLOCATOR(engraving, Image)
     DECLARE_CLASSOF(ElementType::IMAGE)
 
-    INJECT(engraving, mu::draw::IImageProvider, imageProvider)
+    INJECT(mu::draw::IImageProvider, imageProvider)
 
 public:
     Image(EngravingItem* parent = 0);
@@ -61,8 +61,10 @@ public:
     bool load(); // after set paths
     bool load(const io::path_t& s);
     bool loadFromData(const io::path_t& name, const mu::ByteArray&);
-    void layout() override;
+
     void draw(mu::draw::Painter*) const override;
+
+    void init();
 
     bool isImageFramed() const;
     double imageAspectRatio() const;
@@ -103,6 +105,9 @@ public:
     std::vector<mu::PointF> gripsPositions(const EditData&) const override;
 
 protected:
+
+    friend class layout::v0::TLayout;
+
     ImageStoreItem* _storeItem;
     String _storePath;             // the path of the img in the ImageStore
     String _linkPath;              // the path of an external linked img

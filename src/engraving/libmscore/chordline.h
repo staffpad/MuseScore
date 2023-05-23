@@ -45,29 +45,10 @@ class ChordLine final : public EngravingItem
     OBJECT_ALLOCATOR(engraving, ChordLine)
     DECLARE_CLASSOF(ElementType::CHORDLINE)
 
-private:
-
-    bool _straight = false;
-    bool _wavy = false;
-
-    ChordLineType _chordLineType = ChordLineType::NOTYPE;
-    draw::PainterPath m_path;
-    bool m_modified = false;
-    double _lengthX = 0.0;
-    double _lengthY = 0.0;
-    Note* _note = nullptr;
-    static constexpr double _waveAngle = 20;
-
-    friend class Factory;
-
-    ChordLine(Chord* parent);
-    ChordLine(const ChordLine&);
-
-    bool sameVoiceKerningLimited() const override { return true; }
-    bool alwaysKernable() const override { return true; }
-    KerningType doComputeKerningType(const EngravingItem* nextItem) const override;
-
 public:
+
+    static constexpr double WAVE_ANGEL = 20;
+    static const SymIdList WAVE_SYMBOLS;
 
     ChordLine* clone() const override { return new ChordLine(*this); }
 
@@ -90,7 +71,6 @@ public:
 
     const TranslatableString& chordLineTypeName() const;
 
-    void layout() override;
     void draw(mu::draw::Painter*) const override;
 
     void startEditDrag(EditData&) override;
@@ -113,6 +93,27 @@ public:
 
     void setNote(Note* note) { _note = note; }
     Note* note() const { return _note; }
+
+private:
+
+    friend class Factory;
+
+    ChordLine(Chord* parent);
+    ChordLine(const ChordLine&);
+
+    bool sameVoiceKerningLimited() const override { return true; }
+    bool alwaysKernable() const override { return true; }
+    KerningType doComputeKerningType(const EngravingItem* nextItem) const override;
+
+    bool _straight = false;
+    bool _wavy = false;
+
+    ChordLineType _chordLineType = ChordLineType::NOTYPE;
+    draw::PainterPath m_path;
+    bool m_modified = false;
+    double _lengthX = 0.0;
+    double _lengthY = 0.0;
+    Note* _note = nullptr;
 };
 } // namespace mu::engraving
 #endif

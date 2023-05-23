@@ -61,6 +61,14 @@ enum class ArticulationAnchor : char {
     BOTTOM_CHORD,     // attribute is placed at bottom of chord
 };
 
+enum class ArticulationStemSideAlign : char
+{
+    // horizontal align for stem-side articulation layout
+    STEM,                // attribute is placed directly over the stem
+    NOTEHEAD,            // attribute is centered on the notehead
+    AVERAGE,             // attribute is placed at the average of stem pos and notehead center
+};
+
 // flags:
 enum class ArticulationShowIn : char {
     PITCHED_STAFF = 1, TABLATURE = 2
@@ -92,44 +100,10 @@ std::set<SymId> flipArticulations(const std::set<SymId>& articulationSymbolIds, 
 ///    articulation marks
 //---------------------------------------------------------
 
-class Articulation final : public EngravingItem
+class Articulation : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, Articulation)
     DECLARE_CLASSOF(ElementType::ARTICULATION)
-
-private:
-
-    SymId _symId;
-    DirectionV _direction;
-    String _channelName;
-
-    ArticulationTextType m_textType = ArticulationTextType::NO_TEXT;
-    draw::Font m_font; // used for drawing text type articulations
-
-    ArticulationAnchor _anchor;
-
-    bool _up;
-    OrnamentStyle _ornamentStyle;       // for use in ornaments such as trill
-    bool _playArticulation;
-
-    std::pair<Sid, Sid> m_showOnTabStyles = { Sid::NOSTYLE, Sid::NOSTYLE };
-
-    friend class mu::engraving::Factory;
-    Articulation(ChordRest* parent);
-
-    void draw(mu::draw::Painter*) const override;
-
-    void setupShowOnTabStyles();
-
-    enum class AnchorGroup {
-        ARTICULATION,
-        LUTE_FINGERING,
-        OTHER
-    };
-    static AnchorGroup anchorGroup(SymId);
-
-    ArticulationCategories m_categories = ArticulationCategory::NONE;
-    void computeCategories();
 
 public:
 
@@ -150,7 +124,6 @@ public:
     String articulationName() const;    // type-name of articulation; used for midi rendering
     static String symId2ArticulationName(SymId symId);
 
-    void layout() override;
     bool layoutCloseToNote() const;
 
     const draw::Font& font() const { return m_font; }
@@ -196,14 +169,48 @@ public:
     bool isMarcato() const { return m_categories & ArticulationCategory::MARCATO; }
     bool isLuteFingering() { return m_categories & ArticulationCategory::LUTE_FINGERING; }
 
-    bool isOrnament() const;
-    static bool isOrnament(int subtype);
+    bool isBasicArticulation() const;
 
     void doAutoplace();
 
     void styleChanged() override;
 
     bool isOnCrossBeamSide() const;
+
+protected:
+    friend class mu::engraving::Factory;
+    Articulation(ChordRest* parent, ElementType type = ElementType::ARTICULATION);
+
+    void draw(mu::draw::Painter*) const override;
+
+private:
+
+    void setupShowOnTabStyles();
+
+    enum class AnchorGroup {
+        ARTICULATION,
+        LUTE_FINGERING,
+        OTHER
+    };
+    static AnchorGroup anchorGroup(SymId);
+
+    ArticulationCategories m_categories = ArticulationCategory::NONE;
+    void computeCategories();
+
+    SymId _symId;
+    DirectionV _direction;
+    String _channelName;
+
+    ArticulationTextType m_textType = ArticulationTextType::NO_TEXT;
+    draw::Font m_font; // used for drawing text type articulations
+
+    ArticulationAnchor _anchor;
+
+    bool _up;
+    OrnamentStyle _ornamentStyle;       // for use in ornaments such as trill
+    bool _playArticulation;
+
+    std::pair<Sid, Sid> m_showOnTabStyles = { Sid::NOSTYLE, Sid::NOSTYLE };
 };
 } // namespace mu::engraving
 

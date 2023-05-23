@@ -35,6 +35,7 @@
 #include "undo.h"
 
 #include "iengravingfont.h"
+#include "layout/v0/tlayout.h"
 
 #include "bend.h"
 #include "bracket.h"
@@ -45,6 +46,7 @@
 #include "excerpt.h"
 #include "fret.h"
 #include "harmony.h"
+#include "harppedaldiagram.h"
 #include "input.h"
 #include "instrchange.h"
 #include "key.h"
@@ -2419,7 +2421,8 @@ void ChangeClefType::flip(EditData*)
     concertClef     = ocl;
     transposingClef = otc;
     // layout the clef to align the currentClefType with the actual one immediately
-    clef->layout();
+    layout::v0::LayoutContext ctx(clef->score());
+    layout::v0::TLayout::layout(clef, ctx);
 }
 
 //---------------------------------------------------------
@@ -2905,5 +2908,36 @@ void ChangeScoreOrder::flip(EditData*)
     ScoreOrder s = score->scoreOrder();
     score->setScoreOrder(order);
     order = s;
+}
+
+//---------------------------------------------------------
+//   ChangeHarpPedalState
+//---------------------------------------------------------
+
+void ChangeHarpPedalState::flip(EditData*)
+{
+    std::array<PedalPosition, HARP_STRING_NO> f_state = diagram->getPedalState();
+    if (f_state == pedalState) {
+        return;
+    }
+
+    diagram->setPedalState(pedalState);
+    pedalState = f_state;
+
+    diagram->triggerLayout();
+}
+
+void ChangeSingleHarpPedal::flip(EditData*)
+{
+    HarpStringType f_type = type;
+    PedalPosition f_pos = diagram->getPedalState()[type];
+    if (f_pos == pos) {
+        return;
+    }
+
+    diagram->setPedal(type, pos);
+    type = f_type;
+    pos = f_pos;
+    diagram->triggerLayout();
 }
 }

@@ -34,6 +34,7 @@
 #include "draw/types/geometry.h"
 
 #include "engraving/rw/400/writecontext.h"
+#include "engraving/layout/v0/tlayout.h"
 
 #include "engraving/libmscore/actionicon.h"
 #include "engraving/libmscore/articulation.h"
@@ -108,7 +109,8 @@ PaletteCellPtr Palette::insertElement(size_t idx, ElementPtr element, const QStr
 {
     if (element) {
         // layout may be important for comparing cells, e.g. filtering "More" popup content
-        element->layout();
+        layout::v0::LayoutContext lctx(element->score());
+        layout::v0::TLayout::layoutItem(element.get(), lctx);
     }
 
     PaletteCellPtr cell = std::make_shared<PaletteCell>(element, name, mag, offset, tag, this);
@@ -132,7 +134,8 @@ PaletteCellPtr Palette::appendElement(ElementPtr element, const QString& name, q
 {
     if (element) {
         // layout may be important for comparing cells, e.g. filtering "More" popup content
-        element->layout();
+        layout::v0::LayoutContext ctx(element->score());
+        layout::v0::TLayout::layoutItem(element.get(), ctx);
     }
 
     PaletteCellPtr cell = std::make_shared<PaletteCell>(element, name, mag, offset, tag, this);
@@ -584,6 +587,8 @@ Palette::Type Palette::guessType() const
         return Type::Layout;
     case ElementType::SYMBOL:
         return Type::Accordion;
+    case ElementType::HARP_DIAGRAM:
+        return Type::Harp;
     case ElementType::ACTION_ICON: {
         const ActionIcon* action = toActionIcon(e);
         QString actionCode = QString::fromStdString(action->actionCode());

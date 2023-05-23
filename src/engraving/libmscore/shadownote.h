@@ -43,17 +43,6 @@ class ShadowNote final : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, ShadowNote)
 
-    INJECT(notation, IEngravingConfiguration, engravingConfiguration)
-
-    Fraction m_tick;
-    int m_lineIndex;
-    SymId m_noteheadSymbol;
-    TDuration m_duration;
-    bool m_isRest;
-
-    double m_segmentSkylineTopY = 0;
-    double m_segmentSkylineBottomY = 0;
-
 public:
     ShadowNote(Score*);
 
@@ -69,8 +58,6 @@ public:
 
     void setState(SymId noteSymbol, TDuration duration, bool isRest, double segmentSkylineTopY, double segmentSkylineBottomY);
 
-    void layout() override;
-
     void draw(mu::draw::Painter*) const override;
     void drawArticulations(mu::draw::Painter* painter) const;
     void drawMarcato(mu::draw::Painter* painter, const SymId& articulation, mu::RectF& boundRect) const;
@@ -81,6 +68,18 @@ public:
     bool hasStem() const;
     bool hasFlag() const;
     SymId flagSym() const;
+
+private:
+    friend class layout::v0::TLayout;
+
+    Fraction m_tick;
+    int m_lineIndex;
+    SymId m_noteheadSymbol;
+    TDuration m_duration;
+    bool m_isRest;
+
+    double m_segmentSkylineTopY = 0;
+    double m_segmentSkylineBottomY = 0;
 };
 } // namespace mu::engraving
 #endif

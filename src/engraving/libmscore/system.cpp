@@ -27,11 +27,13 @@
 
 #include "system.h"
 
+#include "realfn.h"
+
 #include "style/style.h"
 #include "style/defaultstyle.h"
 
-#include "layout/layoutcontext.h"
-#include "realfn.h"
+#include "layout/v0/tlayout.h"
+#include "layout/v0/layoutcontext.h"
 
 #include "barline.h"
 #include "beam.h"
@@ -66,6 +68,7 @@
 
 using namespace mu;
 using namespace mu::engraving;
+using namespace mu::engraving::layout::v0;
 
 namespace mu::engraving {
 //---------------------------------------------------------
@@ -269,18 +272,19 @@ void System::adjustStavesNumber(size_t nstaves)
 //   instrumentNamesWidth
 //---------------------------------------------------------
 
-double System::instrumentNamesWidth()
+double System::instrumentNamesWidth(const bool isFirstSystem)
 {
     double namesWidth = 0.0;
 
     for (staff_idx_t staffIdx = 0; staffIdx < score()->nstaves(); ++staffIdx) {
         const SysStaff* staff = this->staff(staffIdx);
-        if (!staff) {
+        if (!staff || (isFirstSystem && !staff->show())) {
             continue;
         }
 
+        LayoutContext ctx(score());
         for (InstrumentName* name : staff->instrumentNames) {
-            name->layout();
+            TLayout::layout(name, ctx);
             namesWidth = std::max(namesWidth, name->width());
         }
     }
@@ -399,7 +403,7 @@ double System::totalBracketOffset(LayoutContext& ctx)
                 Bracket* dummyBr = Factory::createBracket(ctx.score()->dummy(), /*isAccessibleEnabled=*/ false);
                 dummyBr->setBracketItem(bi);
                 dummyBr->setStaffSpan(firstStaff, lastStaff);
-                dummyBr->layout();
+                TLayout::layout(dummyBr, ctx);
                 for (staff_idx_t stfIdx = firstStaff; stfIdx <= lastStaff; ++stfIdx) {
                     bracketWidth[stfIdx] += dummyBr->width();
                 }
@@ -459,7 +463,7 @@ void System::layoutSystem(LayoutContext& ctx, double xo1, const bool isFirstSyst
     layoutBrackets(ctx);
     double maxBracketsWidth = totalBracketOffset(ctx);
 
-    double maxNamesWidth = instrumentNamesWidth();
+    double maxNamesWidth = instrumentNamesWidth(isFirstSystem);
 
     double indent = maxNamesWidth > 0 ? maxNamesWidth + instrumentNameOffset : 0.0;
     if (isFirstSystem && firstSystemIndent) {
@@ -511,7 +515,7 @@ void System::layoutSystem(LayoutContext& ctx, double xo1, const bool isFirstSyst
 
     for (SysStaff* s : _staves) {
         for (InstrumentName* t : s->instrumentNames) {
-            t->layout();
+            TLayout::layout(t, ctx);
 
             switch (t->align().horizontal) {
             case AlignH::LEFT:
@@ -554,7 +558,8 @@ void System::setMeasureHeight(double height)
             m->bbox().setRect(0.0, 0.0, m->width(), height);
             toHBox(m)->layout2();
         } else if (m->isTBox()) {
-            toTBox(m)->layout();
+            LayoutContext ctx(score());
+            TLayout::layout(toTBox(m), ctx);
         } else {
             LOGD("unhandled measure type %s", m->typeName());
         }
@@ -567,6 +572,7 @@ void System::setMeasureHeight(double height)
 
 void System::layoutBracketsVertical()
 {
+    LayoutContext ctx(score());
     for (Bracket* b : _brackets) {
         int staffIdx1 = static_cast<int>(b->firstStaff());
         int staffIdx2 = static_cast<int>(b->lastStaff());
@@ -593,7 +599,7 @@ void System::layoutBracketsVertical()
         }
         b->setPosY(sy);
         b->setHeight(ey - sy);
-        b->layout();
+        TLayout::layout(b, ctx);
     }
 }
 
@@ -879,11 +885,11 @@ staff_idx_t System::firstVisibleStaff() const
 //    adjusts staff distance
 //---------------------------------------------------------
 
-void System::layout2(const LayoutContext& ctx)
+void System::layout2(LayoutContext& ctx)
 {
     Box* vb = vbox();
     if (vb) {
-        vb->layout();
+        TLayout::layout(vb, ctx);
         setbbox(vb->bbox());
         return;
     }
@@ -1541,18 +1547,21 @@ EngravingItem* System::nextSegmentElement()
 
 EngravingItem* System::prevSegmentElement()
 {
-    Segment* seg = firstMeasure()->first();
     EngravingItem* re = 0;
-    while (!re) {
-        seg = seg->prev1MM();
-        if (!seg) {
-            return score()->firstElement();
-        }
+    Measure* m = firstMeasure();
+    if (m) {
+        Segment* seg = m->first();
+        while (!re) {
+            seg = seg->prev1MM();
+            if (!seg) {
+                return score()->firstElement();
+            }
 
-        if (seg->segmentType() == SegmentType::EndBarLine) {
-            score()->inputState().setTrack((score()->staves().size() - 1) * VOICES);       //correction
+            if (seg->segmentType() == SegmentType::EndBarLine) {
+                score()->inputState().setTrack((score()->staves().size() - 1) * VOICES);       //correction
+            }
+            re = seg->lastElement(score()->staves().size() - 1);
         }
-        re = seg->lastElement(score()->staves().size() - 1);
     }
     return re;
 }

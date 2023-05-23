@@ -22,6 +22,12 @@
 
 #include "page.h"
 
+#include "layout/v0/tlayout.h"
+
+#ifndef ENGRAVING_NO_ACCESSIBILITY
+#include "accessibility/accessibleitem.h"
+#endif
+
 #include "factory.h"
 #include "masterscore.h"
 #include "measurebase.h"
@@ -29,10 +35,6 @@
 #include "score.h"
 #include "system.h"
 #include "text.h"
-
-#ifndef ENGRAVING_NO_ACCESSIBILITY
-#include "accessibility/accessibleitem.h"
-#endif
 
 #include "log.h"
 
@@ -204,7 +206,8 @@ Text* Page::layoutHeaderFooter(int area, const String& ss) const
     }
     text->setAlign(align);
     text->setXmlText(s);
-    text->layout();
+    layout::v0::LayoutContext ctx(text->score());
+    layout::v0::TLayout::layout(text, ctx);
     return text;
 }
 

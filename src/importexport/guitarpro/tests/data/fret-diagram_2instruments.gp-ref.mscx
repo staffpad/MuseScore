@@ -59,12 +59,16 @@
           <velocity>100</velocity>
           <gateTime>100</gateTime>
           </Articulation>
-        <Articulation name="marcato">
+        <Articulation name="accent">
           <velocity>120</velocity>
           <gateTime>67</gateTime>
           </Articulation>
+        <Articulation name="marcato">
+          <velocity>144</velocity>
+          <gateTime>67</gateTime>
+          </Articulation>
         <Articulation name="sforzato">
-          <velocity>120</velocity>
+          <velocity>169</velocity>
           <gateTime>100</gateTime>
           </Articulation>
         <Channel>
@@ -115,12 +119,16 @@
           <velocity>100</velocity>
           <gateTime>100</gateTime>
           </Articulation>
-        <Articulation name="marcato">
+        <Articulation name="accent">
           <velocity>120</velocity>
           <gateTime>67</gateTime>
           </Articulation>
+        <Articulation name="marcato">
+          <velocity>144</velocity>
+          <gateTime>67</gateTime>
+          </Articulation>
         <Articulation name="sforzato">
-          <velocity>120</velocity>
+          <velocity>169</velocity>
           <gateTime>100</gateTime>
           </Articulation>
         <Channel>
@@ -145,9 +153,10 @@
             <subtype>mf</subtype>
             <velocity>80</velocity>
             </Dynamic>
-          <StaffText>
-            <text>Em</text>
-            </StaffText>
+          <Harmony>
+            <root>18</root>
+            <name>m</name>
+            </Harmony>
           <Tempo>
             <tempo>2</tempo>
             <text><sym>metNoteQuarterUp</sym> = 120</text>
@@ -165,9 +174,10 @@
         </Measure>
       <Measure>
         <voice>
-          <StaffText>
-            <text>Am</text>
-            </StaffText>
+          <Harmony>
+            <root>17</root>
+            <name>m</name>
+            </Harmony>
           <Chord>
             <durationType>whole</durationType>
             <Note>
@@ -181,9 +191,10 @@
         </Measure>
       <Measure>
         <voice>
-          <StaffText>
-            <text>Em</text>
-            </StaffText>
+          <Harmony>
+            <root>18</root>
+            <name>m</name>
+            </Harmony>
           <Chord>
             <durationType>whole</durationType>
             <Note>

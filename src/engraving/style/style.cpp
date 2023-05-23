@@ -176,6 +176,9 @@ bool MStyle::readProperties(XmlReader& e)
             case P_TYPE::LINE_TYPE:
                 set(idx, TConv::fromXml(e.readAsciiText(), LineType::SOLID));
                 break;
+            case P_TYPE::CLEF_TO_BARLINE_POS:
+                set(idx, ClefToBarlinePosition(e.readInt()));
+                break;
             default:
                 ASSERT_X(u"unhandled type " + String::number(int(type)));
             }
@@ -341,6 +344,8 @@ void MStyle::read(XmlReader& e, compat::ReadChordListHook* readChordListHook)
                    && defaultStyleVersion() < 400) {
             // Ignoring pre-4.0 brackets distance settings. Using the new defaults instead.
             e.skipCurrentElement();
+        } else if (tag == "pedalListStyle") { // pre-3.6.3/4.0 typo
+            set(Sid::pedalLineStyle, TConv::fromXml(e.readAsciiText(), LineType::SOLID));
         } else if (!readProperties(e)) {
             e.unknown();
         }

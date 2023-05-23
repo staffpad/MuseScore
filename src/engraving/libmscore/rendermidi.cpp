@@ -432,7 +432,7 @@ const Drumset* getDrumset(const Chord* chord)
 //   renderTremolo
 //---------------------------------------------------------
 
-void renderTremolo(Chord* chord, std::vector<NoteEventList>& ell)
+static void renderTremolo(Chord* chord, std::vector<NoteEventList>& ell, double tremoloPartOfChord = 1.0)
 {
     Segment* seg = chord->segment();
     Tremolo* tremolo = chord->tremolo();
@@ -536,8 +536,8 @@ void renderTremolo(Chord* chord, std::vector<NoteEventList>& ell)
         if (t == 0) {   // avoid crash on very short tremolo
             t = 1;
         }
-        int n = chord->ticks().ticks() / t;
-        int l = 1000 / n;
+        int n = chord->ticks().ticks() / t * tremoloPartOfChord;
+        int l = 1000 / n * tremoloPartOfChord;
         for (int k = 0; k < notes; ++k) {
             NoteEventList* events = &(ell)[k];
             events->clear();
@@ -630,9 +630,12 @@ static bool renderNoteArticulation(NoteEventList* events, Note* note, bool chrom
                                    const std::vector<int>& prefix, const std::vector<int>& body,
                                    bool repeatp, bool sustainp, const std::vector<int>& suffix,
                                    int fastestFreq = 64, int slowestFreq = 8, // 64 Hz and 8 Hz
-                                   double graceOnBeatProportion = 0)
+                                   double graceOnBeatProportion = 0, bool clearPrevEvents = true)
 {
-    events->clear();
+    if (clearPrevEvents) {
+        events->clear();
+    }
+
     Chord* chord = note->chord();
     int maxticks = totalTiedNoteTicks(note);
     int space = 1000 * maxticks;
@@ -912,7 +915,11 @@ std::vector<OrnamentExcursion> excursions = {
     { SymId::ornamentDownMordent,         any, _16th, { 1, 1, 1, 0 }, { 1, 0 },    true,  true, { -1, 0 } },// p136 Cadence Appuyee + mordent [1] [2]
     { SymId::ornamentPrallUp,             any, _16th, { 1, 0 }, { 1, 0 },        true,  true, { -1, 0 } },// p136 Double Cadence [1]
     { SymId::ornamentPrallDown,           any, _16th, { 1, 0 }, { 1, 0 },        true,  true, { -1, 0, 0, 0 } },// p144 ex 153 [1]
-    { SymId::ornamentPrecompSlide,        any, _32nd, {},    { 0 },          false, true, {} }
+    { SymId::ornamentPrecompSlide,        any, _32nd, {},    { 0 },          false, true, {} },
+    { SymId::ornamentShake3,              any, _32nd, { 1, 0 }, { 1, 0 },    true,  true, {} },
+    { SymId::ornamentShakeMuffat1,        any, _32nd, { 1, 0 }, { 1, 0 },    true,  true, {} },
+    { SymId::ornamentTremblementCouperin, any, _32nd, { 1, 1 }, { 0, 1 },        true, true, { 0, 0 } },
+    { SymId::ornamentPinceCouperin,       any, _32nd, { 0 },    { 0, -1 },       true, true, { 0, 0 } }
 
     // [1] Some of the articulations/ornaments in the excursions table above come from
     // Baroque Music, Style and Performance A Handbook, by Robert Donington,(c) 1982
@@ -976,7 +983,7 @@ static void renderGlissando(NoteEventList* events, Note* notestart, double grace
             && toGlissando(spanner)->playGlissando()
             && Glissando::pitchSteps(spanner, body)) {
             renderNoteArticulation(events, notestart, true, Constants::division, empty, body, false, true, empty, 16, 0,
-                                   graceOnBeatProportion);
+                                   graceOnBeatProportion, false);
         }
     }
 }
@@ -1161,19 +1168,27 @@ static void createSlideOutNotePlayEvents(Note* note, NoteEventList* el, int onTi
 
 static std::vector<NoteEventList> renderChord(Chord* chord, Chord* prevChord, int gateTime, int ontime, int trailtime)
 {
-    if (chord->notes().empty()) {
+    const std::vector<Note*>& notes = chord->notes();
+    if (notes.empty()) {
         return std::vector<NoteEventList>();
     }
 
-    std::vector<NoteEventList> ell(chord->notes().size(), NoteEventList());
+    std::vector<NoteEventList> ell(notes.size(), NoteEventList());
 
     bool arpeggio = false;
-    if (chord->tremolo()) {
-        renderTremolo(chord, ell);
-    } else if (chord->arpeggio() && chord->arpeggio()->playArpeggio()) {
+    bool glissandoExists = std::any_of(notes.begin(), notes.end(), [] (Note* note) {
+        return noteHasGlissando(note) || note->slide().is(Note::SlideType::Doit) || note->slide().is(Note::SlideType::Fall);
+    });
+
+    if (chord->arpeggio() && chord->arpeggio()->playArpeggio()) {
         renderArpeggio(chord, ell);
         arpeggio = true;
     } else {
+        if (chord->tremolo()) {
+            /// when note has glissando, half of chord is played tremolo, second half - glissando
+            renderTremolo(chord, ell, glissandoExists ? 0.5 : 1);
+        }
+
         renderChordArticulation(chord, ell, gateTime, (double)ontime / 1000);
     }
 

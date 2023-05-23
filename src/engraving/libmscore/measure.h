@@ -36,6 +36,10 @@ namespace mu::engraving::rw400 {
 class MeasureRW;
 }
 
+namespace mu::engraving::layout::v0 {
+class MeasureLayout;
+}
+
 namespace mu::engraving {
 class AccidentalState;
 class Chord;
@@ -209,7 +213,7 @@ public:
     Fraction computeTicks();
     Fraction shortestChordRest() const;
     Fraction maxTicks() const;
-    void layout2();
+
     void layoutCrossStaff() override;
 
     bool showsMeasureNumber();
@@ -369,9 +373,10 @@ public:
     void respaceSegments();
 
 private:
-    double _squeezableSpace = 0;
+
     friend class Factory;
     friend class rw400::MeasureRW;
+    friend class layout::v0::MeasureLayout;
 
     Measure(System* parent = 0);
     Measure(const Measure&);
@@ -386,6 +391,8 @@ private:
     void spaceRightAlignedSegments();
 
     MStaff* mstaff(staff_idx_t staffIndex) const;
+
+    double _squeezableSpace = 0;
 
     std::vector<MStaff*> m_mstaves;
     SegmentList m_segments;

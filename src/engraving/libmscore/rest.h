@@ -88,7 +88,6 @@ public:
 
     bool acceptDrop(EditData&) const override;
     EngravingItem* drop(EditData&) override;
-    void layout() override;
 
     bool isGap() const { return m_gap; }
     virtual void setGap(bool v) { m_gap = v; }
@@ -100,7 +99,7 @@ public:
     void updateSymbol(int line, int lines);
 
     void checkDots();
-    void layoutDots();
+
     double symWidthNoLedgerLines() const;
     NoteDot* dot(int n);
     const std::vector<NoteDot*>& dotList() const;
@@ -151,6 +150,7 @@ protected:
 
 private:
 
+    friend class layout::v0::TLayout;
     friend class Factory;
     Rest(Segment* parent);
     Rest(Segment* parent, const TDuration&);

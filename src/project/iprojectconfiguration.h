@@ -25,7 +25,7 @@
 #include <QStringList>
 #include <QColor>
 
-#include "modularity/imoduleexport.h"
+#include "modularity/imoduleinterface.h"
 #include "io/path.h"
 #include "async/channel.h"
 #include "async/notification.h"
@@ -113,7 +113,6 @@ public:
     virtual bool shouldDestinationFolderBeOpenedOnExport() const = 0;
     virtual void setShouldDestinationFolderBeOpenedOnExport(bool shouldDestinationFolderBeOpenedOnExport) = 0;
 
-    virtual QUrl scoreManagerUrl() const = 0;
     virtual QUrl supportForumUrl() const = 0;
 
     virtual bool openDetailedProjectUploadedDialog() const = 0;

@@ -87,7 +87,9 @@ class CharFormat
 
 public:
     CharFormat() {}
-    bool operator==(const CharFormat&) const;
+    CharFormat(const CharFormat& cf) { *this = cf; }
+    bool operator==(const CharFormat& cf) const;
+    CharFormat& operator=(const CharFormat& cf);
 
     FontStyle style() const { return _style; }
     void setStyle(FontStyle s) { _style = s; }
@@ -209,7 +211,7 @@ private:
 
 class TextFragment
 {
-    INJECT_STATIC(engraving, IEngravingFontsProvider, engravingFonts)
+    INJECT_STATIC(IEngravingFontsProvider, engravingFonts)
 public:
     mutable CharFormat format;
     mu::PointF pos;                    // y is relative to TextBlock->y()
@@ -282,7 +284,7 @@ class TextBase : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, TextBase)
 
-    INJECT(engraving, IEngravingFontsProvider, engravingFonts)
+    INJECT(IEngravingFontsProvider, engravingFonts)
 
     // sorted by size to allow for most compact memory layout
     M_PROPERTY(FrameType,  frameType,              setFrameType)
@@ -292,6 +294,8 @@ class TextBase : public EngravingItem
     M_PROPERTY(Spatium,    frameWidth,             setFrameWidth)
     M_PROPERTY(Spatium,    paddingWidth,           setPaddingWidth)
     M_PROPERTY(int,        frameRound,             setFrameRound)
+
+    friend class layout::v0::TLayout;
 
     Align _align;
 
@@ -375,7 +379,6 @@ public:
 
     void insertText(EditData&, const String&);
 
-    virtual void layout() override;
     virtual void layout1();
     double lineSpacing() const;
     double lineHeight() const;

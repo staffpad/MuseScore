@@ -69,6 +69,7 @@ class Clef;
 class DeadSlapped;
 class DurationElement;
 class Dynamic;
+class Expression;
 class EngravingItem;
 class EngravingObject;
 class FBox;
@@ -88,6 +89,7 @@ class HairpinSegment;
 class HarmonicMark;
 class HarmonicMarkSegment;
 class Harmony;
+class HarpPedalDiagram;
 class Hook;
 class Image;
 class InstrumentChange;
@@ -116,6 +118,7 @@ class Note;
 class NoteDot;
 class NoteHead;
 class NoteLine;
+class Ornament;
 class Ottava;
 class OttavaSegment;
 class Page;
@@ -194,7 +197,7 @@ public:
 
 class EngravingObject
 {
-    INJECT_STATIC(engraving, mu::diagnostics::IEngravingElementsProvider, elementsProvider)
+    INJECT_STATIC(mu::diagnostics::IEngravingElementsProvider, elementsProvider)
 
     ElementType m_type = ElementType::INVALID;
     EngravingObject* m_parent = nullptr;
@@ -312,6 +315,7 @@ public:
     CONVERT(Chord,         CHORD)
     CONVERT(BarLine,       BAR_LINE)
     CONVERT(Articulation,  ARTICULATION)
+    CONVERT(Ornament,      ORNAMENT)
     CONVERT(Fermata,       FERMATA)
     CONVERT(Marker,        MARKER)
     CONVERT(Clef,          CLEF)
@@ -362,6 +366,7 @@ public:
     CONVERT(Tuplet,        TUPLET)
     CONVERT(NoteDot,       NOTEDOT)
     CONVERT(Dynamic,       DYNAMIC)
+    CONVERT(Expression,    EXPRESSION)
     CONVERT(InstrumentName, INSTRUMENT_NAME)
     CONVERT(Accidental,    ACCIDENTAL)
     CONVERT(TextLine,      TEXTLINE)
@@ -403,6 +408,7 @@ public:
     CONVERT(Image,         IMAGE)
     CONVERT(ChordLine,     CHORDLINE)
     CONVERT(FretDiagram,   FRET_DIAGRAM)
+    CONVERT(HarpPedalDiagram, HARP_DIAGRAM)
     CONVERT(Page,          PAGE)
     CONVERT(Text,          TEXT)
     CONVERT(MeasureNumber, MEASURE_NUMBER)
@@ -499,6 +505,11 @@ public:
     bool isStaffTextBase() const
     {
         return isStaffText() || isSystemText() || isTripletFeel() || isPlayTechAnnotation();
+    }
+
+    bool isArticulationFamily() const
+    {
+        return isArticulation() || isOrnament();
     }
 };
 
@@ -642,6 +653,18 @@ static inline const Bend* toBend(const EngravingObject* e)
     return (const Bend*)e;
 }
 
+static inline Articulation* toArticulation(EngravingObject* e)
+{
+    assert(e == 0 || e->isArticulationFamily());
+    return (Articulation*)e;
+}
+
+static inline const Articulation* toArticulation(const EngravingObject* e)
+{
+    assert(e == 0 || e->isArticulationFamily());
+    return (const Articulation*)e;
+}
+
 #define CONVERT(a)  \
     static inline a* to##a(EngravingObject * e) { assert(e == 0 || e->is##a()); return (a*)e; } \
     static inline const a* to##a(const EngravingObject * e) { assert(e == 0 || e->is##a()); return (const a*)e; }
@@ -650,7 +673,7 @@ CONVERT(EngravingItem)
 CONVERT(Note)
 CONVERT(Chord)
 CONVERT(BarLine)
-CONVERT(Articulation)
+CONVERT(Ornament)
 CONVERT(Fermata)
 CONVERT(Marker)
 CONVERT(Clef)
@@ -708,6 +731,7 @@ CONVERT(MMRest)
 CONVERT(Tuplet)
 CONVERT(NoteDot)
 CONVERT(Dynamic)
+CONVERT(Expression)
 CONVERT(InstrumentName)
 CONVERT(Accidental)
 CONVERT(TextLine)
@@ -749,6 +773,7 @@ CONVERT(Arpeggio)
 CONVERT(Image)
 CONVERT(ChordLine)
 CONVERT(FretDiagram)
+CONVERT(HarpPedalDiagram)
 CONVERT(Page)
 CONVERT(SystemText)
 CONVERT(BracketItem)

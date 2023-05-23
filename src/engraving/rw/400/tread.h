@@ -36,6 +36,7 @@ class EngravingItem;
 class TextBase;
 class TempoText;
 class Dynamic;
+class Expression;
 class FretDiagram;
 class Sticking;
 class SystemText;
@@ -80,6 +81,7 @@ class Groups;
 class Hairpin;
 class Harmony;
 class HarmonicMark;
+class HarpPedalDiagram;
 class Hook;
 
 class Instrument;
@@ -111,7 +113,7 @@ class Note;
 class NoteEvent;
 class NoteDot;
 class NoteHead;
-
+class Ornament;
 class Ottava;
 
 class Page;
@@ -205,6 +207,7 @@ public:
     static void read(Clef* c, XmlReader& xml, ReadContext& ctx);
 
     static void read(Excerpt* item, XmlReader& xml, ReadContext& ctx);
+    static void read(Expression* item, XmlReader& xml, ReadContext& ctx);
 
     static void read(Fermata* f, XmlReader& xml, ReadContext& ctx);
     static void read(FiguredBass* b, XmlReader& xml, ReadContext& ctx);
@@ -218,6 +221,7 @@ public:
 
     static void read(Hairpin* h, XmlReader& xml, ReadContext& ctx);
     static void read(Harmony* h, XmlReader& xml, ReadContext& ctx);
+    static void read(HarpPedalDiagram* h, XmlReader& xml, ReadContext& ctx);
     static void read(HarmonicMark* h, XmlReader& xml, ReadContext& ctx);
     static void read(Hook* h, XmlReader& xml, ReadContext& ctx);
 
@@ -246,7 +250,7 @@ public:
     static void read(NoteEvent* item, XmlReader& xml, ReadContext& ctx);
     static void read(NoteDot* d, XmlReader& xml, ReadContext& ctx);
     static void read(NoteHead* h, XmlReader& xml, ReadContext& ctx);
-
+    static void read(Ornament* o, XmlReader& xml, ReadContext& ctx);
     static void read(Ottava* o, XmlReader& xml, ReadContext& ctx);
 
     static void read(Page* p, XmlReader& xml, ReadContext& ctx);
@@ -325,6 +329,7 @@ public:
     static void read(NamedEventList* item, XmlReader& xml);
     static bool readProperties(Note* n, XmlReader& xml, ReadContext& ctx);
 
+    static bool readProperties(Ornament* o, XmlReader& xml, ReadContext& ctx);
     static bool readProperties(Ottava* o, XmlReader& xml, ReadContext& ctx);
 
     static bool readProperties(Part* p, XmlReader& xml, ReadContext& ctx);

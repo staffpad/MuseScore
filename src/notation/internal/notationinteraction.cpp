@@ -31,6 +31,8 @@
 #include <QKeyEvent>
 #include <QMimeData>
 #include <QDrag>
+#include <QRegularExpression>
+#include <QRegularExpressionMatch>
 
 #include "defer.h"
 #include "ptrutils.h"
@@ -39,8 +41,10 @@
 #include "draw/types/pen.h"
 #include "draw/types/painterpath.h"
 #include "engraving/internal/qmimedataadapter.h"
+#include "engraving/layout/v0/tlayout.h"
 
 #include "libmscore/actionicon.h"
+#include "libmscore/articulation.h"
 #include "libmscore/bracket.h"
 #include "libmscore/chord.h"
 #include "libmscore/drumset.h"
@@ -141,6 +145,32 @@ static PointF bindCursorPosToText(const PointF& cursorPos, const EngravingItem* 
         : cursorPos.y() >= bbox.bottom() ? bbox.bottom() - 1 : cursorPos.y());
 
     return boundPos;
+}
+
+inline QString extractSyllable(const QString& text)
+{
+    QString _text = text;
+
+    _text.replace(QRegularExpression("\r+"), "\n");
+    _text.replace(QRegularExpression("\n+"), "\n");
+    if (_text.startsWith(u"\n")) {
+        _text.remove("\n");
+    }
+
+    int textPos = _text.indexOf(QRegularExpression("\\S"));
+    if (textPos == -1) {
+        return QString();
+    }
+
+    QRegularExpressionMatch match;
+    int splitPos = _text.indexOf(QRegularExpression("(_| |-|\n)"), textPos, &match);
+    if (splitPos == -1) {
+        splitPos = _text.size();
+    } else {
+        splitPos += match.capturedLength();
+    }
+
+    return _text.mid(textPos, splitPos - textPos);
 }
 
 NotationInteraction::NotationInteraction(Notation* notation, INotationUndoStackPtr undoStack)
@@ -320,9 +350,14 @@ void NotationInteraction::checkAndShowMScoreError() const
     case MsError::DEST_NO_CR:
         title = trc("notation", "Destination is not a chord or rest");
         break;
-    case MsError::CANNOT_CHANGE_LOCAL_TIMESIG:
+    case MsError::CANNOT_CHANGE_LOCAL_TIMESIG_MEASURE_NOT_EMPTY:
         title = trc("notation", "Cannot change local time signature");
         message = trc("notation", "Measure is not empty");
+        break;
+    case MsError::CANNOT_CHANGE_LOCAL_TIMESIG_HAS_EXCERPTS:
+        title = trc("notation", "Cannot change local time signature");
+        message = trc("notation", "This score already has part scores. Changing local time "
+                                  "signatures while part scores are present is not yet supported.");
         break;
     case MsError::CORRUPTED_MEASURE:
         title = trc("notation", "Cannot change time signature in front of a corrupted measure");
@@ -488,7 +523,9 @@ void NotationInteraction::showShadowNote(const PointF& pos)
         shadowNote.setState(symNotehead, duration, false, segmentSkylineTopY, segmentSkylineBottomY);
     }
 
-    shadowNote.layout();
+    layout::v0::LayoutContext lctx(shadowNote.score());
+    layout::v0::TLayout::layout(&shadowNote, lctx);
+
     shadowNote.setPos(position.pos);
 }
 
@@ -1243,7 +1280,9 @@ void NotationInteraction::startDrop(const QByteArray& edata)
         m_dropData.ed.dropElement = el;
         m_dropData.ed.dropElement->setParent(0);
         rw400::TRead::readItem(m_dropData.ed.dropElement, e, *e.context());
-        m_dropData.ed.dropElement->layout();
+
+        layout::v0::LayoutContext lctx(m_dropData.ed.dropElement->score());
+        layout::v0::TLayout::layoutItem(m_dropData.ed.dropElement, lctx);
     }
 }
 
@@ -1263,7 +1302,9 @@ bool NotationInteraction::startDrop(const QUrl& url)
     m_dropData.ed.dropElement = image;
     m_dropData.ed.dragOffset = QPointF();
     m_dropData.ed.dropElement->setParent(nullptr);
-    m_dropData.ed.dropElement->layout();
+
+    layout::v0::LayoutContext lctx(m_dropData.ed.dropElement->score());
+    layout::v0::TLayout::layoutItem(m_dropData.ed.dropElement, lctx);
 
     return true;
 }
@@ -1336,6 +1377,7 @@ bool NotationInteraction::isDropAccepted(const PointF& pos, Qt::KeyboardModifier
     case ElementType::FIGURED_BASS:
     case ElementType::LYRICS:
     case ElementType::FRET_DIAGRAM:
+    case ElementType::HARP_DIAGRAM:
     case ElementType::STAFFTYPE_CHANGE: {
         EngravingItem* e = dropTarget(m_dropData.ed);
         if (e) {
@@ -1487,7 +1529,8 @@ bool NotationInteraction::drop(const PointF& pos, Qt::KeyboardModifiers modifier
     case ElementType::AMBITUS:
     case ElementType::TREMOLOBAR:
     case ElementType::FIGURED_BASS:
-    case ElementType::LYRICS: {
+    case ElementType::LYRICS:
+    case ElementType::HARP_DIAGRAM: {
         EngravingItem* el = dropTarget(m_dropData.ed);
         if (!el) {
             if (!dropCanvas(m_dropData.ed.dropElement)) {
@@ -1695,6 +1738,16 @@ bool NotationInteraction::applyPaletteElement(mu::engraving::EngravingItem* elem
             rw400::TRead::readItem(spanner, e, *e.context());
             spanner->styleChanged();
             score->cmdAddSpanner(spanner, idx, startSegment, endSegment);
+        } else if (element->isArticulationFamily() && sel.elements().size() == 1) {
+            // understand adding an articulation to another articulation as adding it to the chord it's attached to
+            EngravingItem* e = sel.elements().front();
+            if (e->isArticulationFamily()) {
+                if (Chord* c = toChord(toArticulation(e)->explicitParent())) {
+                    applyDropPaletteElement(score, c->notes().front(), element, modifiers);
+                }
+            } else {
+                applyDropPaletteElement(score, e, element, modifiers);
+            }
         } else {
             for (EngravingItem* e : sel.elements()) {
                 applyDropPaletteElement(score, e, element, modifiers);
@@ -1714,6 +1767,7 @@ bool NotationInteraction::applyPaletteElement(mu::engraving::EngravingItem* elem
                 && (toActionIcon(element)->actionType() == mu::engraving::ActionIconType::VFRAME
                     || toActionIcon(element)->actionType() == mu::engraving::ActionIconType::HFRAME
                     || toActionIcon(element)->actionType() == mu::engraving::ActionIconType::TFRAME
+                    || toActionIcon(element)->actionType() == mu::engraving::ActionIconType::STAFF_TYPE_CHANGE
                     || toActionIcon(element)->actionType() == mu::engraving::ActionIconType::MEASURE
                     || toActionIcon(element)->actionType() == mu::engraving::ActionIconType::BRACKETS))) {
             Measure* last = sel.endSegment() ? sel.endSegment()->measure() : nullptr;
@@ -1889,7 +1943,7 @@ bool NotationInteraction::applyPaletteElement(mu::engraving::EngravingItem* elem
                         }
                     } else {
                         // do not apply articulation to barline in a range selection
-                        if (!e->isBarLine() || !element->isArticulation()) {
+                        if (!e->isBarLine() || !element->isArticulationFamily()) {
                             applyDropPaletteElement(score, e, element, modifiers);
                         }
                     }
@@ -1902,6 +1956,8 @@ bool NotationInteraction::applyPaletteElement(mu::engraving::EngravingItem* elem
     } else {
         LOGD("unknown selection state");
     }
+
+    score->setSelectionChanged(true);
 
     apply();
 
@@ -2778,7 +2834,7 @@ void NotationInteraction::moveLyrics(MoveDirection d)
 void NotationInteraction::nudge(MoveDirection d, bool quickly)
 {
     EngravingItem* el = score()->selection().element();
-    IF_ASSERT_FAILED(el && (el->isTextBase() || el->isArticulation())) {
+    IF_ASSERT_FAILED(el && (el->isTextBase() || el->isArticulationFamily())) {
         return;
     }
 
@@ -3011,12 +3067,7 @@ void NotationInteraction::changeTextCursorPosition(const PointF& newCursorPos)
 
     textEl->mousePress(m_editData);
     if (m_editData.buttons == mu::engraving::MiddleButton) {
-        #if defined(Q_OS_MAC) || defined(Q_OS_WIN)
-        QClipboard::Mode mode = QClipboard::Clipboard;
-        #else
-        QClipboard::Mode mode = QClipboard::Selection;
-        #endif
-        QString txt = QGuiApplication::clipboard()->text(mode);
+        QString txt = QGuiApplication::clipboard()->text();
         textEl->paste(m_editData, txt);
     }
 
@@ -3325,7 +3376,6 @@ void NotationInteraction::doEndEditElement()
     if (m_editData.element) {
         m_editData.element->endEdit(m_editData);
     }
-
     m_editData.clear();
 }
 
@@ -3531,12 +3581,7 @@ void NotationInteraction::copySelection()
         m_editData.element->editCopy(m_editData);
         mu::engraving::TextEditData* ted = static_cast<mu::engraving::TextEditData*>(m_editData.getData(m_editData.element).get());
         if (!ted->selectedText.isEmpty()) {
-            #if defined(Q_OS_MAC) || defined(Q_OS_WIN)
-            QClipboard::Mode mode = QClipboard::Clipboard;
-            #else
-            QClipboard::Mode mode = QClipboard::Selection;
-            #endif
-            QGuiApplication::clipboard()->setText(ted->selectedText, mode);
+            QGuiApplication::clipboard()->setText(ted->selectedText);
         }
     } else {
         QMimeData* mimeData = selection()->mimeData();
@@ -3610,13 +3655,26 @@ void NotationInteraction::pasteSelection(const Fraction& scale)
     startEdit();
 
     if (isTextEditingStarted()) {
-        #if defined(Q_OS_MAC) || defined(Q_OS_WIN)
-        QClipboard::Mode mode = QClipboard::Clipboard;
-        #else
-        QClipboard::Mode mode = QClipboard::Selection;
-        #endif
-        QString txt = QGuiApplication::clipboard()->text(mode);
-        toTextBase(m_editData.element)->paste(m_editData, txt);
+        QString clipboardText = QGuiApplication::clipboard()->text();
+        QString textForPaste = clipboardText;
+        if ((!clipboardText.startsWith('<') || !clipboardText.contains('>')) && m_editData.element->isLyrics()) {
+            textForPaste = extractSyllable(clipboardText);
+        }
+
+        toTextBase(m_editData.element)->paste(m_editData, textForPaste);
+
+        if (!textForPaste.isEmpty() && m_editData.element->isLyrics()) {
+            if (textForPaste.endsWith('-')) {
+                navigateToNextSyllable();
+            } else if (textForPaste.endsWith('_')) {
+                addMelisma();
+            } else {
+                navigateToLyrics(false, false, false);
+            }
+
+            QString textForNextPaste = clipboardText.remove(0, clipboardText.indexOf(textForPaste) + textForPaste.size());
+            QGuiApplication::clipboard()->setText(textForNextPaste);
+        }
     } else {
         const QMimeData* mimeData = QApplication::clipboard()->mimeData();
         QMimeDataAdapter ma(mimeData);
@@ -3827,6 +3885,16 @@ void NotationInteraction::changeSelectedNotesArticulation(SymbolId articulationS
     }
 
     std::vector<mu::engraving::Note*> notes = score()->selection().noteList();
+    if (notes.empty()) {
+        // no notes, but maybe they have an articulation selected. we should use that chord
+        EngravingItem* e = score()->selection().element();
+        if (e && e->isArticulationFamily()) {
+            Chord* c = toChord(toArticulation(e)->explicitParent());
+            if (c) {
+                notes.insert(notes.begin(), c->notes().begin(), c->notes().end());
+            }
+        }
+    }
 
     auto updateMode = notesHaveActiculation(notes, articulationSymbolId)
                       ? mu::engraving::ArticulationsUpdateMode::Remove : mu::engraving::ArticulationsUpdateMode::Insert;
@@ -5061,6 +5129,8 @@ void NotationInteraction::navigateToFiguredBass(const Fraction& ticks)
             return;
         }
     }
+
+    doEndEditElement();
 
     // look for a segment at this tick; if none, create one
     mu::engraving::Segment* nextSegm = segm;

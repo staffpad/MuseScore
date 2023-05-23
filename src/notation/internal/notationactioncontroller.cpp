@@ -714,6 +714,9 @@ void NotationActionController::padNote(const Pad& pad)
     startNoteInputIfNeed();
 
     noteInput->padNote(pad);
+    if (currentNotationElements()->msScore()->inputState().usingNoteEntryMethod(engraving::NoteEntryMethod::RHYTHM)) {
+        playSelectedElement();
+    }
 }
 
 void NotationActionController::putNote(const actions::ActionData& args)
@@ -936,7 +939,7 @@ void NotationActionController::move(MoveDirection direction, bool quickly)
     case MoveDirection::Down:
         if (!quickly && selectedElement && selectedElement->isLyrics()) {
             interaction->moveLyrics(direction);
-        } else if (selectedElement && (selectedElement->isTextBase() || selectedElement->isArticulation())) {
+        } else if (selectedElement && (selectedElement->isTextBase() || selectedElement->isArticulationFamily())) {
             interaction->nudge(direction, quickly);
         } else if (interaction->noteInput()->isNoteInputMode()
                    && interaction->noteInput()->state().staffGroup == mu::engraving::StaffGroup::TAB) {
@@ -1350,6 +1353,11 @@ void NotationActionController::startEditSelectedElement(const ActionData& args)
 
     if (element->isInstrumentName()) {
         openStaffProperties();
+        return;
+    }
+
+    if (elementHasPopup(element)) {
+        dispatcher()->dispatch("notation-popup-menu");
         return;
     }
 
@@ -1930,6 +1938,15 @@ const mu::engraving::Harmony* NotationActionController::editedChordSymbol() cons
     }
 
     return toHarmony(text);
+}
+
+bool NotationActionController::elementHasPopup(EngravingItem* e)
+{
+    if (e->isHarpPedalDiagram()) {
+        return true;
+    }
+
+    return false;
 }
 
 bool NotationActionController::canUndo() const

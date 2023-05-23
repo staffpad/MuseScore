@@ -41,7 +41,7 @@ class Bend;
 
 class GPConverter
 {
-    INJECT(importexport, mu::engraving::IEngravingConfiguration, engravingConfiguration);
+    INJECT(mu::engraving::IEngravingConfiguration, engravingConfiguration);
 
 public:
     GPConverter(Score* score, std::unique_ptr<GPDomModel>&& gpDom);
@@ -127,7 +127,7 @@ private:
     void addBarline(const GPMasterBar* mB, Measure* measure);
 
     void addTie(const GPNote* gpnote, Note* note, TieMap& ties);
-    void addFretDiagram(const GPBeat* gpnote, ChordRest* note, const Context& ctx);
+    void addFretDiagram(const GPBeat* gpnote, ChordRest* note, const Context& ctx, bool asHarmony = true);
     ChordRest* addChordRest(const GPBeat* beats, const Context& ctx);
     void addOrnament(const GPNote* gpnote, Note* note);
     void addVibratoLeftHand(const GPNote* gpnote, Note* note);
@@ -265,11 +265,9 @@ private:
         static constexpr int LOWEST_BASE = 1024;
     } m_nextTupletInfo;
 
-#ifdef ENGRAVING_USE_STRETCHED_BENDS
-    std::vector<StretchedBend*> m_bends;
-#else
     std::vector<Bend*> m_bends;
-#endif
+    std::vector<StretchedBend*> m_stretchedBends;
+    bool m_useStretchedBends = false;
 
     static constexpr voice_idx_t VOICES = 4;
 
@@ -279,7 +277,6 @@ private:
     std::unordered_map<Measure*, size_t> m_chordsInMeasure;
     BeamMode m_previousBeamMode = BeamMode::AUTO;
 
-    std::unordered_map<Note*, Note*> m_harmonicNotes;
     std::unique_ptr<GPDrumSetResolver> _drumResolver;
 };
 } //end Ms namespace

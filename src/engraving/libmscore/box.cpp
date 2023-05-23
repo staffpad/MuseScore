@@ -24,6 +24,8 @@
 
 #include <cmath>
 
+#include "layout/v0/tlayout.h"
+
 #include "actionicon.h"
 #include "factory.h"
 #include "fret.h"
@@ -59,20 +61,6 @@ static const ElementStyle hBoxStyle {
 Box::Box(const ElementType& type, System* parent)
     : MeasureBase(type, parent)
 {
-}
-
-//---------------------------------------------------------
-//   layout
-//---------------------------------------------------------
-
-void Box::layout()
-{
-    MeasureBase::layout();
-    for (EngravingItem* e : el()) {
-        if (!e->isLayoutBreak()) {
-            e->layout();
-        }
-    }
 }
 
 //---------------------------------------------------------
@@ -167,7 +155,9 @@ void Box::editDrag(EditData& ed)
         }
         triggerLayout();
     }
-    layout();
+
+    layout::v0::LayoutContext ctx(score());
+    layout::v0::TLayout::layout(this, ctx);
 }
 
 //---------------------------------------------------------
@@ -176,7 +166,8 @@ void Box::editDrag(EditData& ed)
 
 void Box::endEdit(EditData&)
 {
-    layout();
+    layout::v0::LayoutContext ctx(score());
+    layout::v0::TLayout::layout(this, ctx);
 }
 
 //---------------------------------------------------------
@@ -349,35 +340,14 @@ HBox::HBox(System* parent)
 }
 
 //---------------------------------------------------------
-//   layout
-//---------------------------------------------------------
-
-void HBox::layout()
-{
-    if (explicitParent() && explicitParent()->isVBox()) {
-        VBox* vb = toVBox(explicitParent());
-        double x = vb->leftMargin() * DPMM;
-        double y = vb->topMargin() * DPMM;
-        double w = point(boxWidth());
-        double h = vb->height() - (vb->topMargin() + vb->bottomMargin()) * DPMM;
-        setPos(x, y);
-        bbox().setRect(0.0, 0.0, w, h);
-    } else if (system()) {
-        bbox().setRect(0.0, 0.0, point(boxWidth()), system()->height());
-    } else {
-        bbox().setRect(0.0, 0.0, 50, 50);
-    }
-    Box::layout();
-}
-
-//---------------------------------------------------------
 //   layout2
 //    height (bbox) is defined now
 //---------------------------------------------------------
 
 void HBox::layout2()
 {
-    Box::layout();
+    layout::v0::LayoutContext ctx(score());
+    layout::v0::TLayout::layoutBox(this, ctx);
 }
 
 //---------------------------------------------------------
@@ -622,61 +592,6 @@ PropertyValue VBox::getProperty(Pid propertyId) const
 }
 
 //---------------------------------------------------------
-//   layout
-//---------------------------------------------------------
-
-void VBox::layout()
-{
-    setPos(PointF());
-
-    if (system()) {
-        bbox().setRect(0.0, 0.0, system()->width(), point(boxHeight()));
-    } else {
-        bbox().setRect(0.0, 0.0, 50, 50);
-    }
-
-    for (EngravingItem* e : el()) {
-        if (!e->isLayoutBreak()) {
-            e->layout();
-        }
-    }
-
-    if (getProperty(Pid::BOX_AUTOSIZE).toBool()) {
-        double contentHeight = contentRect().height();
-
-        if (contentHeight < minHeight()) {
-            contentHeight = minHeight();
-        }
-
-        setHeight(contentHeight);
-    }
-
-    MeasureBase::layout();
-
-    if (MScore::noImages) {
-        adjustLayoutWithoutImages();
-    }
-}
-
-void VBox::adjustLayoutWithoutImages()
-{
-    double calculatedVBoxHeight = 0;
-    const int padding = score()->spatium();
-    auto elementList = el();
-
-    for (auto pElement : elementList) {
-        if (pElement->isText()) {
-            Text* txt = toText(pElement);
-            txt->bbox().moveTop(0);
-            calculatedVBoxHeight += txt->height() + padding;
-        }
-    }
-
-    setHeight(calculatedVBoxHeight);
-    Box::layout();
-}
-
-//---------------------------------------------------------
 //   startEditDrag
 //---------------------------------------------------------
 
@@ -687,17 +602,6 @@ void VBox::startEditDrag(EditData& ed)
         setBoxHeight(Spatium(height() / spatium()));
     }
     Box::startEditDrag(ed);
-}
-
-//---------------------------------------------------------
-//   layout
-//---------------------------------------------------------
-
-void FBox::layout()
-{
-//      setPos(PointF());      // !?
-    bbox().setRect(0.0, 0.0, system()->width(), point(boxHeight()));
-    Box::layout();
 }
 
 //---------------------------------------------------------

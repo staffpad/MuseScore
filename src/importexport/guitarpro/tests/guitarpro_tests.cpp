@@ -108,6 +108,12 @@ TEST_F(GuitarPro_Tests, gpxTrill) {
 TEST_F(GuitarPro_Tests, gp4Trill) {
     gpReadTest("trill", "gp4");
 }
+TEST_F(GuitarPro_Tests, gpChordWithTiedHarmonics) {
+    gpReadTest("chord_with_tied_harmonics", "gp");
+}
+TEST_F(GuitarPro_Tests, gp5ChordWithTiedHarmonics) {
+    gpReadTest("chord_with_tied_harmonics", "gp5");
+}
 TEST_F(GuitarPro_Tests, gpDynamic) {
     gpReadTest("dynamic", "gp");
 }
@@ -194,6 +200,12 @@ TEST_F(GuitarPro_Tests, gp4Bend) {
 }
 TEST_F(GuitarPro_Tests, gp3Bend) {
     gpReadTest("bend", "gp3");
+}
+TEST_F(GuitarPro_Tests, gpBendAndHarmonic) {
+    gpReadTest("bend_and_harmonic", "gp");
+}
+TEST_F(GuitarPro_Tests, gp5BendAndHarmonic) {
+    gpReadTest("bend_and_harmonic", "gp5");
 }
 TEST_F(GuitarPro_Tests, gpKeysig) {
     gpReadTest("keysig", "gp");

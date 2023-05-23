@@ -63,7 +63,7 @@
 
 #include "../../libmscore/drumset.h"
 #include "../../libmscore/dynamic.h"
-
+#include "../../libmscore/expression.h"
 #include "../../libmscore/fermata.h"
 #include "../../libmscore/figuredbass.h"
 #include "../../libmscore/fingering.h"
@@ -76,6 +76,7 @@
 #include "../../libmscore/hairpin.h"
 #include "../../libmscore/harmony.h"
 #include "../../libmscore/harmonicmark.h"
+#include "../../libmscore/harppedaldiagram.h"
 #include "../../libmscore/hook.h"
 
 #include "../../libmscore/image.h"
@@ -102,7 +103,7 @@
 #include "../../libmscore/note.h"
 #include "../../libmscore/notedot.h"
 #include "../../libmscore/noteline.h"
-
+#include "../../libmscore/ornament.h"
 #include "../../libmscore/ottava.h"
 
 #include "../../libmscore/page.h"
@@ -162,17 +163,17 @@ using namespace mu::engraving::rw400;
 using WriteTypes = rtti::TypeList<Accidental, ActionIcon, Ambitus, Arpeggio, Articulation,
                                   BagpipeEmbellishment, BarLine, Beam, Bend, StretchedBend,  HBox, VBox, FBox, TBox, Bracket, Breath,
                                   Chord, ChordLine, Clef,
-                                  Dynamic,
+                                  Dynamic, Expression,
                                   Fermata, FiguredBass, Fingering, FretDiagram,
                                   Glissando, GradualTempoChange,
-                                  Hairpin, Harmony, HarmonicMark, Hook,
+                                  Hairpin, Harmony, HarmonicMark, HarpPedalDiagram, Hook,
                                   Image, InstrumentChange,
                                   Jump,
                                   KeySig,
                                   LayoutBreak, LedgerLine, LetRing, Lyrics,
                                   Marker, MeasureNumber, MeasureRepeat, MMRest, MMRestRange,
                                   Note, NoteDot, NoteHead, NoteLine,
-                                  Ottava,
+                                  Ornament, Ottava,
                                   Page, PalmMute, Pedal, PlayTechAnnotation,
                                   Rasgueado, RehearsalMark, Rest,
                                   Segment, Slur, Spacer, StaffState, StaffText, StaffTypeChange, Stem, StemSlash, Sticking,
@@ -289,7 +290,7 @@ void TWrite::writeItemProperties(const EngravingItem* item, XmlWriter& xml, Writ
         }
 
         EngravingItem* me = static_cast<EngravingItem*>(item->links()->mainElement());
-        assert(item->type() == me->type());
+        DO_ASSERT(item->type() == me->type());
         Staff* s = item->staff();
         if (!s) {
             s = item->score()->staff(xml.context()->curTrack() / VOICES);
@@ -428,7 +429,17 @@ void TWrite::write(const Articulation* item, XmlWriter& xml, WriteContext& ctx)
     if (!ctx.canWrite(item)) {
         return;
     }
+    if (toEngravingItem(item)->isOrnament()) {
+        write(static_cast<const Ornament*>(item), xml, ctx);
+        return;
+    }
     xml.startElement(item);
+    writeProperties(item, xml, ctx);
+    xml.endElement();
+}
+
+void TWrite::writeProperties(const Articulation* item, XmlWriter& xml, WriteContext& ctx)
+{
     if (!item->channelName().isEmpty()) {
         xml.tag("channe", { { "name", item->channelName() } });
     }
@@ -446,6 +457,31 @@ void TWrite::write(const Articulation* item, XmlWriter& xml, WriteContext& ctx)
         writeProperty(item, xml, spp.pid);
     }
     writeItemProperties(item, xml, ctx);
+}
+
+void TWrite::write(const Ornament* item, XmlWriter& xml, WriteContext& ctx)
+{
+    if (!ctx.canWrite(item)) {
+        return;
+    }
+    xml.startElement(item);
+
+    if (item->cueNoteChord()) {
+        write(item->cueNoteChord(), xml, ctx);
+    } else {
+        if (item->accidentalAbove()) {
+            write(item->accidentalAbove(), xml, ctx);
+        }
+        if (item->accidentalBelow()) {
+            write(item->accidentalBelow(), xml, ctx);
+        }
+    }
+
+    writeProperty(item, xml, Pid::INTERVAL_ABOVE);
+    writeProperty(item, xml, Pid::INTERVAL_BELOW);
+    writeProperty(item, xml, Pid::ORNAMENT_SHOW_ACCIDENTAL);
+    writeProperty(item, xml, Pid::START_ON_UPPER_NOTE);
+    writeProperties(static_cast<const Articulation*>(item), xml, ctx);
     xml.endElement();
 }
 
@@ -840,6 +876,8 @@ void TWrite::write(const Clef* item, XmlWriter& xml, WriteContext& ctx)
     xml.startElement(item);
     writeProperty(item, xml, Pid::CLEF_TYPE_CONCERT);
     writeProperty(item, xml, Pid::CLEF_TYPE_TRANSPOSING);
+    writeProperty(item, xml, Pid::CLEF_TO_BARLINE_POS);
+    writeProperty(item, xml, Pid::IS_HEADER);
     if (!item->showCourtesy()) {
         xml.tag("showCourtesyClef", item->showCourtesy());
     }
@@ -859,13 +897,26 @@ void TWrite::write(const Dynamic* item, XmlWriter& xml, WriteContext& ctx)
     writeProperty(item, xml, Pid::DYNAMIC_TYPE);
     writeProperty(item, xml, Pid::VELOCITY);
     writeProperty(item, xml, Pid::DYNAMIC_RANGE);
+    writeProperty(item, xml, Pid::AVOID_BARLINES);
+    writeProperty(item, xml, Pid::DYNAMICS_SIZE);
+    writeProperty(item, xml, Pid::CENTER_ON_NOTEHEAD);
 
     if (item->isVelocityChangeAvailable()) {
         writeProperty(item, xml, Pid::VELO_CHANGE);
         writeProperty(item, xml, Pid::VELO_CHANGE_SPEED);
     }
 
-    writeProperties(static_cast<const TextBase*>(item), xml, ctx, item->dynamicType() == DynamicType::OTHER);
+    writeProperties(static_cast<const TextBase*>(item), xml, ctx, toDynamic(item)->hasCustomText());
+    xml.endElement();
+}
+
+void TWrite::write(const Expression* item, XmlWriter& xml, WriteContext& ctx)
+{
+    if (!ctx.canWrite(item)) {
+        return;
+    }
+    xml.startElement(item);
+    writeProperties(static_cast<const TextBase*>(item), xml, ctx, true);
     xml.endElement();
 }
 
@@ -1400,6 +1451,25 @@ void TWrite::write(const HarmonicMark* item, XmlWriter& xml, WriteContext& ctx)
     xml.endElement();
 }
 
+void TWrite::write(const HarpPedalDiagram* item, XmlWriter& xml, WriteContext& ctx)
+{
+    if (!ctx.canWrite(item)) {
+        return;
+    }
+    xml.startElement(item);
+    writeProperty(item, xml, Pid::HARP_IS_DIAGRAM);
+
+    // Write vector of harp strings.  Order is always D, C, B, E, F, G, A
+    xml.startElement("pedalState");
+    for (size_t idx = 0; idx < item->getPedalState().size(); idx++) {
+        xml.tag("string", { { "name", idx } }, static_cast<int>(item->getPedalState().at(idx)));
+    }
+    xml.endElement();
+
+    writeProperties(static_cast<const TextBase*>(item), xml, ctx, true);
+    xml.endElement();
+}
+
 void TWrite::write(const Hook* item, XmlWriter& xml, WriteContext& ctx)
 {
     xml.startElement(item);
@@ -1783,7 +1853,7 @@ void TWrite::write(const Location* item, XmlWriter& xml, WriteContext&)
 {
     static constexpr Location relDefaults = Location::relative();
 
-    assert(item->isRelative());
+    DO_ASSERT(item->isRelative());
     xml.startElement("location");
     xml.tag("staves", item->staff(), relDefaults.staff());
     xml.tag("voices", item->voice(), relDefaults.voice());
@@ -2621,8 +2691,8 @@ void TWrite::write(const Trill* item, XmlWriter& xml, WriteContext& ctx)
     writeProperty(item, xml, Pid::ORNAMENT_STYLE);
     writeProperty(item, xml, Pid::PLACEMENT);
     writeProperties(static_cast<const SLine*>(item), xml, ctx);
-    if (item->accidental()) {
-        write(item->accidental(), xml, ctx);
+    if (item->ornament()) {
+        write(item->ornament(), xml, ctx);
     }
     xml.endElement();
 }

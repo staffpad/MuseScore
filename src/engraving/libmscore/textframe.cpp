@@ -60,32 +60,6 @@ TBox::~TBox()
 }
 
 //---------------------------------------------------------
-//   layout
-///   The text box layout() adjusts the frame height to text
-///   height.
-//---------------------------------------------------------
-
-void TBox::layout()
-{
-    setPos(PointF());        // !?
-    bbox().setRect(0.0, 0.0, system()->width(), 0);
-    m_text->layout();
-
-    double h = 0.;
-    if (m_text->empty()) {
-        h = mu::draw::FontMetrics::ascent(m_text->font());
-    } else {
-        h = m_text->height();
-    }
-    double y = topMargin() * DPMM;
-    m_text->setPos(leftMargin() * DPMM, y);
-    h += topMargin() * DPMM + bottomMargin() * DPMM;
-    bbox().setRect(0.0, 0.0, system()->width(), h);
-
-    MeasureBase::layout();    // layout LayoutBreak's
-}
-
-//---------------------------------------------------------
 //   drop
 //---------------------------------------------------------
 

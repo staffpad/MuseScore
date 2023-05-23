@@ -76,16 +76,6 @@ VoltaSegment::VoltaSegment(Volta* sp, System* parent)
 }
 
 //---------------------------------------------------------
-//   layout
-//---------------------------------------------------------
-
-void VoltaSegment::layout()
-{
-    TextLineBaseSegment::layout();
-    autoplaceSpannerSegment();
-}
-
-//---------------------------------------------------------
 //   propertyDelegate
 //---------------------------------------------------------
 

@@ -42,15 +42,13 @@ public:
 
     void draw(mu::draw::Painter*) const override;
 
-    void layout() override;
-
 private:
 
     friend class Factory;
-    DeadSlapped(Rest* parent);
-    void fillPath();
+    friend class layout::v0::TLayout;
 
-    mu::RectF m_rect;
+    DeadSlapped(Rest* parent);
+
     mu::draw::PainterPath m_path1;
     mu::draw::PainterPath m_path2;
 };

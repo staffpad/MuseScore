@@ -50,22 +50,13 @@
 #include "libmscore/tripletfeel.h"
 #include "libmscore/tuplet.h"
 #include "libmscore/volta.h"
-
-#ifdef ENGRAVING_USE_STRETCHED_BENDS
 #include "libmscore/stretchedbend.h"
-#else
-#include "libmscore/bend.h"
-#endif
 
 #include "types/symid.h"
 
 #include "log.h"
 
 using namespace mu::engraving;
-
-constexpr int PALM_MUTE_CHAN = 1;
-constexpr int HARMONIC_CHAN = 2;
-constexpr int PALM_MUTE_PROG = 28;
 
 namespace mu::engraving {
 static JumpType jumpType(const String& typeString)
@@ -83,9 +74,6 @@ static JumpType jumpType(const String& typeString)
         { u"DaSegnoSegnoAlCoda", JumpType::DSS_AL_CODA },
         { u"DaSegnoSegnoAlDoubleCoda", JumpType::DSS_AL_DBLCODA },
         { u"DaSegnoSegnoAlFine", JumpType::DSS_AL_FINE },
-        { u"DaCoda", JumpType::DCODA },
-        { u"DaDoubleCoda", JumpType::DDBLCODA },
-        { u"DaCoda", JumpType::DCODA },
     };
 
     if (types.find(typeString) != types.end()) {
@@ -103,7 +91,9 @@ static MarkerType markerType(const String& typeString)
         { u"SegnoSegno", MarkerType::VARSEGNO },
         { u"Coda", MarkerType::CODA },
         { u"DoubleCoda", MarkerType::VARCODA },
-        { u"Fine", MarkerType::FINE }
+        { u"Fine", MarkerType::FINE },
+        { u"DaCoda", MarkerType::DA_CODA },
+        { u"DaDoubleCoda", MarkerType::DA_DBLCODA },
     };
 
     if (types.find(typeString) != types.end()) {
@@ -290,6 +280,7 @@ GPConverter::GPConverter(Score* score, std::unique_ptr<GPDomModel>&& gpDom)
 
     _drumResolver = std::make_unique<GPDrumSetResolver>();
     _drumResolver->initGPDrum();
+    m_useStretchedBends = engravingConfiguration()->guitarProImportExperimental();
 }
 
 const std::unique_ptr<GPDomModel>& GPConverter::gpDom() const
@@ -396,13 +387,8 @@ void GPConverter::convert(const std::vector<std::unique_ptr<GPMasterBar> >& mast
     }
 
     addTempoMap();
-
     addInstrumentChanges();
-
-#ifdef ENGRAVING_USE_STRETCHED_BENDS
-    StretchedBend::prepareBends(m_bends);
-#endif
-
+    StretchedBend::prepareBends(m_stretchedBends);
     addFermatas();
     addContinuousSlideHammerOn();
 }
@@ -1749,7 +1735,6 @@ Note* GPConverter::addHarmonic(const GPNote* gpnote, Note* note)
         note->setPlay(false);
 
         note->setHarmonicFret(note->fret() + gpnote->harmonic().fret);
-        m_harmonicNotes[note] = hnote;
     } else {
         note->setHarmonicFret(gpnote->harmonic().fret);
         note->setDisplayFret(Note::DisplayFretOption::NaturalHarmonic);
@@ -1907,27 +1892,20 @@ void GPConverter::collectHammerOn(const GPNote* gpnote, Note* note)
 
 void GPConverter::addBend(const GPNote* gpnote, Note* note)
 {
-    if (!gpnote->bend()) {
+    if (!gpnote->bend() || gpnote->bend()->isEmpty()) {
         return;
     }
 
-    if (gpnote->bend()->isEmpty()) {
-        return;
-    }
+    using namespace mu::engraving;
 
     auto gpTimeToMuTime = [] (float time) {
         return time * PitchValue::MAX_TIME / 100;
     };
 
-#ifdef ENGRAVING_USE_STRETCHED_BENDS
-    StretchedBend* bend = mu::engraving::Factory::createStretchedBend(note);
-#else
-    Bend* bend = mu::engraving::Factory::createBend(note);
-#endif
+    Bend* bend = m_useStretchedBends ? Factory::createStretchedBend(note) : Factory::createBend(note);
+    const GPNote::Bend* gpBend = gpnote->bend();
 
-    auto gpBend = gpnote->bend();
-
-    bool bendHasMiddleValue{ true };
+    bool bendHasMiddleValue = true;
     if (gpBend->middleOffset1 == 12 || gpBend->middleOffset2 == 12) {
         bendHasMiddleValue = false;
     }
@@ -1941,6 +1919,7 @@ void GPConverter::addBend(const GPNote* gpnote, Note* note)
             gpBend->middleOffset1 >= 0 && gpBend->middleOffset1 < gpBend->destinationOffset && value != lastPoint) {
             bend->points().push_back(std::move(value));
         }
+
         if (PitchValue value(gpTimeToMuTime(gpBend->middleOffset2), gpBend->middleValue);
             gpBend->middleOffset2 >= 0 && gpBend->middleOffset2 != gpBend->middleOffset1
             && gpBend->middleOffset2 < gpBend->destinationOffset
@@ -1971,7 +1950,12 @@ void GPConverter::addBend(const GPNote* gpnote, Note* note)
 
     bend->setTrack(note->track());
     note->add(bend);
-    m_bends.push_back(bend);
+
+    if (m_useStretchedBends) {
+        m_stretchedBends.push_back(toStretchedBend(bend));
+    } else {
+        m_bends.push_back(bend);
+    }
 }
 
 void GPConverter::buildContiniousElement(ChordRest* cr, std::vector<SLine*>& elements, ElementType muType, LineImportType importType,
@@ -2429,7 +2413,7 @@ void GPConverter::addHarmonicMark(const GPBeat* gpbeat, ChordRest* cr)
     }
 }
 
-void GPConverter::addFretDiagram(const GPBeat* gpnote, ChordRest* cr, const Context& ctx)
+void GPConverter::addFretDiagram(const GPBeat* gpnote, ChordRest* cr, const Context& ctx, bool asHarmony)
 {
     int GPTrackIdx = static_cast<int>(ctx.curTrack);
     int diaId = gpnote->diagramIdx(GPTrackIdx, ctx.masterBarIndex);
@@ -2456,11 +2440,14 @@ void GPConverter::addFretDiagram(const GPBeat* gpnote, ChordRest* cr, const Cont
     GPTrack::Diagram diagram = trackIt->second->diagram().at(diaId);
 
     /// currently importing fret diagrams as chord names
-    if (true) {
-        StaffText* staffText = Factory::createStaffText(cr->segment());
-        staffText->setTrack(cr->track());
-        staffText->setPlainText(diagram.name);
-        cr->segment()->add(staffText);
+    if (asHarmony) {
+        Harmony* h = Factory::createHarmony(cr->segment());
+        h->setTrack(cr->track());
+        h->setParent(cr->segment());
+        h->setHarmonyType(HarmonyType::STANDARD);
+        h->setHarmony(diagram.name); // F#dim7
+        h->setPlainText(h->harmonyName());
+        cr->segment()->add(h);
         return;
     }
 

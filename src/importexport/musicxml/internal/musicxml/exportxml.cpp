@@ -347,7 +347,7 @@ typedef QMap<const Instrument*, int> MxmlInstrumentMap;
 
 class ExportMusicXml
 {
-    INJECT_STATIC(iex_musicxml, mu::iex::musicxml::IMusicXmlConfiguration, configuration)
+    INJECT_STATIC(mu::iex::musicxml::IMusicXmlConfiguration, configuration)
 
     Score* _score;
     XmlWriter _xml;
@@ -2843,13 +2843,17 @@ static QString symIdToOrnam(const SymId sid)
 {
     switch (sid) {
     case SymId::ornamentTurnInverted:
-    case SymId::ornamentTurnSlash:
         return "inverted-turn";
+        break;
+    case SymId::ornamentTurnSlash:
+        return "turn slash=\"yes\"";
         break;
     case SymId::ornamentTurn:
         return "turn";
         break;
     case SymId::ornamentTrill:
+    case SymId::ornamentShake3:
+    case SymId::ornamentShakeMuffat1:
         return "trill-mark";
         break;
     case SymId::ornamentMordent:
@@ -2889,6 +2893,12 @@ static QString symIdToOrnam(const SymId sid)
         break;
     case SymId::ornamentPrecompSlide:
         return "schleifer";
+        break;
+    case SymId::ornamentTremblementCouperin:
+        return "other-ornament smufl=\"ornamentTremblementCouperin\"";
+        break;
+    case SymId::ornamentPinceCouperin:
+        return "other-ornament smufl=\"ornamentPinceCouperin\"";
         break;
 
     default:
@@ -2972,6 +2982,38 @@ static void writeChordLines(const Chord* const chord, XmlWriter& xml, Notations&
 }
 
 //---------------------------------------------------------
+//   writeBreathMark
+//---------------------------------------------------------
+
+static void writeBreathMark(const Breath* const breath, XmlWriter& xml, Notations& notations, Articulations& articulations)
+{
+    if (breath && ExportMusicXml::canWrite(breath)) {
+        notations.tag(xml, breath);
+        articulations.tag(xml);
+        if (breath->isCaesura()) {
+            xml.tag("caesura");
+        } else {
+            QString breathMarkType;
+            switch (breath->symId()) {
+            case SymId::breathMarkTick:
+                breathMarkType = "tick";
+                break;
+            case SymId::breathMarkUpbow:
+                breathMarkType = "upbow";
+                break;
+            case SymId::breathMarkSalzedo:
+                breathMarkType = "salzedo";
+                break;
+            default:
+                breathMarkType = "comma";
+            }
+
+            xml.tag("breath-mark", breathMarkType);
+        }
+    }
+}
+
+//---------------------------------------------------------
 //   chordAttributes
 //---------------------------------------------------------
 
@@ -3021,14 +3063,7 @@ void ExportMusicXml::chordAttributes(Chord* chord, Notations& notations, Technic
         }
     }
 
-    Breath* b = chord->hasBreathMark();
-
-    if (b && ExportMusicXml::canWrite(b)) {
-        notations.tag(_xml, b);
-        articulations.tag(_xml);
-        _xml.tag(b->isCaesura() ? "caesura" : "breath-mark");
-    }
-
+    writeBreathMark(chord->hasBreathMark(), _xml, notations, articulations);
     writeChordLines(chord, _xml, notations, articulations);
 
     articulations.etag(_xml);
@@ -3976,12 +4011,7 @@ void ExportMusicXml::rest(Rest* rest, staff_idx_t staff)
     fermatas(fl, _xml, notations);
 
     Articulations articulations;
-    Breath* b = rest->hasBreathMark();
-    if (b && ExportMusicXml::canWrite(b)) {
-        notations.tag(_xml, b);
-        articulations.tag(_xml);
-        _xml.tag(b->isCaesura() ? "caesura" : "breath-mark");
-    }
+    writeBreathMark(rest->hasBreathMark(), _xml, notations, articulations);
     articulations.etag(_xml);
 
     Ornaments ornaments;
@@ -5309,7 +5339,9 @@ static void directionMarker(XmlWriter& xml, const Marker* const m, const std::ve
         sound = u"fine=\"yes\"";
         break;
     case MarkerType::TOCODA:
-    case MarkerType::TOCODASYM: {
+    case MarkerType::TOCODASYM:
+    case MarkerType::DA_CODA:
+    case MarkerType::DA_DBLCODA: {
         if (m->xmlText() == "") {
             words = "To Coda";
         } else {
@@ -5409,6 +5441,8 @@ void ExportMusicXml::repeatAtMeasureStart(Attributes& attr, const Measure* const
             case MarkerType::FINE:
             case MarkerType::TOCODA:
             case MarkerType::TOCODASYM:
+            case MarkerType::DA_CODA:
+            case MarkerType::DA_DBLCODA:
                 // ignore
                 break;
             case MarkerType::USER:
@@ -5450,6 +5484,8 @@ void ExportMusicXml::repeatAtMeasureStop(const Measure* const m, track_idx_t str
             case MarkerType::FINE:
             case MarkerType::TOCODA:
             case MarkerType::TOCODASYM:
+            case MarkerType::DA_CODA:
+            case MarkerType::DA_DBLCODA:
                 directionMarker(_xml, mk, _jumpElements);
                 break;
             case MarkerType::SEGNO:
@@ -6163,10 +6199,14 @@ static int findPartGroupNumber(int* partGroupEnd)
 //  scoreInstrument
 //---------------------------------------------------------
 
-static void scoreInstrument(XmlWriter& xml, const int partNr, const int instrNr, const QString& instrName)
+static void scoreInstrument(XmlWriter& xml, const int partNr, const int instrNr, const QString& instrName,
+                            const Instrument* instr = nullptr)
 {
     xml.startElementRaw(QString("score-instrument %1").arg(instrId(partNr, instrNr)));
     xml.tag("instrument-name", instrName);
+    if (instr && !instr->musicXmlId().isEmpty() && !MScore::testMode) {
+        xml.tag("instrument-sound", instr->musicXmlId());
+    }
     xml.endElement();
 }
 
@@ -6675,7 +6715,9 @@ static void partList(XmlWriter& xml, Score* score, MxmlInstrumentMap& instrMap)
             MxmlReverseInstrumentMap rim;
             initReverseInstrMap(rim, instrMap);
             for (int instNr : rim.keys()) {
-                scoreInstrument(xml, static_cast<int>(idx) + 1, instNr + 1, MScoreTextToMXML::toPlainText(rim.value(instNr)->trackName()));
+                scoreInstrument(xml, static_cast<int>(idx) + 1, instNr + 1,
+                                MScoreTextToMXML::toPlainText(rim.value(instNr)->trackName()),
+                                rim.value(instNr));
             }
             for (auto ii = rim.constBegin(); ii != rim.constEnd(); ii++) {
                 int instNr = ii.key();
@@ -6776,6 +6818,19 @@ void ExportMusicXml::writeElement(EngravingItem* el, const Measure* m, staff_idx
 }
 
 //---------------------------------------------------------
+//  clampMusicXmlOctave
+//---------------------------------------------------------
+
+/**
+ Clamps octave to min and max value as per MusicXML Schema
+ */
+
+static void clampMusicXmlOctave(int& octave)
+{
+    octave = std::clamp(octave, 0, 9);
+}
+
+//---------------------------------------------------------
 //  writeStaffDetails
 //---------------------------------------------------------
 
@@ -6816,6 +6871,7 @@ static void writeStaffDetails(XmlWriter& xml, const Part* part)
                     if (alter) {
                         xml.tag("tuning-alter", alter);
                     }
+                    clampMusicXmlOctave(octave);
                     xml.tag("tuning-octave", octave);
                     xml.endElement();
                 }

@@ -22,11 +22,13 @@
 
 #include "textedit.h"
 
+#include "iengravingfont.h"
+#include "types/symnames.h"
+#include "layout/v0/tlayout.h"
+
 #include "mscoreview.h"
 #include "navigate.h"
 #include "score.h"
-#include "iengravingfont.h"
-#include "types/symnames.h"
 #include "lyrics.h"
 
 #include "log.h"
@@ -99,7 +101,8 @@ void TextBase::startEdit(EditData& ed)
     ted->startUndoIdx = score()->undoStack()->getCurIdx();
 
     if (layoutInvalid) {
-        layout();
+        layout::v0::LayoutContext ctx(score());
+        layout::v0::TLayout::layout(this, ctx);
     }
     if (!ted->cursor()->set(ed.startMove)) {
         resetFormatting();
@@ -193,7 +196,8 @@ void TextBase::endEdit(EditData& ed)
             Lyrics* prev = prevLyrics(toLyrics(this));
             if (prev) {
                 prev->setRemoveInvalidSegments();
-                prev->layout();
+                layout::v0::LayoutContext ctx(score());
+                layout::v0::TLayout::layout(prev, ctx);
             }
         }
         return;
@@ -710,6 +714,7 @@ void TextBase::movePosition(EditData& ed, TextCursor::MoveOperation op)
 void ChangeText::insertText(EditData* ed)
 {
     TextCursor tc = _cursor;
+    tc.setFormat(format);                              // To undo TextCursor::updateCursorFormat()
     tc.text()->editInsertText(&tc, s);
     if (ed) {
         TextCursor* ttc = tc.text()->cursorFromEditData(*ed);
@@ -726,6 +731,7 @@ void ChangeText::removeText(EditData* ed)
     TextCursor tc = _cursor;
     TextBlock& l  = _cursor.curLine();
     size_t column = _cursor.column();
+    format = *l.formatAt(static_cast<int>(column + s.size()) - 1);
 
     for (size_t n = 0; n < s.size(); ++n) {
         l.remove(static_cast<int>(column), &_cursor);

@@ -997,10 +997,7 @@ bool GuitarPro5::read(IODevice* io)
         }
     }
 
-#ifdef ENGRAVING_USE_STRETCHED_BENDS
-    StretchedBend::prepareBends(m_bends);
-#endif
-
+    StretchedBend::prepareBends(m_stretchedBends);
     return true;
 }
 
@@ -1013,9 +1010,12 @@ bool GuitarPro5::readNoteEffects(Note* note)
     uint8_t modMask1 = readUInt8();
     uint8_t modMask2 = readUInt8();
     bool slur = false;
+    std::vector<PitchValue> bendData;
+    Note* bendParent = nullptr;
 
     if (modMask1 & EFFECT_BEND) {
-        readBend(note);
+        bendData = readBendDataFromFile();
+        bendParent = note;
     }
     if (modMask1 & EFFECT_HAMMER) {
         slur = true;
@@ -1146,34 +1146,12 @@ bool GuitarPro5::readNoteEffects(Note* note)
             note->attachSlide(sl);
         }
 
-        if (false && !slideList.empty() && slideList.back()->chord()->segment() != note->chord()->segment()) {
-            Note* start = slideList.front();
-            slideList.pop_front();
-            bool skip = false;
-            for (auto e : start->el()) {
-                if (e->isChordLine()) {
-                    skip = true;
-                }
-            }
-            if (!skip) {
-                Glissando* s = new Glissando(start);
-                s->setAnchor(Spanner::Anchor::NOTE);
-                s->setStartElement(start);
-                s->setTick(start->chord()->segment()->tick());
-                s->setTrack(start->staffIdx());
-                s->setParent(start);
-                s->setGlissandoType(GlissandoType::STRAIGHT);
-                s->setEndElement(note);
-                s->setTick2(note->chord()->segment()->tick());
-                s->setTrack2(note->staffIdx());
-                score->addElement(s);
-            }
-        }
         if (slideKind & LEGATO_SLIDE) {
             slideKind &= ~LEGATO_SLIDE;
             slideList.push_back(nullptr);
             createSlur(true, note->staffIdx(), note->chord());
         }
+
         if (slideKind & SHIFT_SLIDE) {
             slideKind &= ~SHIFT_SLIDE;
             slideList.push_back(note);
@@ -1215,6 +1193,7 @@ bool GuitarPro5::readNoteEffects(Note* note)
             ///harmonicNote->setDisplayFret(Note::DisplayFretOption::ArtificialHarmonic);
             ///note->setDisplayFret(Note::DisplayFretOption::Hide);
             harmonicNote->setDisplayFret(Note::DisplayFretOption::Hide);
+            m_harmonicNotes[note] = harmonicNote;
 
             Staff* staff = note->staff();
             float harmonicFret = 0;
@@ -1274,7 +1253,15 @@ bool GuitarPro5::readNoteEffects(Note* note)
             }
 
             addTextToNote(harmonicText, harmonicNote);
+
+            if (!bendData.empty()) {
+                bendParent = harmonicNote;
+            }
         }
+    }
+
+    if (bendParent) {
+        createBend(bendParent, bendData);
     }
 
     if (modMask2 & 0x40) {
@@ -1447,7 +1434,7 @@ bool GuitarPro5::readNote(int string, Note* note)
     if (tieNote) {
         auto staffIdx = note->staffIdx();
         if (dead_end[{ static_cast<int>(staffIdx), string }]) {
-            note->setFret(-20);
+            note->setFret(INVALID_FRET_INDEX);
             return false;
         }
         if (slurs[staffIdx]) {
@@ -1463,57 +1450,64 @@ bool GuitarPro5::readNote(int string, Note* note)
         Note* true_note = nullptr;
         while (segment) {
             EngravingItem* e = segment->element(track);
-            if (e) {
-                if (e->isChord()) {
-                    Chord* chord2 = toChord(e);
-                    for (Note* note2 : chord2->notes()) {
-                        if (note2->string() == string) {
-                            if (chords.empty()) {
-                                Tie* tie = Factory::createTie(note2);
-                                tie->setEndNote(note);
-                                note2->add(tie);
-                            }
-                            note->setFret(note2->fret());
-                            note->setPitch(note2->pitch());
-                            true_note = note2;
-                            if (m_tremolosInChords.find(chord2) != m_tremolosInChords.end()) {
-                                Tremolo* t = Factory::createTremolo(score->dummy()->chord());
-                                TremoloType type = m_tremolosInChords.at(chord2);
-                                t->setTremoloType(type);
-                                chord->add(t);
-                                mu::remove(m_tremolosInChords, chord2);
-                                m_tremolosInChords[chord] = type;
-                            }
+            if (e && e->isChord()) {
+                Chord* chord2 = toChord(e);
+                for (Note* note2 : chord2->notes()) {
+                    if (note2->string() == string && chords.empty()) {
+                        Tie* tie = Factory::createTie(note2);
+                        tie->setEndNote(note);
+                        note2->add(tie);
+                        if (m_harmonicNotes.find(note) != m_harmonicNotes.end() && m_harmonicNotes.find(note2) != m_harmonicNotes.end()) {
+                            Note* startHarmonicNote = m_harmonicNotes.at(note2);
+                            Note* endHarmonicNote = m_harmonicNotes.at(note);
 
-                            found = true;
-                            break;
+                            Tie* tieHarmonic = Factory::createTie(startHarmonicNote);
+                            tieHarmonic->setEndNote(endHarmonicNote);
+                            startHarmonicNote->add(tieHarmonic);
+
+                            mu::remove(m_harmonicNotes, startHarmonicNote);
+                            mu::remove(m_harmonicNotes, endHarmonicNote);
                         }
+
+                        note->setFret(note2->fret());
+                        note->setPitch(note2->pitch());
+                        true_note = note2;
+                        if (m_tremolosInChords.find(chord2) != m_tremolosInChords.end()) {
+                            Tremolo* t = Factory::createTremolo(score->dummy()->chord());
+                            TremoloType type = m_tremolosInChords.at(chord2);
+                            t->setTremoloType(type);
+                            chord->add(t);
+                            mu::remove(m_tremolosInChords, chord2);
+                            m_tremolosInChords[chord] = type;
+                        }
+
+                        found = true;
+                        break;
                     }
                 }
                 if (found) {
                     break;
-                } else {
-                    if (e) {
-                        chords.push_back(toChordRest(e));
-                    }
+                } else if (e) {
+                    chords.push_back(toChordRest(e));
                 }
             }
             segment = segment->prev1(SegmentType::ChordRest);
         }
-        if (true_note && chords.size()) {
+
+        if (true_note && !chords.empty()) {
             Note* end_note = note;
             for (unsigned int i = 0; i < chords.size(); ++i) {
                 Chord* chord1 = nullptr;
-                auto cr = chords.at(i);
+                ChordRest* cr = chords.at(i);
                 if (cr->isChord()) {
                     chord1 = toChord(cr);
                 } else {
-                    auto rest = toRest(cr);
-                    auto dur = rest->ticks();
-                    auto dut = rest->durationType();
-                    auto seg = rest->segment();
+                    Rest* rest = toRest(cr);
+                    Fraction dur = rest->ticks();
+                    TDuration dut = rest->durationType();
+                    Segment* seg = rest->segment();
                     seg->remove(rest);
-                    auto tuplet = rest->tuplet();
+                    Tuplet* tuplet = rest->tuplet();
                     if (tuplet) {
                         tuplet->remove(rest);
                     }
@@ -1547,7 +1541,7 @@ bool GuitarPro5::readNote(int string, Note* note)
             true_note->add(tie);
         }
         if (!found) {
-            note->setFret(-20);
+            note->setFret(INVALID_FRET_INDEX);
             dead_end[{ static_cast<int>(staffIdx), string }] = true;
             LOGD("tied note not found, pitch %d fret %d string %d", note->pitch(), note->fret(), note->string());
             return false;

@@ -94,6 +94,8 @@ class SLine : public Spanner
 {
     OBJECT_ALLOCATOR(engraving, SLine)
 
+    friend class layout::v0::TLayout;
+
     Millimetre _lineWidth;
     mu::draw::Color _lineColor { engravingConfiguration()->defaultColor() };
     LineType _lineStyle { LineType::SOLID };
@@ -108,7 +110,6 @@ public:
     SLine(const ElementType& type, EngravingItem* parent, ElementFlags = ElementFlag::NOTHING);
     SLine(const SLine&);
 
-    virtual void layout() override;
     virtual SpannerSegment* layoutSystem(System*) override;
 
     virtual LineSegment* createLineSegment(System* parent) = 0;

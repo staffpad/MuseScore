@@ -991,21 +991,11 @@ QString ExportBrailleImpl::brailleBreath(Breath* breath)
         return QString();
     }
 
-    switch (breath->symId()) {
-    case SymId::breathMarkTick:
-    case SymId::breathMarkComma:
-    case SymId::breathMarkUpbow:
-    case SymId::breathMarkSalzedo:
-        return BRAILLE_BREATH;
-    case SymId::caesura:
-    case SymId::caesuraShort:
-    case SymId::caesuraThick:
-    case SymId::caesuraCurved:
+    if (breath->isCaesura()) {
         return BRAILLE_CAESURA;
-    default:
-        break;
+    } else {
+        return BRAILLE_BREATH;
     }
-    return QString();
 }
 
 BarLine* ExportBrailleImpl::lastBarline(Measure* measure, track_idx_t track)
@@ -2483,6 +2473,8 @@ QString ExportBrailleImpl::brailleMarker(Marker* marker)
         return BRAILLE_FINE;
     case MarkerType::TOCODA:
     case MarkerType::TOCODASYM:
+    case MarkerType::DA_CODA:
+    case MarkerType::DA_DBLCODA:
         return BRAILLE_TOCODA;
     case MarkerType::USER:
         return QString(">") + TextToUEBBraille().braille(marker->plainText().toQString().toLower()) + QString("> ");
@@ -2513,8 +2505,6 @@ QString ExportBrailleImpl::brailleJump(Jump* jump)
     case JumpType::DSS_AL_CODA:
     case JumpType::DSS_AL_DBLCODA:
     case JumpType::DSS_AL_FINE:
-    case JumpType::DCODA:
-    case JumpType::DDBLCODA:
         break;
     }
     return QString();

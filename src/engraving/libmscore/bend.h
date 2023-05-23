@@ -57,7 +57,8 @@ class Bend : public EngravingItem // TODO: bring back "final" keyword
 public:
     Bend* clone() const override { return new Bend(*this); }
 
-    void layout() override;
+    static const char* label[13];
+
     void draw(mu::draw::Painter*) const override;
 
     PitchValues& points() { return m_points; }
@@ -67,6 +68,11 @@ public:
     bool playBend() const { return m_playBend; }
     void setPlayBend(bool v) { m_playBend = v; }
 
+    void setNoteWidth(double v) { m_noteWidth = v; }
+    double noteWidth() const { return m_noteWidth; }
+    void setNotePos(const PointF& v) { m_notePos = v; }
+    const PointF& notePos() const { return m_notePos; }
+
     // property methods
     PropertyValue getProperty(Pid propertyId) const override;
     bool setProperty(Pid propertyId, const PropertyValue&) override;
@@ -74,6 +80,8 @@ public:
 
 protected: /// TODO: bring back "private" keyword after removing StretchedBend class
     friend class Factory;
+    friend class layout::v0::TLayout;
+
     Bend(Note* parent, ElementType type = ElementType::BEND);
 
     mu::draw::Font font(double) const;
@@ -83,7 +91,7 @@ protected: /// TODO: bring back "private" keyword after removing StretchedBend c
     bool m_playBend = true;
     PitchValues m_points;
 
-    mu::PointF m_notePos;
+    PointF m_notePos;
     double m_noteWidth = 0;
     double m_noteHeight = 0;
 };

@@ -491,7 +491,7 @@ const UiActionList NotationUiActions::m_actions = {
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Parts"),
-             TranslatableString("action", "Parts…"),
+             TranslatableString("action", "Manage parts"),
              IconCode::Code::PAGE
              ),
     UiAction("view-mode-page",
@@ -1445,6 +1445,24 @@ const UiActionList NotationUiActions::m_actions = {
              TranslatableString("action", "Zoom to 100%"),
              TranslatableString("action", "Zoom to 100%")
              ),
+    UiAction("zoom-page-width",
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_ANY,
+             TranslatableString("action", "Zoom to page width"),
+             TranslatableString("action", "Zoom to page width")
+             ),
+    UiAction("zoom-whole-page",
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_ANY,
+             TranslatableString("action", "Zoom to whole page"),
+             TranslatableString("action", "Zoom to whole page")
+             ),
+    UiAction("zoom-two-pages",
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_ANY,
+             TranslatableString("action", "Zoom to two pages"),
+             TranslatableString("action", "Zoom to two pages")
+             ),
     UiAction("get-location",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_ANY,
@@ -2292,6 +2310,17 @@ const UiActionList NotationUiActions::m_actions = {
              IconCode::Code::VOICE_4
              ),
     UiAction("notation-context-menu",
+             mu::context::UiCtxNotationFocused,
+             mu::context::CTX_NOTATION_FOCUSED
+             ),
+    UiAction("insert-staff-type-change",
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_ANY,
+             TranslatableString("action", "Staff type change"),
+             TranslatableString("action", "Insert staff type change"),
+             IconCode::Code::STAFF_TYPE_CHANGE
+             ),
+    UiAction("notation-popup-menu",
              mu::context::UiCtxNotationFocused,
              mu::context::CTX_NOTATION_FOCUSED
              )

@@ -39,6 +39,7 @@
 #include "engravingitem.h"
 #include "figuredbass.h"
 #include "hairpin.h"
+#include "harppedaldiagram.h"
 #include "hook.h"
 #include "linkedobjects.h"
 #include "lyrics.h"
@@ -112,10 +113,10 @@ bool SelectionFilter::canSelect(const EngravingItem* e) const
     if (e->isHairpin()) {
         return isFiltered(SelectionFilterType::HAIRPIN);
     }
-    if ((e->isArticulation() && !toArticulation(e)->isOrnament()) || e->isVibrato() || e->isFermata()) {
+    if ((e->isArticulationFamily() && !toArticulation(e)->isOrnament()) || e->isVibrato() || e->isFermata()) {
         return isFiltered(SelectionFilterType::ARTICULATION);
     }
-    if ((e->isArticulation() && toArticulation(e)->isOrnament()) || e->isTrill()) {
+    if ((e->isArticulationFamily() && toArticulation(e)->isOrnament()) || e->isTrill()) {
         return isFiltered(SelectionFilterType::ORNAMENT);
     }
     if (e->type() == ElementType::LYRICS) {
@@ -508,7 +509,7 @@ void Selection::appendChord(Chord* chord)
             if (note->tieFor()->endElement()->isNote()) {
                 Note* endNote = toNote(note->tieFor()->endElement());
                 Segment* s = endNote->chord()->segment();
-                if (s->tick() < tickEnd()) {
+                if (!s || s->tick() < tickEnd()) {
                     _el.push_back(note->tieFor());
                 }
             }
@@ -517,7 +518,7 @@ void Selection::appendChord(Chord* chord)
             if (sp->endElement()->isNote()) {
                 Note* endNote = toNote(sp->endElement());
                 Segment* s = endNote->chord()->segment();
-                if (s->tick() < tickEnd()) {
+                if (!s || s->tick() < tickEnd()) {
                     _el.push_back(sp);
                 }
             }
@@ -1042,6 +1043,9 @@ ByteArray Selection::symbolListMimeData() const
         // fall through
         case ElementType::HAIRPIN:
             seg = toHairpin(e)->startSegment();
+            break;
+        case ElementType::HARP_DIAGRAM:
+            seg = toHarpPedalDiagram(e)->segment();
             break;
         default:
             continue;

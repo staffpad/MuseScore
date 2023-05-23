@@ -216,6 +216,10 @@ enum class Pid {
     LINE_WIDTH_SPATIUM,
     TIME_STRETCH,
     ORNAMENT_STYLE,
+    INTERVAL_ABOVE,
+    INTERVAL_BELOW,
+    ORNAMENT_SHOW_ACCIDENTAL,
+    START_ON_UPPER_NOTE,
 
     TIMESIG,
     TIMESIG_GLOBAL,
@@ -350,6 +354,11 @@ enum class Pid {
     END_FONT_STYLE,
     END_TEXT_OFFSET,
 
+    AVOID_BARLINES, // meant for Dynamics
+    DYNAMICS_SIZE,
+    CENTER_ON_NOTEHEAD,
+    SNAP_TO_DYNAMICS,
+
     POS_ABOVE,
 
     LOCATION_STAVES,
@@ -364,6 +373,8 @@ enum class Pid {
 
     CLEF_TYPE_CONCERT,
     CLEF_TYPE_TRANSPOSING,
+    CLEF_TO_BARLINE_POS,
+    IS_HEADER, // for clefs
     KEY,
     ACTION,   // for ActionIcon
     MIN_DISTANCE,
@@ -393,6 +404,8 @@ enum class Pid {
     TEMPO_CHANGE_TYPE,
     TEMPO_EASING_METHOD,
     TEMPO_CHANGE_FACTOR,
+
+    HARP_IS_DIAGRAM,
 
     END
 };

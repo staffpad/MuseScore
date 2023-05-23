@@ -27,6 +27,7 @@
 #include "translation.h"
 
 #include "types/typesconv.h"
+#include "layout/v0/tlayout.h"
 
 #include "accidental.h"
 #include "barline.h"
@@ -36,6 +37,7 @@
 #include "engravingitem.h"
 #include "factory.h"
 #include "harmony.h"
+#include "harppedaldiagram.h"
 #include "hook.h"
 #include "instrchange.h"
 #include "keysig.h"
@@ -44,6 +46,7 @@
 #include "mmrest.h"
 #include "mscore.h"
 #include "note.h"
+#include "ornament.h"
 #include "part.h"
 #include "rest.h"
 #include "score.h"
@@ -585,6 +588,7 @@ void Segment::add(EngravingItem* el)
 
     case ElementType::TEMPO_TEXT:
     case ElementType::DYNAMIC:
+    case ElementType::EXPRESSION:
     case ElementType::HARMONY:
     case ElementType::SYMBOL:
     case ElementType::FRET_DIAGRAM:
@@ -620,6 +624,15 @@ void Segment::add(EngravingItem* el)
         _annotations.push_back(el);
         break;
     }
+
+    case ElementType::HARP_DIAGRAM:
+        // already a diagram in this segment
+        if (el->part()->harpDiagrams.count(toHarpPedalDiagram(el)->segment()->tick().ticks()) > 0) {
+            break;
+        }
+        el->part()->addHarpDiagram(toHarpPedalDiagram(el));
+        _annotations.push_back(el);
+        break;
 
     case ElementType::CLEF:
         assert(_segmentType == SegmentType::Clef || _segmentType == SegmentType::HeaderClef);
@@ -751,6 +764,7 @@ void Segment::remove(EngravingItem* el)
         break;
 
     case ElementType::DYNAMIC:
+    case ElementType::EXPRESSION:
     case ElementType::FIGURED_BASS:
     case ElementType::FRET_DIAGRAM:
     case ElementType::HARMONY:
@@ -785,6 +799,11 @@ void Segment::remove(EngravingItem* el)
         Part* part = is->part();
         part->removeInstrument(tick());
     }
+        removeAnnotation(el);
+        break;
+
+    case ElementType::HARP_DIAGRAM:
+        el->part()->removeHarpDiagram(toHarpPedalDiagram(el));
         removeAnnotation(el);
         break;
 
@@ -1767,6 +1786,7 @@ EngravingItem* Segment::nextElement(staff_idx_t activeStaff)
     switch (e->type()) {
     case ElementType::DYNAMIC:
     case ElementType::HARMONY:
+    case ElementType::EXPRESSION:
     case ElementType::SYMBOL:
     case ElementType::FERMATA:
     case ElementType::FRET_DIAGRAM:
@@ -1784,6 +1804,7 @@ EngravingItem* Segment::nextElement(staff_idx_t activeStaff)
     case ElementType::FIGURED_BASS:
     case ElementType::STAFF_STATE:
     case ElementType::INSTRUMENT_CHANGE:
+    case ElementType::HARP_DIAGRAM:
     case ElementType::STICKING: {
         EngravingItem* next = nullptr;
         if (e->explicitParent() == this) {
@@ -1909,6 +1930,7 @@ EngravingItem* Segment::prevElement(staff_idx_t activeStaff)
     }
     switch (e->type()) {
     case ElementType::DYNAMIC:
+    case ElementType::EXPRESSION:
     case ElementType::HARMONY:
     case ElementType::SYMBOL:
     case ElementType::FERMATA:
@@ -1927,6 +1949,7 @@ EngravingItem* Segment::prevElement(staff_idx_t activeStaff)
     case ElementType::FIGURED_BASS:
     case ElementType::STAFF_STATE:
     case ElementType::INSTRUMENT_CHANGE:
+    case ElementType::HARP_DIAGRAM:
     case ElementType::STICKING: {
         EngravingItem* prev = nullptr;
         if (e->explicitParent() == this) {
@@ -2236,7 +2259,8 @@ void Segment::createShape(staff_idx_t staffIdx)
         setVisible(true);
         BarLine* bl = toBarLine(element(staffIdx * VOICES));
         if (bl) {
-            RectF r = bl->layoutRect();
+            layout::v0::LayoutContext lctx(score());
+            RectF r = layout::v0::TLayout::layoutRect(bl, lctx);
             s.add(r.translated(bl->pos()), bl);
         }
         s.addHorizontalSpacing(bl, 0, 0);
@@ -2266,6 +2290,14 @@ void Segment::createShape(staff_idx_t staffIdx)
             if (e->addToSkyline()) {
                 s.add(e->shape().translate(e->isClef() ? e->ipos() : e->pos()));
             }
+            // Non-standard trills display a cue note that we must add to shape here
+            if (e->isChord()) {
+                Ornament* orn = toChord(e)->findOrnament();
+                Chord* cueNoteChord = orn ? orn->cueNoteChord() : nullptr;
+                if (cueNoteChord && cueNoteChord->upNote()->visible()) {
+                    s.add(cueNoteChord->shape().translate(cueNoteChord->pos()));
+                }
+            }
         }
     }
 
@@ -2280,7 +2312,9 @@ void Segment::createShape(staff_idx_t staffIdx)
 
         if (e->isHarmony()) {
             // use same spacing calculation as for chordrest
-            toHarmony(e)->layout();
+            layout::v0::LayoutContext ctx(score());
+            layout::v0::TLayout::layout(toHarmony(e), ctx);
+
             double x1 = e->bbox().x() + e->pos().x();
             double x2 = e->bbox().x() + e->bbox().width() + e->pos().x();
             s.addHorizontalSpacing(e, x1, x2);
@@ -2289,15 +2323,17 @@ void Segment::createShape(staff_idx_t staffIdx)
                    && !e->isHarmony()
                    && !e->isTempoText()
                    && !e->isDynamic()
+                   && !e->isExpression()
                    && !e->isFiguredBass()
                    && !e->isSymbol()
                    && !e->isFSymbol()
                    && !e->isSystemText()
                    && !e->isTripletFeel()
                    && !e->isInstrumentChange()
-                   && !e->isArticulation()
+                   && !e->isArticulationFamily()
                    && !e->isFermata()
                    && !e->isStaffText()
+                   && !e->isHarpPedalDiagram()
                    && !e->isPlayTechAnnotation()) {
             // annotations added here are candidates for collision detection
             // lyrics, ...
@@ -2857,5 +2893,37 @@ double Segment::computeDurationStretch(Segment* prevSeg, Fraction minTicks, Frac
     }
 
     return durStretch;
+}
+
+bool Segment::goesBefore(const Segment* nextSegment) const
+{
+    bool thisIsClef = isClefType();
+    bool nextIsClef = nextSegment->isClefType();
+    bool thisIsBarline = isType(SegmentType::BarLine | SegmentType::EndBarLine | SegmentType::StartRepeatBarLine);
+    bool nextIsBarline = nextSegment->isType(SegmentType::BarLine | SegmentType::EndBarLine | SegmentType::StartRepeatBarLine);
+
+    if (thisIsClef && nextIsBarline) {
+        ClefToBarlinePosition clefPos = ClefToBarlinePosition::AUTO;
+        for (EngravingItem* item : elist()) {
+            if (item && item->isClef()) {
+                clefPos = toClef(item)->clefToBarlinePosition();
+                break;
+            }
+        }
+        return clefPos != ClefToBarlinePosition::AFTER;
+    }
+
+    if (thisIsBarline && nextIsClef) {
+        ClefToBarlinePosition clefPos = ClefToBarlinePosition::AUTO;
+        for (EngravingItem* item : nextSegment->elist()) {
+            if (item && item->isClef()) {
+                clefPos = toClef(item)->clefToBarlinePosition();
+                break;
+            }
+        }
+        return clefPos == ClefToBarlinePosition::AFTER;
+    }
+
+    return segmentType() < nextSegment->segmentType();
 }
 } // namespace mu::engraving

@@ -24,22 +24,25 @@
 
 #include <QAbstractListModel>
 
-#include "modularity/ioc.h"
 #include "async/asyncable.h"
+
+#include "modularity/ioc.h"
 #include "actions/iactionsdispatcher.h"
 #include "iprojectconfiguration.h"
 #include "irecentprojectsprovider.h"
 #include "iinteractive.h"
+#include "cloud/musescorecom/imusescorecomservice.h"
 
 namespace mu::project {
 class RecentProjectsModel : public QAbstractListModel, public async::Asyncable
 {
     Q_OBJECT
 
-    INJECT(project, actions::IActionsDispatcher, dispatcher)
-    INJECT(project, IProjectConfiguration, configuration)
-    INJECT(project, IRecentProjectsProvider, recentProjectsProvider)
-    INJECT(project, framework::IInteractive, interactive)
+    INJECT(actions::IActionsDispatcher, dispatcher)
+    INJECT(IProjectConfiguration, configuration)
+    INJECT(IRecentProjectsProvider, recentProjectsProvider)
+    INJECT(framework::IInteractive, interactive)
+    INJECT(cloud::IMuseScoreComService, museScoreComService)
 
 public:
     RecentProjectsModel(QObject* parent = nullptr);

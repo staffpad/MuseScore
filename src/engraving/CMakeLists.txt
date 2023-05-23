@@ -145,33 +145,40 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/style/defaultstyle.cpp
     ${CMAKE_CURRENT_LIST_DIR}/style/defaultstyle.h
 
-    ${CMAKE_CURRENT_LIST_DIR}/layout/tlayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/tlayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutoptions.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutcontext.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutcontext.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutlyrics.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutlyrics.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutmeasure.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutmeasure.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutbeams.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutbeams.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layouttuplets.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layouttuplets.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutchords.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutchords.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/verticalgapdata.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/verticalgapdata.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutsystem.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutsystem.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutharmonies.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutharmonies.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layouttremolo.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layouttremolo.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutpage.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutpage.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/README.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/tlayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/tlayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/layout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/layout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/layoutoptions.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/layoutcontext.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/layoutcontext.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/lyricslayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/lyricslayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/measurelayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/measurelayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/beamlayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/beamlayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/beamtremololayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/beamtremololayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/chordlayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/chordlayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/tupletlayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/tupletlayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/verticalgapdata.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/verticalgapdata.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/systemlayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/systemlayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/harmonylayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/harmonylayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/tremololayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/tremololayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/pagelayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/pagelayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/slurtielayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/slurtielayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/arpeggiolayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/arpeggiolayout.h
 
     ${CMAKE_CURRENT_LIST_DIR}/playback/renderingcontext.h
     ${CMAKE_CURRENT_LIST_DIR}/playback/playbackcontext.cpp

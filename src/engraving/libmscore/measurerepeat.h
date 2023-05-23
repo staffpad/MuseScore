@@ -56,7 +56,7 @@ public:
     const Measure* referringMeasure() const;
 
     void draw(mu::draw::Painter*) const override;
-    void layout() override;
+
     Fraction ticks() const override;
     Fraction actualTicks() const { return Rest::ticks(); }
 
@@ -71,6 +71,9 @@ public:
     bool placeMultiple() const override { return numMeasures() == 1; }     // prevent overlapping additions with range selection
 
 private:
+
+    friend class layout::v0::TLayout;
+
     Sid getPropertyStyle(Pid) const override;
 
     mu::PointF numberPosition(const mu::RectF& numberBbox) const;

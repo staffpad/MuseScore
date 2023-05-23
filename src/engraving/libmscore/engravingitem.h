@@ -40,6 +40,10 @@
 #include "shape.h"
 #include "editdata.h"
 
+namespace mu::engraving::layout::v0 {
+class TLayout;
+}
+
 namespace mu::engraving {
 class Factory;
 class XmlReader;
@@ -133,7 +137,7 @@ public:
 
 class EngravingItem : public EngravingObject
 {
-    INJECT_STATIC(engraving, IEngravingConfiguration, engravingConfiguration)
+    INJECT_STATIC(IEngravingConfiguration, engravingConfiguration)
 
     mutable mu::RectF _bbox;  ///< Bounding box relative to _pos + _offset
     double _mag;                     ///< standard magnification (derived value)
@@ -406,7 +410,6 @@ public:
     virtual void removed() {}
     virtual void change(EngravingItem* o, EngravingItem* n);
 
-    virtual void layout() {}
     virtual void spatiumChanged(double /*oldValue*/, double /*newValue*/);
     virtual void localSpatiumChanged(double /*oldValue*/, double /*newValue*/);
 

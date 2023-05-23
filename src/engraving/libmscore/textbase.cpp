@@ -35,9 +35,15 @@
 #include "rw/xmlreader.h"
 #include "rw/xmlwriter.h"
 
+#include "layout/v0/tlayout.h"
+
 #include "types/symnames.h"
 #include "types/translatablestring.h"
 #include "types/typesconv.h"
+
+#ifndef ENGRAVING_NO_ACCESSIBILITY
+#include "accessibility/accessibleitem.h"
+#endif
 
 #include "box.h"
 #include "measure.h"
@@ -48,10 +54,6 @@
 #include "textedit.h"
 #include "textframe.h"
 #include "undo.h"
-
-#ifndef ENGRAVING_NO_ACCESSIBILITY
-#include "accessibility/accessibleitem.h"
-#endif
 
 #include "log.h"
 
@@ -120,6 +122,20 @@ bool CharFormat::operator==(const CharFormat& cf) const
            && cf.valign() == valign()
            && cf.fontSize() == fontSize()
            && cf.fontFamily() == fontFamily();
+}
+
+//---------------------------------------------------------
+//   operator=
+//---------------------------------------------------------
+
+CharFormat& CharFormat::operator=(const CharFormat& cf)
+{
+    setStyle(cf.style());
+    setValign(cf.valign());
+    setFontSize(cf.fontSize());
+    setFontFamily(cf.fontFamily());
+
+    return *this;
 }
 
 //---------------------------------------------------------
@@ -785,9 +801,10 @@ mu::draw::Font TextFragment::font(const TextBase* t) const
     mu::draw::Font font;
 
     double m = format.fontSize();
+    double spatiumScaling = t->spatium() / SPATIUM20;
 
     if (t->sizeIsSpatiumDependent()) {
-        m *= t->spatium() / SPATIUM20;
+        m *= spatiumScaling;
     }
     if (format.valign() != VerticalAlignment::AlignNormal) {
         m *= subScriptSize;
@@ -796,11 +813,19 @@ mu::draw::Font TextFragment::font(const TextBase* t) const
     String family;
     draw::Font::Type fontType = draw::Font::Type::Unknown;
     if (format.fontFamily() == "ScoreText") {
-        if (t->isDynamic() || t->textStyleType() == TextStyleType::OTTAVA) {
-            family
-                = String::fromStdString(engravingFonts()->fontByName(t->score()->styleSt(Sid::MusicalSymbolFont).toStdString())->family());
+        if (t->isDynamic() || t->textStyleType() == TextStyleType::OTTAVA || t->textStyleType() == TextStyleType::HARP_PEDAL_DIAGRAM) {
+            std::string fontName = engravingFonts()->fontByName(t->score()->styleSt(Sid::MusicalSymbolFont).toStdString())->family();
+            family = String::fromStdString(fontName);
             fontType = draw::Font::Type::MusicSymbol;
-            // to keep desired size ratio (based on 20pt symbol size to 10pt text size)
+            if (t->isDynamic()) {
+                m = DYNAMICS_DEFAULT_FONT_SIZE * t->getProperty(Pid::DYNAMICS_SIZE).toDouble() * spatiumScaling;
+                if (t->score()->styleB(Sid::dynamicsOverrideFont)) {
+                    std::string fontName = engravingFonts()->fontByName(t->score()->styleSt(Sid::dynamicsFont).toStdString())->family();
+                    family = String::fromStdString(fontName);
+                }
+            }
+            // We use a default font size of 10pt for historical reasons,
+            // but Smufl standard is 20pt so multiply x2 here.
             m *= 2;
         } else if (t->isTempoText()) {
             family = t->score()->styleSt(Sid::MusicalTextFont);
@@ -972,19 +997,19 @@ void TextBlock::layout(TextBase* t)
     _lineSpacing *= t->textLineSpacing();
 
     double rx = 0;
-    switch (t->align().horizontal) {
-    case AlignH::LEFT:
-        rx = -_bbox.left();
-        break;
-    case AlignH::HCENTER:
+    AlignH alignH = t->align().horizontal;
+    bool dynamicAlwaysCentered = t->isDynamic() && t->getProperty(Pid::CENTER_ON_NOTEHEAD).toBool();
+
+    if (alignH == AlignH::HCENTER || dynamicAlwaysCentered) {
         rx = (layoutWidth - (_bbox.left() + _bbox.right())) * .5;
-        break;
-    case AlignH::RIGHT:
+    } else if (alignH == AlignH::LEFT) {
+        rx = -_bbox.left();
+    } else if (alignH == AlignH::RIGHT) {
         rx = layoutWidth - _bbox.right();
-        break;
     }
 
     rx += lm;
+
     for (TextFragment& f : _fragments) {
         f.pos.rx() += rx;
     }
@@ -1840,27 +1865,9 @@ bool TextBase::prepareFormat(const String& token, CharFormat& format)
 //---------------------------------------------------------
 void TextBase::prepareFormat(const String& token, TextCursor& cursor)
 {
-    if (prepareFormat(token, *cursor.format())) {
+    if (prepareFormat(token, *cursor.format()) && cursor.format()->fontFamily() != propertyDefault(Pid::FONT_FACE).value<String>()) {
         setPropertyFlags(Pid::FONT_FACE, PropertyFlags::UNSTYLED);
     }
-}
-
-//---------------------------------------------------------
-//   layout
-//---------------------------------------------------------
-
-void TextBase::layout()
-{
-    setPos(PointF());
-    if (!explicitParent()) {
-        setOffset(0.0, 0.0);
-    }
-//      else if (isStyled(Pid::OFFSET))                                   // TODO: should be set already
-//            setOffset(propertyDefault(Pid::OFFSET).value<PointF>());
-    if (placeBelow()) {
-        setPosY(staff() ? staff()->height() : 0.0);
-    }
-    layout1();
 }
 
 //---------------------------------------------------------
@@ -1869,79 +1876,8 @@ void TextBase::layout()
 
 void TextBase::layout1()
 {
-    if (layoutInvalid) {
-        createLayout();
-    }
-    if (_layout.empty()) {
-        _layout.push_back(TextBlock());
-    }
-    RectF bb;
-    double y = 0;
-
-    // adjust the bounding box for the text item
-    for (size_t i = 0; i < rows(); ++i) {
-        TextBlock* t = &_layout[i];
-        t->layout(this);
-        const RectF* r = &t->boundingRect();
-
-        if (r->height() == 0) {
-            r = &_layout[i - i].boundingRect();
-        }
-        y += t->lineSpacing();
-        t->setY(y);
-        bb |= r->translated(0.0, y);
-    }
-    double yoff = 0;
-    double h    = 0;
-    if (explicitParent()) {
-        if (layoutToParentWidth()) {
-            if (explicitParent()->isTBox()) {
-                // hack: vertical alignment is always TOP
-                _align = AlignV::TOP;
-            } else if (explicitParent()->isBox()) {
-                // consider inner margins of frame
-                Box* b = toBox(explicitParent());
-                yoff = b->topMargin() * DPMM;
-
-                if (b->height() < bb.bottom()) {
-                    h = b->height() / 2 + bb.height();
-                } else {
-                    h  = b->height() - yoff - b->bottomMargin() * DPMM;
-                }
-            } else if (explicitParent()->isPage()) {
-                Page* p = toPage(explicitParent());
-                h = p->height() - p->tm() - p->bm();
-                yoff = p->tm();
-            } else if (explicitParent()->isMeasure()) {
-            } else {
-                h  = parentItem()->height();
-            }
-        }
-    } else {
-        setPos(PointF());
-    }
-
-    if (align() == AlignV::BOTTOM) {
-        yoff += h - bb.bottom();
-    } else if (align() == AlignV::VCENTER) {
-        yoff +=  (h - (bb.top() + bb.bottom())) * .5;
-    } else if (align() == AlignV::BASELINE) {
-        yoff += h * .5 - _layout.front().lineSpacing();
-    } else {
-        yoff += -bb.top();
-    }
-
-    for (TextBlock& t : _layout) {
-        t.setY(t.y() + yoff);
-    }
-
-    bb.translate(0.0, yoff);
-
-    setbbox(bb);
-    if (hasFrame()) {
-        layoutFrame();
-    }
-    score()->addRefresh(canvasBoundingRect());
+    layout::v0::LayoutContext ctx(score());
+    layout::v0::TLayout::layout1TextBase(this, ctx);
 }
 
 //---------------------------------------------------------
@@ -2336,10 +2272,11 @@ bool TextBase::mousePress(EditData& ed)
 
 void TextBase::layoutEdit()
 {
-    layout();
+    layout::v0::LayoutContext ctx(score());
+    layout::v0::TLayout::layout(this, ctx);
     if (explicitParent() && explicitParent()->type() == ElementType::TBOX) {
         TBox* tbox = toTBox(explicitParent());
-        tbox->layout();
+        layout::v0::TLayout::layout(tbox, ctx);
         System* system = tbox->system();
         system->setHeight(tbox->height());
         triggerLayout();
@@ -2377,9 +2314,6 @@ void TextBase::setXmlText(const String& s)
 
 void TextBase::checkCustomFormatting(const String& s)
 {
-    if (s.contains(u"<font face")) {
-        setPropertyFlags(Pid::FONT_FACE, PropertyFlags::UNSTYLED);
-    }
     if (s.contains(u"<font size")) {
         setPropertyFlags(Pid::FONT_SIZE, PropertyFlags::UNSTYLED);
     }

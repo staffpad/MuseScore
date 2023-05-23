@@ -40,6 +40,7 @@
 #include "chordline.h"
 #include "deadslapped.h"
 #include "dynamic.h"
+#include "expression.h"
 #include "fermata.h"
 #include "figuredbass.h"
 #include "fingering.h"
@@ -50,6 +51,7 @@
 #include "hairpin.h"
 #include "harmonicmark.h"
 #include "harmony.h"
+#include "harppedaldiagram.h"
 #include "image.h"
 #include "instrchange.h"
 #include "instrumentname.h"
@@ -66,6 +68,7 @@
 #include "mmrestrange.h"
 #include "note.h"
 #include "noteline.h"
+#include "ornament.h"
 #include "ottava.h"
 #include "page.h"
 #include "palmmute.h"
@@ -151,10 +154,12 @@ EngravingItem* Factory::doCreateItem(ElementType type, EngravingItem* parent)
     case ElementType::GLISSANDO:         return new Glissando(parent);
     case ElementType::BRACKET:           return new Bracket(parent);
     case ElementType::ARTICULATION:      return new Articulation(parent->isChordRest() ? toChordRest(parent) : dummy->chord());
+    case ElementType::ORNAMENT:          return new Ornament(parent->isChordRest() ? toChordRest(parent) : dummy->chord());
     case ElementType::FERMATA:           return new Fermata(parent);
     case ElementType::CHORDLINE:         return new ChordLine(parent->isChord() ? toChord(parent) : dummy->chord());
     case ElementType::ACCIDENTAL:        return new Accidental(parent);
     case ElementType::DYNAMIC:           return new Dynamic(parent->isSegment() ? toSegment(parent) : dummy->segment());
+    case ElementType::EXPRESSION:        return new Expression(parent->isSegment() ? toSegment(parent) : dummy->segment());
     case ElementType::TEXT:              return new Text(parent);
     case ElementType::MEASURE_NUMBER:    return new MeasureNumber(parent->isMeasure() ? toMeasure(parent) : dummy->measure());
     case ElementType::MMREST_RANGE:      return new MMRestRange(parent->isMeasure() ? toMeasure(parent) : dummy->measure());
@@ -193,6 +198,7 @@ EngravingItem* Factory::doCreateItem(ElementType type, EngravingItem* parent)
     case ElementType::TEMPO_TEXT:        return new TempoText(parent->isSegment() ? toSegment(parent) : dummy->segment());
     case ElementType::HARMONY:           return new Harmony(parent->isSegment() ? toSegment(parent) : dummy->segment());
     case ElementType::FRET_DIAGRAM:      return new FretDiagram(parent->isSegment() ? toSegment(parent) : dummy->segment());
+    case ElementType::HARP_DIAGRAM:      return new HarpPedalDiagram(parent->isSegment() ? toSegment(parent) : dummy->segment());
     case ElementType::BEND:              return new Bend(parent->isNote() ? toNote(parent) : dummy->note());
     case ElementType::STRETCHED_BEND:    return new StretchedBend(parent->isNote() ? toNote(parent) : dummy->note());
     case ElementType::TREMOLOBAR:        return new TremoloBar(parent);
@@ -313,6 +319,9 @@ MAKE_ITEM_IMPL(Arpeggio, Chord)
 CREATE_ITEM_IMPL(Articulation, ElementType::ARTICULATION, ChordRest, isAccessibleEnabled)
 MAKE_ITEM_IMPL(Articulation, ChordRest)
 
+CREATE_ITEM_IMPL(Ornament, ElementType::ORNAMENT, ChordRest, isAccessibleEnabled)
+MAKE_ITEM_IMPL(Ornament, ChordRest)
+
 CREATE_ITEM_IMPL(BarLine, ElementType::BAR_LINE, Segment, isAccessibleEnabled)
 COPY_ITEM_IMPL(BarLine)
 MAKE_ITEM_IMPL(BarLine, Segment)
@@ -392,6 +401,10 @@ MAKE_ITEM_IMPL(FiguredBass, Segment)
 CREATE_ITEM_IMPL(FretDiagram, ElementType::FRET_DIAGRAM, Segment, isAccessibleEnabled)
 COPY_ITEM_IMPL(FretDiagram)
 MAKE_ITEM_IMPL(FretDiagram, Segment)
+
+CREATE_ITEM_IMPL(HarpPedalDiagram, ElementType::HARP_DIAGRAM, Segment, isAccessibleEnabled)
+COPY_ITEM_IMPL(HarpPedalDiagram)
+MAKE_ITEM_IMPL(HarpPedalDiagram, Segment);
 
 CREATE_ITEM_IMPL(KeySig, ElementType::KEYSIG, Segment, isAccessibleEnabled)
 COPY_ITEM_IMPL(KeySig)
@@ -506,6 +519,13 @@ StaffText* Factory::createStaffText(Segment * parent, TextStyleType textStyleTyp
     staffText->setAccessibleEnabled(isAccessibleEnabled);
 
     return staffText;
+}
+
+Expression* Factory::createExpression(Segment* parent, bool isAccessibleEnabled)
+{
+    Expression* expression = new Expression(parent);
+    expression->setAccessibleEnabled(isAccessibleEnabled);
+    return expression;
 }
 
 CREATE_ITEM_IMPL(RehearsalMark, ElementType::REHEARSAL_MARK, Segment, isAccessibleEnabled)

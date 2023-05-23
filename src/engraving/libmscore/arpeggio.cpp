@@ -27,9 +27,8 @@
 #include "containers.h"
 
 #include "iengravingfont.h"
-
 #include "types/typesconv.h"
-#include "layout/tlayout.h"
+#include "layout/v0/tlayout.h"
 
 #include "accidental.h"
 #include "chord.h"
@@ -40,6 +39,8 @@
 #include "score.h"
 #include "segment.h"
 #include "staff.h"
+
+#include "layout/v0/arpeggiolayout.h"
 
 #include "log.h"
 
@@ -139,30 +140,6 @@ double Arpeggio::calcTop() const
 }
 
 //---------------------------------------------------------
-//   computeHeight
-//---------------------------------------------------------
-
-void Arpeggio::computeHeight(bool includeCrossStaffHeight)
-{
-    Chord* topChord = chord();
-    if (!topChord) {
-        return;
-    }
-    double y = topChord->upNote()->pagePos().y() - topChord->upNote()->headHeight() * .5;
-
-    Note* bottomNote = topChord->downNote();
-    if (includeCrossStaffHeight) {
-        track_idx_t bottomTrack = track() + (_span - 1) * VOICES;
-        EngravingItem* element = topChord->segment()->element(bottomTrack);
-        Chord* bottomChord = (element && element->isChord()) ? toChord(element) : topChord;
-        bottomNote = bottomChord->downNote();
-    }
-
-    double h = bottomNote->pagePos().y() + bottomNote->headHeight() * .5 - y;
-    setHeight(h);
-}
-
-//---------------------------------------------------------
 //   calcBottom
 //---------------------------------------------------------
 
@@ -187,16 +164,6 @@ double Arpeggio::calcBottom() const
         return bottom - top + spatium() / 2;
     }
     }
-}
-
-//---------------------------------------------------------
-//   layout
-//---------------------------------------------------------
-
-void Arpeggio::layout()
-{
-    LayoutContext ctx(score());
-    TLayout::layout(this, ctx);
 }
 
 //---------------------------------------------------------
@@ -293,7 +260,9 @@ void Arpeggio::editDrag(EditData& ed)
     } else if (ed.curGrip == Grip::END) {
         _userLen2 += d;
     }
-    layout();
+
+    layout::v0::LayoutContext ctx(score());
+    layout::v0::TLayout::layout(this, ctx);
 }
 
 //---------------------------------------------------------
@@ -390,10 +359,13 @@ bool Arpeggio::edit(EditData& ed)
         }
     }
 
-    layout();
+    layout::v0::LayoutContext ctx(score());
+    layout::v0::TLayout::layout(this, ctx);
+
     Chord* c = chord();
     setPosX(-(width() + spatium() * .5));
-    c->layoutArpeggio2();
+    layout::v0::LayoutContext lctx(c->score());
+    layout::v0::ArpeggioLayout::layoutArpeggio2(c->arpeggio(), lctx);
     Fraction _tick = tick();
     score()->setLayout(_tick, _tick, staffIdx(), staffIdx() + _span, this);
     return true;

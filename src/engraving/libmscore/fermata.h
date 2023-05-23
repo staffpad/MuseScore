@@ -44,16 +44,6 @@ class Fermata final : public EngravingItem
     OBJECT_ALLOCATOR(engraving, Fermata)
     DECLARE_CLASSOF(ElementType::FERMATA)
 
-    SymId _symId;
-    double _timeStretch = -1.0;
-    bool _play;
-
-    friend class Factory;
-    Fermata(EngravingItem* parent);
-
-    void draw(mu::draw::Painter*) const override;
-    Sid getPropertyStyle(Pid) const override;
-
 public:
 
     Fermata(const Fermata&) = default;
@@ -68,8 +58,6 @@ public:
     FermataType fermataType() const;
     int subtype() const override;
     TranslatableString typeUserName() const override;
-
-    void layout() override;
 
     std::vector<mu::LineF> dragAnchorLines() const override;
 
@@ -95,6 +83,18 @@ public:
 protected:
     void added() override;
     void removed() override;
+
+private:
+    friend class layout::v0::TLayout;
+    friend class Factory;
+    Fermata(EngravingItem* parent);
+
+    void draw(mu::draw::Painter*) const override;
+    Sid getPropertyStyle(Pid) const override;
+
+    SymId _symId;
+    double _timeStretch = -1.0;
+    bool _play;
 };
 } // namespace mu::engraving
 #endif

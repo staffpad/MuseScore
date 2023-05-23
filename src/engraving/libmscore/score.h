@@ -40,8 +40,8 @@
 #include "draw/iimageprovider.h"
 #include "iengravingfontsprovider.h"
 
-#include "layout/layout.h"
-#include "layout/layoutoptions.h"
+#include "layout/v0/layout.h"
+#include "layout/v0/layoutoptions.h"
 
 #include "style/style.h"
 #include "style/pagestyle.h"
@@ -364,15 +364,15 @@ class Score : public EngravingObject
     OBJECT_ALLOCATOR(engraving, Score)
     DECLARE_CLASSOF(ElementType::SCORE)
 
-    INJECT(engraving, draw::IImageProvider, imageProvider)
-    INJECT(engraving, IEngravingConfiguration, configuration)
-    INJECT(engraving, IEngravingFontsProvider, engravingFonts)
+    INJECT(draw::IImageProvider, imageProvider)
+    INJECT(IEngravingConfiguration, configuration)
+    INJECT(IEngravingFontsProvider, engravingFonts)
 
 private:
 
     friend class compat::Read302;
     friend class rw400::Read400;
-    friend class Layout;
+    friend class layout::v0::Layout;
 
     static std::set<Score*> validScores;
     int _linkId { 0 };
@@ -441,7 +441,7 @@ private:
     double _noteHeadWidth { 0.0 };         // cached value
 
     RootItem* m_rootItem = nullptr;
-    Layout m_layout;
+    layout::v0::Layout m_layout;
     LayoutOptions m_layoutOptions;
 
     mu::async::Channel<EngravingItem*> m_elementDestroyed;
@@ -730,6 +730,7 @@ public:
     Note* addMidiPitch(int pitch, bool addFlag);
     Note* addNote(Chord*, const NoteVal& noteVal, bool forceAccidental = false, const std::set<SymId>& articulationIds = {},
                   InputState* externalInputState = nullptr);
+    Note* addNoteToTiedChord(Chord*, const NoteVal& noteVal, bool forceAccidental = false, const std::set<SymId>& articulationIds = {});
 
     NoteVal noteValForPosition(Position pos, AccidentalType at, bool& error);
 
@@ -785,7 +786,7 @@ public:
 
     void changeSelectedNotesVoice(voice_idx_t);
 
-    const std::vector<Part*>& parts() const { return _parts; }
+    const std::vector<Part*>& parts() const;
     int visiblePartCount() const;
     std::set<ID> partIdsFromRange(const track_idx_t trackFrom, const track_idx_t trackTo) const;
     std::set<staff_idx_t> staffIdsFromRange(const track_idx_t trackFrom, const track_idx_t trackTo) const;
@@ -1153,7 +1154,7 @@ public:
     void addSpanner(Spanner*);
     void cmdAddSpanner(Spanner* spanner, const mu::PointF& pos, bool systemStavesOnly = false);
     void cmdAddSpanner(Spanner* spanner, staff_idx_t staffIdx, Segment* startSegment, Segment* endSegment);
-    void checkSpanner(const Fraction& startTick, const Fraction& lastTick);
+    void checkSpanner(const Fraction& startTick, const Fraction& lastTick, bool removeOrphans = true);
     const std::set<Spanner*> unmanagedSpanners() { return _unmanagedSpanner; }
     void addUnmanagedSpanner(Spanner*);
     void removeUnmanagedSpanner(Spanner*);

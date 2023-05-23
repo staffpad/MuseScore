@@ -34,7 +34,7 @@
 
 #include "style/style.h"
 #include "style/textstyle.h"
-
+#include "layout/v0/tlayout.h"
 #include "types/symnames.h"
 #include "types/typesconv.h"
 
@@ -69,6 +69,7 @@
 #include "libmscore/measurenumber.h"
 #include "libmscore/measurerepeat.h"
 #include "libmscore/mmrest.h"
+#include "libmscore/ornament.h"
 #include "libmscore/ottava.h"
 #include "libmscore/page.h"
 #include "libmscore/part.h"
@@ -1575,7 +1576,7 @@ bool Read206::readChordRestProperties206(XmlReader& e, ReadContext& ctx, ChordRe
             }
         } else {
             if (ctx.mscVersion() <= 114) {
-                SigEvent event = ctx.sigmap()->timesig(ctx.tick());
+                SigEvent event = ctx.compatTimeSigMap()->timesig(ctx.tick());
                 ch->setTicks(event.timesig());
             }
         }
@@ -1605,7 +1606,7 @@ bool Read206::readChordRestProperties206(XmlReader& e, ReadContext& ctx, ChordRe
     } else if (tag == "duration") {
         ch->setTicks(e.readFraction());
     } else if (tag == "ticklen") {      // obsolete (version < 1.12)
-        int mticks = ctx.sigmap()->timesig(ctx.tick()).timesig().ticks();
+        int mticks = ctx.compatTimeSigMap()->timesig(ctx.tick()).timesig().ticks();
         int i = e.readInt();
         if (i == 0) {
             i = mticks;
@@ -2128,6 +2129,9 @@ void Read206::readTrill206(XmlReader& e, Trill* t)
             readAccidental206(_accidental, e);
             _accidental->setParent(t);
             t->setAccidental(_accidental);
+            if (t->ornament()) {
+                t->ornament()->setTrillOldCompatAccidental(_accidental);
+            }
         } else if (tag == "ornamentStyle") {
             rw400::TRead::readProperty(t, e, *e.context(), Pid::ORNAMENT_STYLE);
         } else if (tag == "play") {
@@ -2195,7 +2199,7 @@ EngravingItem* Read206::readArticulation(EngravingItem* parent, XmlReader& e, Re
     {
         if (el->isFermata()) {
             return rw400::TRead::readProperties(dynamic_cast<Fermata*>(el), e, ctx);
-        } else if (el->isArticulation()) {
+        } else if (el->isArticulationFamily()) {
             return rw400::TRead::readProperties(dynamic_cast<Articulation*>(el), e, ctx);
         }
         UNREACHABLE;
@@ -2422,8 +2426,8 @@ static void readMeasure206(Measure* m, int staffIdx, XmlReader& e, ReadContext& 
             LOGD("illegal measure size <%s>", muPrintable(e.attribute("len")));
         }
         irregular = true;
-        ctx.sigmap()->add(m->tick().ticks(), SigEvent(m->ticks(), m->timesig()));
-        ctx.sigmap()->add(m->endTick().ticks(), SigEvent(m->timesig()));
+        ctx.compatTimeSigMap()->add(m->tick().ticks(), SigEvent(m->ticks(), m->timesig()));
+        ctx.compatTimeSigMap()->add(m->endTick().ticks(), SigEvent(m->timesig()));
     } else {
         irregular = false;
     }
@@ -2499,7 +2503,8 @@ static void readMeasure206(Measure* m, int staffIdx, XmlReader& e, ReadContext& 
             }
             segment = m->getSegment(st, ctx.tick());
             segment->add(bl);
-            bl->layout();
+            layout::v0::LayoutContext lctx(bl->score());
+            layout::v0::TLayout::layout(bl, lctx);
             if (fermataAbove) {
                 segment->add(fermataAbove);
             }
@@ -2740,11 +2745,11 @@ static void readMeasure206(Measure* m, int staffIdx, XmlReader& e, ReadContext& 
                 m->setTimesig(ts->sig() / timeStretch);
 
                 if (irregular) {
-                    ctx.sigmap()->add(m->tick().ticks(), SigEvent(m->ticks(), m->timesig()));
-                    ctx.sigmap()->add(m->endTick().ticks(), SigEvent(m->timesig()));
+                    ctx.compatTimeSigMap()->add(m->tick().ticks(), SigEvent(m->ticks(), m->timesig()));
+                    ctx.compatTimeSigMap()->add(m->endTick().ticks(), SigEvent(m->timesig()));
                 } else {
                     m->setTicks(m->timesig());
-                    ctx.sigmap()->add(m->tick().ticks(), SigEvent(m->timesig()));
+                    ctx.compatTimeSigMap()->add(m->tick().ticks(), SigEvent(m->timesig()));
                 }
             }
         } else if (tag == "KeySig") {
@@ -3188,7 +3193,7 @@ bool Read206::readScore206(Score* score, XmlReader& e, ReadContext& ctx)
         if (tag == "Staff") {
             readStaffContent206(score, e, ctx);
         } else if (tag == "siglist") {
-            rw400::TRead::read(score->sigmap(), e, ctx);
+            rw400::TRead::read(ctx.compatTimeSigMap(), e, ctx);
         } else if (tag == "Omr") {
             e.skipCurrentElement();
         } else if (tag == "Audio") {
@@ -3363,8 +3368,6 @@ bool Read206::readScore206(Score* score, XmlReader& e, ReadContext& ctx)
         ms->updateChannel();
     }
 
-    CompatUtils::replaceStaffTextWithPlayTechniqueAnnotation(score);
-
     if (score->isMaster()) {
         CompatUtils::assignInitialPartToExcerpts(score->masterScore()->excerpts());
     }
@@ -3444,6 +3447,8 @@ Err Read206::read(Score* score, XmlReader& e, ReadInOutData* out)
         }
         staffIdx += sp;
     }
+
+    compat::CompatUtils::doCompatibilityConversions(score->masterScore());
 
     // fix positions
     //    offset = saved offset - layout position

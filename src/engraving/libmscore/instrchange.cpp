@@ -205,14 +205,4 @@ engraving::PropertyValue InstrumentChange::propertyDefault(Pid propertyId) const
         return TextBase::propertyDefault(propertyId);
     }
 }
-
-//---------------------------------------------------------
-//   layout
-//---------------------------------------------------------
-
-void InstrumentChange::layout()
-{
-    TextBase::layout();
-    autoplaceSegmentElement();
-}
 }

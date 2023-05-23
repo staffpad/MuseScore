@@ -89,10 +89,6 @@
       <partInstrumentFontFace>MuseJazz Text</partInstrumentFontFace>
       <partInstrumentFramePadding>0</partInstrumentFramePadding>
       <partInstrumentFrameWidth>0</partInstrumentFrameWidth>
-      <dynamicsFontFace>MuseJazz Text</dynamicsFontFace>
-      <dynamicsFontStyle>0</dynamicsFontStyle>
-      <dynamicsFramePadding>0</dynamicsFramePadding>
-      <dynamicsFrameWidth>0</dynamicsFrameWidth>
       <expressionFontFace>MuseJazz Text</expressionFontFace>
       <expressionFontSize>12</expressionFontSize>
       <expressionFontSpatiumDependent>0</expressionFontSpatiumDependent>
@@ -306,7 +302,8 @@
       <Measure>
         <voice>
           <Dynamic>
-            <subtype>other-dynamics</subtype>
+            <subtype>f</subtype>
+            <velocity>96</velocity>
             <text>dyn <sym>dynamicForte</sym></text>
             </Dynamic>
           <Rest>
@@ -403,10 +400,10 @@
         </Measure>
       <Measure>
         <voice>
-          <StaffText>
-            <style>expression</style>
+          <Expression>
+            <placement>above</placement>
             <text>technique</text>
-            </StaffText>
+            </Expression>
           <Rest>
             <durationType>measure</durationType>
             <duration>4/4</duration>

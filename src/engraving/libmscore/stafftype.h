@@ -188,7 +188,7 @@ enum class StaffTypes : signed char {
 
 class StaffType
 {
-    INJECT_STATIC(engraving, IEngravingConfiguration, engravingConfiguration)
+    INJECT_STATIC(IEngravingConfiguration, engravingConfiguration)
 
     friend class TabDurationSymbol;
 
@@ -446,13 +446,6 @@ class TabDurationSymbol final : public EngravingItem
 {
     OBJECT_ALLOCATOR(engraving, TabDurationSymbol)
 
-    double _beamLength { 0.0 };              // if _grid==MEDIALFINAL, length of the beam toward previous grid element
-    int _beamLevel  { 0 };                 // if _grid==MEDIALFINAL, the number of beams
-    TabBeamGrid _beamGrid   { TabBeamGrid::NONE };          // value for special 'English' grid display
-    const StaffType* _tab  { nullptr };
-    String _text;
-    bool _repeat     { false };
-
 public:
     TabDurationSymbol(ChordRest* parent);
     TabDurationSymbol(ChordRest* parent, const StaffType* tab, DurationType type, int dots);
@@ -460,7 +453,6 @@ public:
     TabDurationSymbol* clone() const override { return new TabDurationSymbol(*this); }
     void draw(mu::draw::Painter*) const override;
     bool isEditable() const override { return false; }
-    void layout() override;
 
     TabBeamGrid beamGrid() { return _beamGrid; }
     void layout2();                 // second step of layout: after horiz. pos. are defined, compute width of 'grid beams'
@@ -472,6 +464,16 @@ public:
 
     bool isRepeat() const { return _repeat; }
     void setRepeat(bool val) { _repeat = val; }
+
+private:
+    friend class layout::v0::TLayout;
+
+    double _beamLength { 0.0 };              // if _grid==MEDIALFINAL, length of the beam toward previous grid element
+    int _beamLevel  { 0 };                 // if _grid==MEDIALFINAL, the number of beams
+    TabBeamGrid _beamGrid   { TabBeamGrid::NONE };          // value for special 'English' grid display
+    const StaffType* _tab  { nullptr };
+    String _text;
+    bool _repeat     { false };
 };
 } // namespace mu::engraving
 #endif

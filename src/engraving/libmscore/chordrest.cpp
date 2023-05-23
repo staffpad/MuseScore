@@ -26,6 +26,8 @@
 
 #include "style/style.h"
 #include "types/typesconv.h"
+#include "layout/v0/tlayout.h"
+#include "layout/v0/chordlayout.h"
 
 #include "actionicon.h"
 #include "articulation.h"
@@ -40,6 +42,7 @@
 #include "factory.h"
 #include "figuredbass.h"
 #include "harmony.h"
+#include "harppedaldiagram.h"
 #include "instrchange.h"
 #include "keysig.h"
 #include "lyrics.h"
@@ -198,7 +201,8 @@ EngravingItem* ChordRest::drop(EditData& data)
                 l->setTrack(st->idx() * VOICES);
                 l->setParent(seg);
                 score->undoAddElement(l);
-                l->layout();
+                layout::v0::LayoutContext ctx(score);
+                layout::v0::TLayout::layout(l, ctx);
             }
         }
         delete e;
@@ -242,6 +246,7 @@ EngravingItem* ChordRest::drop(EditData& data)
     // fall through
     case ElementType::TEMPO_TEXT:
     case ElementType::DYNAMIC:
+    case ElementType::EXPRESSION:
     case ElementType::FRET_DIAGRAM:
     case ElementType::TREMOLOBAR:
     case ElementType::SYMBOL:
@@ -286,6 +291,7 @@ EngravingItem* ChordRest::drop(EditData& data)
     case ElementType::PLAYTECH_ANNOTATION:
     case ElementType::STICKING:
     case ElementType::STAFF_STATE:
+    case ElementType::HARP_DIAGRAM:
     // fall through
     case ElementType::REHEARSAL_MARK:
     {
@@ -295,6 +301,16 @@ EngravingItem* ChordRest::drop(EditData& data)
             RehearsalMark* r = toRehearsalMark(e);
             if (fromPalette) {
                 r->setXmlText(score()->createRehearsalMarkText(r));
+            }
+        }
+        // Match pedal config with previous diagram's
+        if (e->isHarpPedalDiagram()) {
+            HarpPedalDiagram* h = toHarpPedalDiagram(e);
+            if (fromPalette && part()) {
+                HarpPedalDiagram* prevDiagram = part()->prevHarpDiagram(segment()->tick());
+                if (prevDiagram) {
+                    h->setPedalState(prevDiagram->getPedalState());
+                }
             }
         }
         score()->undoAddElement(e);
@@ -372,10 +388,15 @@ EngravingItem* ChordRest::drop(EditData& data)
     {
         KeySig* ks    = toKeySig(e);
         KeySigEvent k = ks->keySigEvent();
-        delete ks;
 
-        // apply only to this stave
-        score()->undoChangeKeySig(staff(), tick(), k);
+        if (data.modifiers & ControlModifier) {
+            // apply only to this stave, before the selected chordRest
+            score()->undoChangeKeySig(staff(), tick(), k);
+            delete ks;
+        } else {
+            // apply to all staves, at the beginning of the measure
+            return m->drop(data);
+        }
     }
     break;
 
@@ -571,11 +592,13 @@ void ChordRest::removeDeleteBeam(bool beamed)
         if (b->empty()) {
             score()->undoRemoveElement(b);
         } else {
-            b->layout1();
+            layout::v0::LayoutContext lctx(score());
+            layout::v0::TLayout::layout1(b, lctx);
         }
     }
     if (!beamed && isChord()) {
-        toChord(this)->layoutStem();
+        layout::v0::LayoutContext lctx(score());
+        layout::v0::ChordLayout::layoutStem(toChord(this), lctx);
     }
 }
 
@@ -824,7 +847,7 @@ void ChordRest::processSiblings(std::function<void(EngravingItem*)> func)
 
 EngravingItem* ChordRest::nextArticulationOrLyric(EngravingItem* e)
 {
-    if (isChord() && e->isArticulation()) {
+    if (isChord() && e->isArticulationFamily()) {
         Chord* c = toChord(this);
         auto i = std::find(c->articulations().begin(), c->articulations().end(), e);
         if (i != c->articulations().end()) {
@@ -866,7 +889,7 @@ EngravingItem* ChordRest::prevArticulationOrLyric(EngravingItem* e)
                 return nullptr;
             }
         }
-    } else if (isChord() && e->isArticulation()) {
+    } else if (isChord() && e->isArticulationFamily()) {
         Chord* c = toChord(this);
         auto j = std::find(c->articulations().begin(), c->articulations().end(), e);
         if (j != c->articulations().end()) {

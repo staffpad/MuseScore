@@ -21,8 +21,6 @@
  */
 #include "tread.h"
 
-#include "global/defer.h"
-
 #include "../../types/typesconv.h"
 #include "../../types/symnames.h"
 #include "../../infrastructure/rtti.h"
@@ -40,7 +38,7 @@
 
 #include "../../libmscore/drumset.h"
 #include "../../libmscore/dynamic.h"
-
+#include "../../libmscore/expression.h"
 #include "../../libmscore/harmony.h"
 #include "../../libmscore/harmonicmark.h"
 #include "../../libmscore/chordlist.h"
@@ -75,6 +73,7 @@
 #include "../../libmscore/actionicon.h"
 #include "../../libmscore/arpeggio.h"
 #include "../../libmscore/articulation.h"
+#include "../../libmscore/ornament.h"
 #include "../../libmscore/audio.h"
 #include "../../libmscore/bagpembell.h"
 #include "../../libmscore/barline.h"
@@ -106,6 +105,7 @@
 #include "../../libmscore/line.h"
 #include "../../libmscore/textlinebase.h"
 #include "../../libmscore/groups.h"
+#include "../../libmscore/harppedaldiagram.h"
 #include "../../libmscore/hairpin.h"
 #include "../../libmscore/keysig.h"
 #include "../../libmscore/layoutbreak.h"
@@ -147,19 +147,19 @@ using namespace mu::engraving::rw400;
 using ReadTypes = rtti::TypeList<Accidental, ActionIcon, Ambitus, Arpeggio, Articulation,
                                  BagpipeEmbellishment, BarLine, Beam, Bend, StretchedBend,  HBox, VBox, FBox, TBox, Bracket, Breath,
                                  Chord, ChordLine, Clef,
-                                 Dynamic,
+                                 Dynamic, Expression,
                                  Fermata, FiguredBass, Fingering, FretDiagram,
                                  Glissando, GradualTempoChange,
-                                 Hairpin, Harmony, HarmonicMark, Hook,
+                                 Hairpin, Harmony, HarmonicMark, HarpPedalDiagram, Hook,
                                  Image, InstrumentChange,
                                  Jump,
                                  KeySig,
                                  LayoutBreak, LedgerLine, LetRing, Lyrics,
                                  Marker, MeasureNumber, MeasureRepeat, MMRest, MMRestRange,
                                  Note, NoteDot, NoteHead, NoteLine,
-                                 Ottava,
                                  Page, PalmMute, Pedal, PlayTechAnnotation,
                                  Rasgueado, RehearsalMark, Rest,
+                                 Ornament, Ottava,
                                  Segment, Slur, Spacer, StaffState, StaffText, StaffTypeChange, Stem, StemSlash, Sticking,
                                  Symbol, FSymbol, System, SystemDivider, SystemText,
                                  TempoText, Text, TextLine, Tie, TimeSig, Tremolo, TremoloBar, Trill, Tuplet,
@@ -208,6 +208,8 @@ PropertyValue TRead::readPropertyValue(Pid id, XmlReader& e)
         return PropertyValue::fromValue(e.readColor());
     case P_TYPE::ORNAMENT_STYLE:
         return PropertyValue::fromValue(TConv::fromXml(e.readAsciiText(), OrnamentStyle::DEFAULT));
+    case P_TYPE::ORNAMENT_INTERVAL:
+        return PropertyValue(TConv::fromXml(e.readText(), OrnamentInterval()));
     case P_TYPE::POINT:
         return PropertyValue::fromValue(e.readPoint());
     case P_TYPE::SCALE:
@@ -444,7 +446,7 @@ bool TRead::readItemProperties(EngravingItem* item, XmlReader& e, ReadContext&)
             }
         }
 #endif
-        assert(!item->links()->contains(item));
+        DO_ASSERT(!item->links()->contains(item));
         item->links()->push_back(item);
     } else if (tag == "tick") {
         int val = e.readInt();
@@ -598,8 +600,23 @@ void TRead::read(Dynamic* d, XmlReader& e, ReadContext& ctx)
             d->setChangeInVelocity(e.readInt());
         } else if (tag == "veloChangeSpeed") {
             d->setVelChangeSpeed(TConv::fromXml(e.readAsciiText(), DynamicSpeed::NORMAL));
+        } else if (readProperty(d, tag, e, ctx, Pid::AVOID_BARLINES)) {
+        } else if (readProperty(d, tag, e, ctx, Pid::DYNAMICS_SIZE)) {
+        } else if (readProperty(d, tag, e, ctx, Pid::CENTER_ON_NOTEHEAD)) {
         } else if (!readProperties(static_cast<TextBase*>(d), e, ctx)) {
             e.unknown();
+        }
+    }
+}
+
+void TRead::read(Expression* expr, XmlReader& xml, ReadContext& ctx)
+{
+    while (xml.readNextStartElement()) {
+        const AsciiStringView tag = xml.name();
+        if (tag == "snapToDynamics") {
+            readProperty(expr, xml, ctx, Pid::SNAP_TO_DYNAMICS);
+        } else if (!readProperties(static_cast<TextBase*>(expr), xml, ctx)) {
+            xml.unknown();
         }
     }
 }
@@ -899,9 +916,6 @@ bool TRead::readProperties(Instrument* item, XmlReader& e, Part* part, bool* cus
 void TRead::read(InstrChannel* item, XmlReader& e, Part* part, const InstrumentTrackId& instrId)
 {
     item->setNotifyAboutChangedEnabled(false);
-    DEFER {
-        item->setNotifyAboutChangedEnabled(true);
-    };
 
     // synti = 0;
     item->setName(e.attribute("name"));
@@ -988,6 +1002,8 @@ void TRead::read(InstrChannel* item, XmlReader& e, Part* part, const InstrumentT
     if (e.context()) {
         e.context()->addPartAudioSettingCompat(partAudioSetting);
     }
+
+    item->setNotifyAboutChangedEnabled(true);
 
     if ((midiPort != -1 || midiChannel != -1) && part && part->score()->isMaster()) {
         part->masterScore()->addMidiMapping(item, part, midiPort, midiChannel);
@@ -1761,6 +1777,40 @@ void TRead::read(Arpeggio* a, XmlReader& e, ReadContext& ctx)
     }
 }
 
+void TRead::read(Ornament* o, XmlReader& xml, ReadContext& ctx)
+{
+    while (xml.readNextStartElement()) {
+        if (!readProperties(o, xml, ctx)) {
+            xml.unknown();
+        }
+    }
+}
+
+bool TRead::readProperties(Ornament* o, XmlReader& xml, ReadContext& ctx)
+{
+    const AsciiStringView tag(xml.name());
+    if (readProperty(o, tag, xml, ctx, Pid::INTERVAL_ABOVE)) {
+    } else if (readProperty(o, tag, xml, ctx, Pid::INTERVAL_BELOW)) {
+    } else if (readProperty(o, tag, xml, ctx, Pid::ORNAMENT_SHOW_ACCIDENTAL)) {
+    } else if (readProperty(o, tag, xml, ctx, Pid::START_ON_UPPER_NOTE)) {
+    } else if (readProperties(static_cast<Articulation*>(o), xml, ctx)) {
+    } else if (tag == "Accidental") {
+        Accidental* accidental = Factory::createAccidental(o);
+        TRead::read(accidental, xml, ctx);
+        accidental->setParent(o);
+        accidental->placement() == PlacementV::ABOVE ? o->setAccidentalAbove(accidental) : o->setAccidentalBelow(accidental);
+    } else if (tag == "Chord") {
+        Chord* chord = Factory::createChord(ctx.score()->dummy()->segment());
+        TRead::read(chord, xml, ctx);
+        chord->setTrack(ctx.track());
+        o->setCueNoteChord(chord);
+        o->setNoteAbove(chord->notes().front());
+    } else {
+        return false;
+    }
+    return true;
+}
+
 void TRead::read(Articulation* a, XmlReader& xml, ReadContext& ctx)
 {
     while (xml.readNextStartElement()) {
@@ -2391,7 +2441,7 @@ bool TRead::readProperties(ChordRest* ch, XmlReader& e, ReadContext& ctx)
             }
         } else {
             if (mscVersion <= 114) {
-                SigEvent event = ch->score()->sigmap()->timesig(e.context()->tick());
+                SigEvent event = ctx.compatTimeSigMap()->timesig(e.context()->tick());
                 ch->setTicks(event.timesig());
             }
         }
@@ -2402,6 +2452,11 @@ bool TRead::readProperties(ChordRest* ch, XmlReader& e, ReadContext& ctx)
         atr->setTrack(ch->track());
         TRead::read(atr, e, ctx);
         ch->add(atr);
+    } else if (tag == "Ornament") {
+        Ornament* ornament = Factory::createOrnament(ch);
+        ornament->setTrack(ch->track());
+        TRead::read(ornament, e, ctx);
+        ch->add(ornament);
     } else if (tag == "leadingSpace" || tag == "trailingSpace") {
         LOGD("ChordRest: %s obsolete", tag.ascii());
         e.skipCurrentElement();
@@ -2410,7 +2465,7 @@ bool TRead::readProperties(ChordRest* ch, XmlReader& e, ReadContext& ctx)
     } else if (tag == "duration") {
         ch->setTicks(e.readFraction());
     } else if (tag == "ticklen") {      // obsolete (version < 1.12)
-        int mticks = ch->score()->sigmap()->timesig(e.context()->tick()).timesig().ticks();
+        int mticks = ctx.compatTimeSigMap()->timesig(e.context()->tick()).timesig().ticks();
         int i = e.readInt();
         if (i == 0) {
             i = mticks;
@@ -2525,6 +2580,10 @@ void TRead::read(Clef* c, XmlReader& e, ReadContext& ctx)
             c->setShowCourtesy(e.readInt());
         } else if (tag == "forInstrumentChange") {
             c->setForInstrumentChange(e.readBool());
+        } else if (tag == "clefToBarlinePos") {
+            c->setClefToBarlinePosition(ClefToBarlinePosition(e.readInt()));
+        } else if (tag == "isHeader") {
+            c->setIsHeader(e.readBool());
         } else if (!readItemProperties(c, e, ctx)) {
             e.unknown();
         }
@@ -2729,6 +2788,30 @@ void TRead::read(Harmony* h, XmlReader& e, ReadContext& ctx)
 void TRead::read(HarmonicMark* h, XmlReader& xml, ReadContext& ctx)
 {
     TRead::read(static_cast<TextLineBase*>(h), xml, ctx);
+}
+
+void TRead::read(HarpPedalDiagram* h, XmlReader& xml, ReadContext& ctx)
+{
+    while (xml.readNextStartElement()) {
+        const AsciiStringView tag = xml.name();
+        if (tag == "isDiagram") {
+            h->setIsDiagram(xml.readBool());
+        } else if (tag == "pedalState") {
+            while (xml.readNextStartElement()) {
+                const AsciiStringView stringTag = xml.name();
+                if (stringTag == "string") {
+                    HarpStringType str = HarpStringType(xml.intAttribute("name"));
+                    PedalPosition pos = PedalPosition(xml.readInt());
+                    h->setPedal(str, pos);
+                } else {
+                    xml.unknown();
+                }
+            }
+            h->setPlayablePitches();
+        } else if (!readProperties(h, xml, ctx)) {
+            xml.unknown();
+        }
+    }
 }
 
 void TRead::read(Hook* h, XmlReader& xml, ReadContext& ctx)
@@ -4049,11 +4132,23 @@ void TRead::read(Trill* t, XmlReader& e, ReadContext& ctx)
         const AsciiStringView tag(e.name());
         if (tag == "subtype") {
             t->setTrillType(TConv::fromXml(e.readAsciiText(), TrillType::TRILL_LINE));
+        } else if (tag == "Ornament") {
+            Ornament* ornament = t->ornament();
+            if (!ornament) {
+                ornament = Factory::createOrnament(toChordRest(t->parentItem(true)));
+                t->setOrnament(ornament);
+            }
+            TRead::read(ornament, e, ctx);
+            ornament->setSymId(Ornament::fromTrillType(t->trillType()));
+            ornament->setTrack(t->track());
         } else if (tag == "Accidental") {
             Accidental* accidental = Factory::createAccidental(t);
             TRead::read(accidental, e, ctx);
             accidental->setParent(t);
             t->setAccidental(accidental);
+            if (t->ornament()) {
+                t->ornament()->setTrillOldCompatAccidental(accidental);
+            }
         } else if (tag == "ornamentStyle") {
             readProperty(t, e, ctx, Pid::ORNAMENT_STYLE);
         } else if (tag == "play") {
