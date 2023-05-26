@@ -33,6 +33,7 @@
 #include "layout/v0/tlayout.h"
 #include "layout/v0/slurtielayout.h"
 #include "layout/v0/chordlayout.h"
+#include "layout/v0/beamlayout.h"
 
 #include "accidental.h"
 #include "arpeggio.h"
@@ -985,233 +986,9 @@ void Chord::addLedgerLines()
         }
     }
 
-    layout::v0::LayoutContext ctx(score());
     for (LedgerLine* ll = _ledgerLines; ll; ll = ll->next()) {
-        layout::v0::TLayout::layout(ll, ctx);
+        layout()->layoutOnAddLedgerLines(ll);
     }
-}
-
-void Chord::computeUp()
-{
-    assert(!_notes.empty());
-
-    _usesAutoUp = false;
-
-    const StaffType* tab = staff() ? staff()->staffTypeForElement(this) : 0;
-    bool isTabStaff = tab && tab->isTabStaff();
-    if (isTabStaff) {
-        if (tab->stemless()) {
-            _up = false;
-            return;
-        }
-        if (!tab->stemThrough()) {
-            bool staffHasMultipleVoices = measure()->hasVoices(staffIdx(), tick(), actualTicks());
-            if (staffHasMultipleVoices) {
-                bool isTrackEven = track() % 2 == 0;
-                _up = isTrackEven;
-                return;
-            }
-            _up = !tab->stemsDown();
-            return;
-        }
-    }
-
-    if (_stemDirection != DirectionV::AUTO && !_beam && !(_tremolo && _tremolo->twoNotes())) {
-        _up = _stemDirection == DirectionV::UP;
-        return;
-    }
-
-    if (_isUiItem) {
-        _up = true;
-        return;
-    }
-
-    if (_beam) {
-        bool mixedDirection = false;
-        bool cross = false;
-        ChordRest* firstCr = _beam->elements().front();
-        ChordRest* lastCr = _beam->elements().back();
-        Chord* firstChord = nullptr;
-        Chord* lastChord = nullptr;
-        for (ChordRest* currCr : _beam->elements()) {
-            if (!currCr->isChord()) {
-                continue;
-            }
-            if (!firstChord) {
-                firstChord = toChord(currCr);
-            }
-            lastChord = toChord(currCr);
-        }
-        DirectionV stemDirections = DirectionV::AUTO;
-        for (ChordRest* cr : _beam->elements()) {
-            if (!_beam->userModified() && !mixedDirection && cr->isChord() && toChord(cr)->stemDirection() != DirectionV::AUTO) {
-                // on an unmodified beam, if all of the elements on that beam are explicitly set in one direction
-                // (or AUTO), use that as the direction. This is necessary because the beam has not been laid out yet.
-                if (stemDirections == DirectionV::AUTO) {
-                    stemDirections = toChord(cr)->stemDirection();
-                } else if (stemDirections != toChord(cr)->stemDirection()) {
-                    mixedDirection = true;
-                }
-            }
-            if (cr->isChord() && toChord(cr)->staffMove() != 0) {
-                cross = true;
-                if (!_beam->userModified()) { // if the beam is user-modified _up must be decided later down
-                    int move = toChord(cr)->staffMove();
-                    // we have to determine the first and last chord direction for the beam
-                    // so that we can calculate the beam anchor points
-                    if (move > 0) {
-                        _up = staffMove() > 0;
-                        firstCr->setUp(firstCr->staffMove() > 0);
-                        lastCr->setUp(lastCr->staffMove() > 0);
-                    } else {
-                        _up = staffMove() >= 0;
-                        firstCr->setUp(firstCr->staffMove() >= 0);
-                        lastCr->setUp(lastCr->staffMove() >= 0);
-                    }
-                }
-                break;
-            }
-        }
-        Measure* measure = findMeasure();
-        if (!cross) {
-            if (!mixedDirection && stemDirections != DirectionV::AUTO) {
-                _up = stemDirections == DirectionV::UP;
-            } else if (!_beam->userModified()) {
-                _up = _beam->up();
-            }
-        }
-        if (!measure->explicitParent()) {
-            // this method will be called later (from Measure::layoutCrossStaff) after the
-            // system is completely laid out.
-            // this is necessary because otherwise there's no way to deal with cross-staff beams
-            // because we don't know how far apart the staves actually are
-            return;
-        }
-        if (_beam->userModified()) {
-            if (cross && this == firstCr) {
-                // necessary because this beam was never laid out before, so its position isn't known
-                // and the first chord would calculate wrong stem direction
-                layout::v0::LayoutContext ctx(score());
-                layout::v0::TLayout::layout(_beam, ctx);
-            } else {
-                // otherwise we can use stale layout data; the only reason we would need to lay out here is if
-                // it's literally never been laid out before which due to the insane nature of our layout system
-                // is actually a possible thing
-                _beam->layoutIfNeed();
-            }
-            PointF base = _beam->pagePos();
-            Note* baseNote = _up ? downNote() : upNote();
-            double noteY = baseNote->pagePos().y();
-            double noteX = stemPosX() + pagePos().x() - base.x();
-            PointF startAnchor = PointF();
-            PointF endAnchor = PointF();
-            startAnchor = _beam->chordBeamAnchor(firstChord, BeamTremoloLayout::ChordBeamAnchorType::Start);
-            endAnchor = _beam->chordBeamAnchor(lastChord, BeamTremoloLayout::ChordBeamAnchorType::End);
-
-            if (this == _beam->elements().front()) {
-                _up = noteY > startAnchor.y();
-            } else if (this == _beam->elements().back()) {
-                _up = noteY > endAnchor.y();
-            } else {
-                double proportionAlongX = (noteX - startAnchor.x()) / (endAnchor.x() - startAnchor.x());
-                double desiredY = proportionAlongX * (endAnchor.y() - startAnchor.y()) + startAnchor.y();
-                _up = noteY > desiredY;
-            }
-        }
-        layout::v0::LayoutContext ctx(score());
-        layout::v0::TLayout::layout(_beam, ctx);
-        if (cross && _tremolo && _tremolo->twoNotes() && _tremolo->chord1() == this
-            && _tremolo->chord1()->beam() == _tremolo->chord2()->beam()) {
-            // beam-infixed two-note trems have to be laid out here
-            layout::v0::LayoutContext ctx(score());
-            layout::v0::TLayout::layout(_tremolo, ctx);
-        }
-        if (!cross && !_beam->userModified()) {
-            _up = _beam->up();
-        }
-        return;
-    } else if (_tremolo && _tremolo->twoNotes()) {
-        Chord* c1 = _tremolo->chord1();
-        Chord* c2 = _tremolo->chord2();
-        bool cross = c1->staffMove() != c2->staffMove();
-        if (cross && this == c1) {
-            layout::v0::LayoutContext ctx(score());
-            layout::v0::TLayout::layout(_tremolo, ctx);
-        }
-        Measure* measure = findMeasure();
-        if (!cross && !_tremolo->userModified()) {
-            _up = _tremolo->up();
-        }
-        if (!measure->explicitParent()) {
-            // this method will be called later (from Measure::layoutCrossStaff) after the
-            // system is completely laid out.
-            // this is necessary because otherwise there's no way to deal with cross-staff beams
-            // because we don't know how far apart the staves actually are
-            return;
-        }
-        if (_tremolo->userModified()) {
-            Note* baseNote = _up ? downNote() : upNote();
-            double tremY = _tremolo->chordBeamAnchor(this, BeamTremoloLayout::ChordBeamAnchorType::Middle).y();
-            double noteY = baseNote->pagePos().y();
-            _up = noteY > tremY;
-        } else if (cross) {
-            // unmodified cross-staff trem, should be one note per staff
-            if (_staffMove != 0) {
-                _up = _staffMove > 0;
-            } else {
-                int otherStaffMove = _staffMove == c1->staffMove() ? c2->staffMove() : c1->staffMove();
-                _up = otherStaffMove < 0;
-            }
-        }
-        if (!cross && !_tremolo->userModified()) {
-            _up = _tremolo->up();
-        }
-        return;
-    }
-
-    bool staffHasMultipleVoices = measure()->hasVoices(staffIdx(), tick(), actualTicks());
-    if (staffHasMultipleVoices) {
-        bool isTrackEven = track() % 2 == 0;
-        _up = isTrackEven;
-        return;
-    }
-
-    bool isGraceNote = _noteType != NoteType::NORMAL;
-    if (isGraceNote) {
-        _up = true;
-        return;
-    }
-
-    bool chordIsCrossStaff = staffMove() != 0;
-    if (chordIsCrossStaff) {
-        _up = staffMove() > 0;
-        return;
-    }
-
-    std::vector<int> distances = noteDistances();
-    int direction = Chord::computeAutoStemDirection(distances);
-    _up = direction > 0;
-    _usesAutoUp = direction == 0;
-}
-
-// return 1 means up, 0 means in the middle, -1 means down
-int Chord::computeAutoStemDirection(const std::vector<int>& noteDistances)
-{
-    int left = 0;
-    int right = static_cast<int>(noteDistances.size()) - 1;
-
-    while (left <= right) {
-        int leftNote = noteDistances.at(left);
-        int rightNote = noteDistances.at(right);
-        int netDirecting = leftNote + rightNote;
-        if (netDirecting == 0) {
-            left++;
-            right--;
-            continue;
-        }
-        return netDirecting > 0 ? 1 : -1;
-    }
-    return 0;
 }
 
 //---------------------------------------------------------
@@ -2078,13 +1855,13 @@ EngravingItem* Chord::drop(EditData& data)
                 if (pf == PropertyFlags::STYLED) {
                     continue;
                 }
-                if (a->anchor() == ArticulationAnchor::TOP_STAFF || a->anchor() == ArticulationAnchor::TOP_CHORD) {
+                if (a->anchor() == ArticulationAnchor::TOP) {
                     if (aboveBelow < 0) {
                         mixed = true;
                         break;
                     }
                     ++aboveBelow;
-                } else if (a->anchor() == ArticulationAnchor::BOTTOM_STAFF || a->anchor() == ArticulationAnchor::BOTTOM_CHORD) {
+                } else if (a->anchor() == ArticulationAnchor::BOTTOM) {
                     if (aboveBelow > 0) {
                         mixed = true;
                         break;
@@ -2094,9 +1871,9 @@ EngravingItem* Chord::drop(EditData& data)
             }
             if (!mixed && aboveBelow != 0) {
                 if (aboveBelow > 0) {
-                    atr->setAnchor(ArticulationAnchor::TOP_CHORD);
+                    atr->setAnchor(ArticulationAnchor::TOP);
                 } else {
-                    atr->setAnchor(ArticulationAnchor::BOTTOM_CHORD);
+                    atr->setAnchor(ArticulationAnchor::BOTTOM);
                 }
                 atr->setPropertyFlags(Pid::ARTICULATION_ANCHOR, PropertyFlags::UNSTYLED);
             }
@@ -2299,7 +2076,7 @@ void Chord::updateArticulations(const std::set<SymId>& newArticulationIds, Artic
     Articulation* accent = nullptr;
     Articulation* marcato = nullptr;
     Articulation* tenuto = nullptr;
-    ArticulationAnchor overallAnchor = ArticulationAnchor::CHORD;
+    ArticulationAnchor overallAnchor = ArticulationAnchor::AUTO;
     bool mixedDirections = false;
     if (!_articulations.empty()) {
         std::vector<Articulation*> articsToRemove;
@@ -2329,10 +2106,10 @@ void Chord::updateArticulations(const std::set<SymId>& newArticulationIds, Artic
         // take an inventory of which articulations are already present
         for (Articulation* artic : _articulations) {
             PropertyFlags pf = artic->propertyFlags(Pid::ARTICULATION_ANCHOR);
-            if (!mixedDirections && pf == PropertyFlags::UNSTYLED && artic->anchor() != ArticulationAnchor::CHORD) {
-                if (overallAnchor != ArticulationAnchor::CHORD && artic->anchor() != overallAnchor) {
+            if (!mixedDirections && pf == PropertyFlags::UNSTYLED && artic->anchor() != ArticulationAnchor::AUTO) {
+                if (overallAnchor != ArticulationAnchor::AUTO && artic->anchor() != overallAnchor) {
                     mixedDirections = true;
-                    overallAnchor = ArticulationAnchor::CHORD;
+                    overallAnchor = ArticulationAnchor::AUTO;
                 } else {
                     overallAnchor = artic->anchor();
                 }
@@ -2399,7 +2176,7 @@ void Chord::updateArticulations(const std::set<SymId>& newArticulationIds, Artic
         for (const SymId& id : newArtics) {
             Articulation* newArticulation = Factory::createArticulation(score()->dummy()->chord());
             newArticulation->setSymId(id);
-            if (overallAnchor != ArticulationAnchor::CHORD) {
+            if (overallAnchor != ArticulationAnchor::AUTO) {
                 newArticulation->setAnchor(overallAnchor);
                 newArticulation->setPropertyFlags(Pid::ARTICULATION_ANCHOR, PropertyFlags::UNSTYLED);
             }

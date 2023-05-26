@@ -26,7 +26,6 @@
 #include "containers.h"
 
 #include "libmscore/beam.h"
-#include "libmscore/spanner.h"
 #include "libmscore/tremolo.h"
 #include "libmscore/chord.h"
 #include "libmscore/factory.h"
@@ -110,6 +109,13 @@ void BeamLayout::layout(Beam* item, LayoutContext& ctx)
     }
 }
 
+void BeamLayout::layoutIfNeed(Beam* item, LayoutContext& ctx)
+{
+    if (!item->_layoutInfo.isValid()) {
+        BeamLayout::layout(item, ctx);
+    }
+}
+
 //---------------------------------------------------------
 //    - remove beam segments
 //    - detach from system
@@ -164,7 +170,7 @@ void BeamLayout::layout1(Beam* item, LayoutContext& ctx)
             }
         }
         for (ChordRest* cr : item->_elements) {
-            cr->computeUp();
+            ChordLayout::computeUp(cr, ctx);
             if (cr->isChord()) {
                 ChordLayout::layoutStem(toChord(cr), ctx);
             }
@@ -227,7 +233,7 @@ void BeamLayout::layout1(Beam* item, LayoutContext& ctx)
             } else {
                 std::set<int> noteSet(item->_notes.begin(), item->_notes.end());
                 std::vector<int> notes(noteSet.begin(), noteSet.end());
-                item->_up = Chord::computeAutoStemDirection(notes) > 0;
+                item->_up = ChordLayout::computeAutoStemDirection(notes) > 0;
             }
         }
     } else {

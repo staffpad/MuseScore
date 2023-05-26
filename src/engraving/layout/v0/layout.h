@@ -22,31 +22,37 @@
 #ifndef MU_ENGRAVING_LAYOUT_H
 #define MU_ENGRAVING_LAYOUT_H
 
-#include "layoutoptions.h"
-#include "layoutcontext.h"
+#include "../ilayout.h"
+#include "../layoutoptions.h"
 
 namespace mu::engraving {
 class Score;
 }
 
 namespace mu::engraving::layout::v0  {
-class Layout
+class Layout : public ILayout
 {
 public:
-    Layout(Score* score);
 
-    void doLayoutRange(const LayoutOptions& options, const Fraction&, const Fraction&);
+    // Layout Score
+    void layoutRange(Score* score, const LayoutOptions& options, const Fraction& st, const Fraction& et) override;
 
-private:
+    // Layout Elements on Edit
+    void layoutOnEditDrag(Arpeggio* item) override;
+    void layoutOnEdit(Arpeggio* item) override;
 
-    void layoutLinear(const LayoutOptions& options, LayoutContext& ctx);
-    void layoutLinear(bool layoutAll, const LayoutOptions& options, LayoutContext& lc);
-    void resetSystems(bool layoutAll, const LayoutOptions& options, LayoutContext& lc);
-    void collectLinearSystem(const LayoutOptions& options, LayoutContext& ctx);
+    void layoutOnEditDrag(Box* item) override;
+    void layoutOnEndEdit(Box* item) override;
 
-    void doLayout(const LayoutOptions& options, LayoutContext& lc);
+    void layoutOnEditDrag(Bracket* item) override;
 
-    Score* m_score = nullptr;
+    // Layout Elements on Drop and Drag
+    void layoutOnChordRestDrop(BarLine* item) override;
+
+    // Layout others
+    //! TODO Need to find out why
+    void layoutOnAddLedgerLines(LedgerLine* item) override;
+    void regenerateDisplayText(FiguredBassItem* item) override;
 };
 }
 

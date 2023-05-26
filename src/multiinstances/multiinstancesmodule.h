@@ -37,7 +37,7 @@ public:
     void resolveImports() override;
     void registerUiTypes() override;
     void registerResources() override;
-    void onInit(const framework::IApplication::RunMode& mode) override;
+    void onPreInit(const framework::IApplication::RunMode& mode) override;
 
 private:
 

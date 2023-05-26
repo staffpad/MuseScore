@@ -22,7 +22,7 @@
 #ifndef MU_ENGRAVING_MEASURELAYOUT_H
 #define MU_ENGRAVING_MEASURELAYOUT_H
 
-#include "layoutoptions.h"
+#include "../layoutoptions.h"
 #include "layoutcontext.h"
 
 namespace mu::engraving {

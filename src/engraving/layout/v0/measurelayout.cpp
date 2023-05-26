@@ -471,6 +471,9 @@ static bool validMMRestMeasure(const LayoutContext& ctx, Measure* m)
     int n = 0;
     for (Segment* s = m->first(); s; s = s->next()) {
         for (EngravingItem* e : s->annotations()) {
+            if (!e->staff()->show()) {
+                continue;
+            }
             if (!(e->isRehearsalMark() || e->isTempoText() || e->isHarmony() || e->isStaffText() || e->isSystemText() || e->isTripletFeel()
                   || e->isPlayTechAnnotation() || e->isInstrumentChange())) {
                 return false;
@@ -842,7 +845,7 @@ void MeasureLayout::getNextMeasure(const LayoutOptions& options, LayoutContext& 
                         for (Chord* c : chord->graceNotes()) {
                             c->setMag(m * score->styleD(Sid::graceNoteMag));
                             c->setTrack(t);
-                            c->computeUp();
+                            ChordLayout::computeUp(c, ctx);
                             if (drumset) {
                                 layoutDrumsetChord(c, drumset, st, score->spatium());
                             }
@@ -852,7 +855,8 @@ void MeasureLayout::getNextMeasure(const LayoutOptions& options, LayoutContext& 
                         if (drumset) {
                             layoutDrumsetChord(chord, drumset, st, score->spatium());
                         }
-                        chord->computeUp();
+
+                        ChordLayout::computeUp(chord, ctx);
                         ChordLayout::layoutStem(chord, ctx); // create stems needed to calculate spacing
                                                              // stem direction can change later during beam processing
                     }

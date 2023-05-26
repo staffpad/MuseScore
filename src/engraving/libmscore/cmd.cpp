@@ -2900,9 +2900,18 @@ void Score::cmdIncDecDuration(int nSteps, bool stepDotted)
 
     // if measure rest is selected as input, then the correct initialDuration will be the
     // duration of the measure's time signature, else is just the input state's duration
-    TDuration initialDuration
-        = (cr->durationType() == DurationType::V_MEASURE) ? TDuration(cr->measure()->timesig()) : _is.duration();
-    TDuration d = initialDuration.shiftRetainDots(nSteps, stepDotted);
+    TDuration initialDuration;
+    if (cr->durationType() == DurationType::V_MEASURE) {
+        initialDuration = TDuration(cr->measure()->timesig(), true);
+
+        if (initialDuration.fraction() < cr->measure()->timesig() && nSteps > 0) {
+            // Duration already shortened by truncation; shorten one step less
+            --nSteps;
+        }
+    } else {
+        initialDuration = _is.duration();
+    }
+    TDuration d = (nSteps != 0) ? initialDuration.shiftRetainDots(nSteps, stepDotted) : initialDuration;
     if (!d.isValid()) {
         return;
     }
@@ -3250,9 +3259,9 @@ void Score::cmdExplode()
             ChordRest* cr = toChordRest(firstCRSegment->element(track));
             if (cr) {
                 XmlReader e(mimeData);
-                e.context()->setScore(cr->score());
-                e.context()->setPasteMode(true);
-                pasteStaff(e, cr->segment(), cr->staffIdx());
+                ReadContext ctx(score());
+                ctx.setPasteMode(true);
+                pasteStaff(e, ctx, cr->segment(), cr->staffIdx());
             }
         }
 

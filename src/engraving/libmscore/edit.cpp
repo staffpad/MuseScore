@@ -2243,20 +2243,14 @@ void Score::cmdFlip()
             flipOnce(artic, [artic]() {
                 ArticulationAnchor articAnchor = artic->anchor();
                 switch (articAnchor) {
-                case ArticulationAnchor::TOP_CHORD:
-                    articAnchor = ArticulationAnchor::BOTTOM_CHORD;
+                case ArticulationAnchor::TOP:
+                    articAnchor = ArticulationAnchor::BOTTOM;
                     break;
-                case ArticulationAnchor::BOTTOM_CHORD:
-                    articAnchor = ArticulationAnchor::TOP_CHORD;
+                case ArticulationAnchor::BOTTOM:
+                    articAnchor = ArticulationAnchor::TOP;
                     break;
-                case ArticulationAnchor::CHORD:
-                    articAnchor = artic->up() ? ArticulationAnchor::BOTTOM_CHORD : ArticulationAnchor::TOP_CHORD;
-                    break;
-                case ArticulationAnchor::TOP_STAFF:
-                    articAnchor = ArticulationAnchor::BOTTOM_STAFF;
-                    break;
-                case ArticulationAnchor::BOTTOM_STAFF:
-                    articAnchor = ArticulationAnchor::TOP_STAFF;
+                case ArticulationAnchor::AUTO:
+                    articAnchor = artic->up() ? ArticulationAnchor::BOTTOM : ArticulationAnchor::TOP;
                     break;
                 }
                 PropertyFlags pf = artic->propertyFlags(Pid::ARTICULATION_ANCHOR);
@@ -3407,6 +3401,14 @@ void Score::cmdDeleteSelection()
                 } else if (e->isBreath()) {
                     // we want the tick of the ChordRest that precedes the breath mark (in the same track)
                     for (Segment* s = toBreath(e)->segment()->prev(); s; s = s->prev()) {
+                        if (s->isChordRestType() && s->element(e->track())) {
+                            tick = s->tick();
+                            break;
+                        }
+                    }
+                } else if (e->isBarLine() && toBarLine(e)->barLineType() != BarLineType::START_REPEAT) {
+                    // we want the tick of the ChordRest that precedes the barline (in the same track)
+                    for (Segment* s = toBarLine(e)->segment()->prev(); s; s = s->prev()) {
                         if (s->isChordRestType() && s->element(e->track())) {
                             tick = s->tick();
                             break;

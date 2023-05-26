@@ -182,8 +182,9 @@ EngravingItem* ChordRest::drop(EditData& data)
             bl->setPos(PointF());
             bl->setTrack(staffIdx() * VOICES);
             bl->setGenerated(false);
+            Fraction blt = bl->barLineType() == BarLineType::START_REPEAT ? tick() : tick() + actualTicks();
 
-            if (tick() == m->tick()) {
+            if (blt == m->tick() || blt == m->endTick()) {
                 return m->drop(data);
             }
 
@@ -191,7 +192,7 @@ EngravingItem* ChordRest::drop(EditData& data)
             for (Staff* st  : staff()->staffList()) {
                 Score* score = st->score();
                 Measure* measure = score->tick2measure(m->tick());
-                Segment* seg = measure->undoGetSegmentR(SegmentType::BarLine, rtick());
+                Segment* seg = measure->undoGetSegment(SegmentType::BarLine, blt);
                 BarLine* l;
                 if (obl == 0) {
                     obl = l = bl->clone();
@@ -201,8 +202,8 @@ EngravingItem* ChordRest::drop(EditData& data)
                 l->setTrack(st->idx() * VOICES);
                 l->setParent(seg);
                 score->undoAddElement(l);
-                layout::v0::LayoutContext ctx(score);
-                layout::v0::TLayout::layout(l, ctx);
+
+                layout()->layoutOnChordRestDrop(l);
             }
         }
         delete e;
@@ -600,6 +601,13 @@ void ChordRest::removeDeleteBeam(bool beamed)
         layout::v0::LayoutContext lctx(score());
         layout::v0::ChordLayout::layoutStem(toChord(this), lctx);
     }
+}
+
+void ChordRest::computeUp()
+{
+    UNREACHABLE;
+    _usesAutoUp = false;
+    _up = true;
 }
 
 //---------------------------------------------------------

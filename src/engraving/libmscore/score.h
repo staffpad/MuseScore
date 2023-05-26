@@ -40,8 +40,8 @@
 #include "draw/iimageprovider.h"
 #include "iengravingfontsprovider.h"
 
-#include "layout/v0/layout.h"
-#include "layout/v0/layoutoptions.h"
+#include "layout/ilayout.h"
+#include "layout/layoutoptions.h"
 
 #include "style/style.h"
 #include "style/pagestyle.h"
@@ -59,6 +59,7 @@
 namespace mu::engraving {
 class IMimeData;
 class WriteContext;
+class ReadContext;
 }
 
 namespace mu::engraving::rw400 {
@@ -68,6 +69,10 @@ class Read400;
 namespace mu::engraving::compat {
 class Read302;
 class WriteScoreHook;
+}
+
+namespace mu::engraving::layout::v0 {
+class ScoreLayout;
 }
 
 namespace mu::engraving {
@@ -368,11 +373,14 @@ class Score : public EngravingObject
     INJECT(IEngravingConfiguration, configuration)
     INJECT(IEngravingFontsProvider, engravingFonts)
 
+    // internal
+    INJECT(layout::ILayout, layout)
+
 private:
 
     friend class compat::Read302;
     friend class rw400::Read400;
-    friend class layout::v0::Layout;
+    friend class layout::v0::ScoreLayout;
 
     static std::set<Score*> validScores;
     int _linkId { 0 };
@@ -441,7 +449,6 @@ private:
     double _noteHeadWidth { 0.0 };         // cached value
 
     RootItem* m_rootItem = nullptr;
-    layout::v0::Layout m_layout;
     LayoutOptions m_layoutOptions;
 
     mu::async::Channel<EngravingItem*> m_elementDestroyed;
@@ -934,7 +941,7 @@ public:
     void styleChanged() override;
 
     void cmdPaste(const IMimeData* ms, MuseScoreView* view, Fraction scale = Fraction(1, 1));
-    bool pasteStaff(XmlReader&, Segment* dst, staff_idx_t staffIdx, Fraction scale = Fraction(1, 1));
+    bool pasteStaff(XmlReader&, mu::engraving::ReadContext& ctx, Segment* dst, staff_idx_t staffIdx, Fraction scale = Fraction(1, 1));
     void pasteSymbols(XmlReader& e, ChordRest* dst);
     void renderMidi(EventMap* events, const MidiRenderer::Context& ctx, bool expandRepeats);
 

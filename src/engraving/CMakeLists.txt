@@ -146,13 +146,16 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/style/defaultstyle.h
 
     ${CMAKE_CURRENT_LIST_DIR}/layout/README.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/ilayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutoptions.h
     ${CMAKE_CURRENT_LIST_DIR}/layout/v0/tlayout.cpp
     ${CMAKE_CURRENT_LIST_DIR}/layout/v0/tlayout.h
     ${CMAKE_CURRENT_LIST_DIR}/layout/v0/layout.cpp
     ${CMAKE_CURRENT_LIST_DIR}/layout/v0/layout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/layoutoptions.h
     ${CMAKE_CURRENT_LIST_DIR}/layout/v0/layoutcontext.cpp
     ${CMAKE_CURRENT_LIST_DIR}/layout/v0/layoutcontext.h
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/scorelayout.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/scorelayout.h
     ${CMAKE_CURRENT_LIST_DIR}/layout/v0/lyricslayout.cpp
     ${CMAKE_CURRENT_LIST_DIR}/layout/v0/lyricslayout.h
     ${CMAKE_CURRENT_LIST_DIR}/layout/v0/measurelayout.cpp
