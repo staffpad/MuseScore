@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,17 +22,22 @@
 
 #include "tremolorenderer.h"
 
-#include "libmscore/chord.h"
-#include "libmscore/tremolo.h"
+#include "dom/chord.h"
+#include "dom/tremolosinglechord.h"
+#include "dom/tremolotwochord.h"
+
+#include "playback/metaparsers/notearticulationsparser.h"
 
 using namespace mu::engraving;
-using namespace mu::mpe;
+using namespace muse;
+using namespace muse::mpe;
 
 const ArticulationTypeSet& TremoloRenderer::supportedTypes()
 {
     static const mpe::ArticulationTypeSet types = {
         mpe::ArticulationType::Tremolo8th, mpe::ArticulationType::Tremolo16th,
-        mpe::ArticulationType::Tremolo32nd, mpe::ArticulationType::Tremolo64th
+        mpe::ArticulationType::Tremolo32nd, mpe::ArticulationType::Tremolo64th,
+        mpe::ArticulationType::TremoloBuzz,
     };
 
     return types;
@@ -42,30 +47,54 @@ void TremoloRenderer::doRender(const EngravingItem* item, const mpe::Articulatio
                                const RenderingContext& context,
                                mpe::PlaybackEventList& result)
 {
-    const Chord* chord = toChord(item);
+    const Chord* chord = item_cast<const Chord*>(item);
     IF_ASSERT_FAILED(chord) {
         return;
     }
 
-    const Tremolo* tremolo = chord->tremolo();
-    IF_ASSERT_FAILED(tremolo) {
+    struct TremoloAdapter {
+        const TremoloSingleChord* single = nullptr;
+        const TremoloTwoChord* two = nullptr;
+
+        TremoloAdapter(const Chord* ch)
+            : single(ch->tremoloSingleChord()), two(ch->tremoloTwoChord()) {}
+
+        bool hasTremolo() const { return single != nullptr || two != nullptr; }
+
+        int lines() const { return single ? single->lines() : (two ? two->lines() : 0); }
+    };
+
+    TremoloAdapter tremolo = TremoloAdapter(chord);
+    IF_ASSERT_FAILED(tremolo.hasTremolo()) {
         return;
     }
 
-    const ArticulationAppliedData& articulationData = context.commonArticulations.at(preferredType);
+    // TODO: We need a member like articulationData.overallDurationTicks (ticks rather than duration),
+    // so that we are not duplicating this calculation (see TremoloTwoMetaParser::doParse)
+    //const ArticulationAppliedData& articulationData = context.commonArticulations.at(preferredType);
+    int overallDurationTicks = context.nominalDurationTicks;
+    if (tremolo.two && tremolo.two->chord1() && tremolo.two->chord2()) {
+        overallDurationTicks = tremolo.two->chord1()->actualTicks().ticks() + tremolo.two->chord2()->actualTicks().ticks();
+    }
 
-    duration_t stepDuration = durationFromTicks(context.beatsPerSecond.val, stepDurationTicks(chord, tremolo));
+    int stepDurationTicks = 0;
+    if (preferredType == ArticulationType::TremoloBuzz) {
+        stepDurationTicks = overallDurationTicks;
+    } else {
+        stepDurationTicks = TremoloRenderer::stepDurationTicks(chord, tremolo.lines());
+    }
 
-    if (stepDuration <= 0) {
+    if (stepDurationTicks <= 0) {
         LOGE() << "Unable to render unsupported tremolo type";
         return;
     }
 
-    int stepsCount = articulationData.meta.overallDuration / stepDuration;
+    // ... and use that here
+    int stepsCount = overallDurationTicks / stepDurationTicks;
 
-    if (tremolo->twoNotes()) {
-        const Chord* firstTremoloChord = tremolo->chord1();
-        const Chord* secondTremoloChord = tremolo->chord2();
+    if (tremolo.two) {
+        const Chord* firstTremoloChord = tremolo.two->chord1();
+        const Chord* secondTremoloChord = tremolo.two->chord2();
 
         IF_ASSERT_FAILED(firstTremoloChord && secondTremoloChord) {
             return;
@@ -78,20 +107,22 @@ void TremoloRenderer::doRender(const EngravingItem* item, const mpe::Articulatio
                 currentChord = secondTremoloChord;
             }
 
-            buildAndAppendEvents(currentChord, preferredType, stepDuration, i * stepDuration, context, result);
+            buildAndAppendEvents(currentChord, preferredType, stepDurationTicks, context.nominalPositionStartTick + i * stepDurationTicks,
+                                 context, result);
         }
 
         return;
     }
 
     for (int i = 0; i < stepsCount; ++i) {
-        buildAndAppendEvents(chord, preferredType, stepDuration, i * stepDuration, context, result);
+        buildAndAppendEvents(chord, preferredType, stepDurationTicks, context.nominalPositionStartTick + i * stepDurationTicks,
+                             context, result);
     }
 }
 
-int TremoloRenderer::stepDurationTicks(const Chord* chord, const Tremolo* tremolo)
+int TremoloRenderer::stepDurationTicks(const Chord* chord, int tremoloLines)
 {
-    int ticks = Constants::division / (1 << (chord->beams() + tremolo->lines()));
+    int ticks = Constants::DIVISION / (1 << (chord->beams() + tremoloLines));
     if (ticks <= 0) {
         return 1;
     }
@@ -99,8 +130,8 @@ int TremoloRenderer::stepDurationTicks(const Chord* chord, const Tremolo* tremol
 }
 
 void TremoloRenderer::buildAndAppendEvents(const Chord* chord, const ArticulationType type,
-                                           const mpe::duration_t stepDuration,
-                                           const mpe::timestamp_t timestampOffset, const RenderingContext& context,
+                                           const int stepDurationTicks,
+                                           const int startTick, const RenderingContext& context,
                                            mpe::PlaybackEventList& result)
 {
     for (size_t noteIdx = 0; noteIdx < chord->notes().size(); ++noteIdx) {
@@ -110,11 +141,16 @@ void TremoloRenderer::buildAndAppendEvents(const Chord* chord, const Articulatio
             continue;
         }
 
-        NominalNoteCtx noteCtx(note, context);
-        noteCtx.duration = stepDuration;
-        noteCtx.timestamp += timestampOffset;
+        auto noteTnD = timestampAndDurationFromStartAndDurationTicks(
+            chord->score(), startTick, stepDurationTicks, context.positionTickOffset);
 
+        NominalNoteCtx noteCtx(note, context);
+        noteCtx.duration = noteTnD.duration;
+        noteCtx.timestamp = noteTnD.timestamp;
+
+        NoteArticulationsParser::buildNoteArticulationMap(note, context, noteCtx.chordCtx.commonArticulations);
         updateArticulationBoundaries(type, noteCtx.timestamp, noteCtx.duration, noteCtx.chordCtx.commonArticulations);
+
         result.emplace_back(buildNoteEvent(std::move(noteCtx)));
     }
 }

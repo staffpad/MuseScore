@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -30,11 +30,14 @@
 using namespace mu::context;
 using namespace mu::instrumentsscene;
 using namespace mu::notation;
-using namespace mu::ui;
-using namespace mu::uicomponents;
-using namespace mu::actions;
+using namespace muse;
+using namespace muse::ui;
+using namespace muse::uicomponents;
+using namespace muse::actions;
 
 static const ActionCode SET_INSTRUMENTS_ORDER_CODE("set-instruments-order");
+static const ActionCode EXPAND_ALL_CODE("expand-all-instruments");
+static const ActionCode COLLAPSE_ALL_CODE("collapse-all-instruments");
 
 static const QString ORDERING_MENU_ID("ordering-menu");
 
@@ -48,26 +51,35 @@ void InstrumentsPanelContextMenuModel::load()
     dispatcher()->reg(this, SET_INSTRUMENTS_ORDER_CODE, this, &InstrumentsPanelContextMenuModel::setInstrumentsOrder);
 
     globalContext()->currentNotationChanged().onNotify(this, [this]() {
-        INotationPtr notation = globalContext()->currentNotation();
-        m_masterNotation = globalContext()->currentMasterNotation();
+        updateMenu();
+    });
 
-        if (!m_masterNotation || !notation || m_masterNotation->notation() != notation) {
-            clear();
-        } else {
-            loadItems();
-        }
+    updateMenu();
+}
 
-        if (!m_masterNotation) {
-            return;
-        }
+void InstrumentsPanelContextMenuModel::updateMenu()
+{
+    INotationPtr notation = globalContext()->currentNotation();
+    m_masterNotation = globalContext()->currentMasterNotation();
 
-        m_masterNotation->parts()->scoreOrderChanged().onNotify(this, [this] {
-            updateOrderingMenu(m_masterNotation->parts()->scoreOrder().id);
-        });
+    if (!m_masterNotation || !notation) {
+        clear();
+    } else if (m_masterNotation->notation() == notation) {
+        buildMenu(true);
+    } else {
+        buildMenu(false);
+    }
+
+    if (!m_masterNotation) {
+        return;
+    }
+
+    m_masterNotation->parts()->scoreOrderChanged().onNotify(this, [this] {
+        updateOrderingMenu(m_masterNotation->parts()->scoreOrder().id);
     });
 }
 
-void InstrumentsPanelContextMenuModel::loadItems()
+void InstrumentsPanelContextMenuModel::loadInstrumentOrders()
 {
     TRACEFUNC;
 
@@ -75,19 +87,65 @@ void InstrumentsPanelContextMenuModel::loadItems()
     m_orders = instrumentsRepository()->orders();
 
     const ScoreOrder& custom = customOrder();
-    if (m_orders.empty() || !mu::contains(m_orders, custom)) {
+    if (m_orders.empty() || !muse::contains(m_orders, custom)) {
         m_orders.push_back(custom);
     }
 
-    if (!mu::contains(m_orders, currentOrder)) {
+    if (!muse::contains(m_orders, currentOrder)) {
         currentOrder.customized = false;
         m_orders.push_back(currentOrder);
     }
-
-    buildMenu();
 }
 
-void InstrumentsPanelContextMenuModel::buildMenu()
+void InstrumentsPanelContextMenuModel::buildMenu(bool includeInstrumentsOrdering)
+{
+    MenuItemList items;
+    if (includeInstrumentsOrdering) {
+        loadInstrumentOrders();
+        items.append({
+            createInstrumentsOrderingItem(),
+            makeSeparator()
+        });
+    }
+
+    items.append({
+        createExpandCollapseAllItem(false),
+        createExpandCollapseAllItem(true)
+    });
+
+    setItems(items);
+}
+
+void InstrumentsPanelContextMenuModel::setInstrumentsOrder(const ActionData& args)
+{
+    if (args.empty()) {
+        return;
+    }
+
+    String newOrderId = String::fromQString(args.arg<QString>(0));
+
+    for (const ScoreOrder& order : m_orders) {
+        if (order.id == newOrderId) {
+            m_masterNotation->parts()->setScoreOrder(order);
+            break;
+        }
+    }
+
+    updateOrderingMenu(newOrderId);
+}
+
+void InstrumentsPanelContextMenuModel::updateOrderingMenu(const QString& newOrderId)
+{
+    MenuItem& orderingMenu = findMenu(ORDERING_MENU_ID);
+
+    for (MenuItem* item : orderingMenu.subitems()) {
+        UiActionState state = item->state();
+        state.checked = item->id() == newOrderId;
+        item->setState(state);
+    }
+}
+
+MenuItem* InstrumentsPanelContextMenuModel::createInstrumentsOrderingItem()
 {
     ScoreOrder currentOrder = m_masterNotation->parts()->scoreOrder();
 
@@ -121,38 +179,28 @@ void InstrumentsPanelContextMenuModel::buildMenu()
         }
     }
 
-    MenuItemList items {
-        makeMenu(TranslatableString("instruments", "Instrument ordering"), orderItems, ORDERING_MENU_ID)
-    };
-
-    setItems(items);
+    return makeMenu(TranslatableString("instruments", "Instrument ordering"), orderItems, ORDERING_MENU_ID);
 }
 
-void InstrumentsPanelContextMenuModel::setInstrumentsOrder(const actions::ActionData& args)
+MenuItem* InstrumentsPanelContextMenuModel::createExpandCollapseAllItem(bool expand)
 {
-    if (args.empty()) {
-        return;
-    }
+    MenuItem* item = new MenuItem(this);
+    item->setId(QString::fromStdString(expand ? EXPAND_ALL_CODE : COLLAPSE_ALL_CODE));
 
-    String newOrderId = String::fromQString(args.arg<QString>(0));
+    UiAction action;
+    action.title = expand
+                   ? TranslatableString("instruments", "Expand all instruments")
+                   : TranslatableString("instruments", "Collapse all instruments");
+    action.code = expand ? EXPAND_ALL_CODE : COLLAPSE_ALL_CODE;
+    item->setAction(action);
 
-    for (const ScoreOrder& order : m_orders) {
-        if (order.id == newOrderId) {
-            m_masterNotation->parts()->setScoreOrder(order);
-            break;
-        }
-    }
+    UiActionState state;
+    state.enabled = true;
+    item->setState(state);
 
-    updateOrderingMenu(newOrderId);
-}
+    dispatcher()->reg(this, action.code, [this, expand]() {
+        emit expandCollapseAllRequested(expand);
+    });
 
-void InstrumentsPanelContextMenuModel::updateOrderingMenu(const QString& newOrderId)
-{
-    MenuItem& orderingMenu = findMenu(ORDERING_MENU_ID);
-
-    for (MenuItem* item : orderingMenu.subitems()) {
-        UiActionState state = item->state();
-        state.checked = item->id() == newOrderId;
-        item->setState(state);
-    }
+    return item;
 }

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2022 MuseScore BVBA and others
+ * Copyright (C) 2022 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,11 +23,14 @@
 #ifndef MU_NOTATION_HARPPEDALPOPUPMODEL_H
 #define MU_NOTATION_HARPPEDALPOPUPMODEL_H
 
-#include "abstractelementpopupmodel.h"
-#include "context/iglobalcontext.h"
-#include "engraving/libmscore/harppedaldiagram.h"
-#include "engraving/libmscore/undo.h"
 #include <QObject>
+
+#include "context/iglobalcontext.h"
+
+#include "engraving/dom/harppedaldiagram.h"
+#include "engraving/dom/undo.h"
+
+#include "view/abstractelementpopupmodel.h"
 
 namespace mu::notation {
 class HarpPedalPopupModel : public AbstractElementPopupModel
@@ -39,10 +42,7 @@ class HarpPedalPopupModel : public AbstractElementPopupModel
     Q_PROPERTY(bool isDiagram READ isDiagram WRITE setIsDiagram NOTIFY isDiagramChanged)
     Q_PROPERTY(
         QVector<mu::notation::HarpPedalPopupModel::Position> pedalState READ pedalState WRITE setDiagramPedalState NOTIFY pedalStateChanged)
-    Q_PROPERTY(QPointF pos READ pos CONSTANT)
-    Q_PROPERTY(QPointF size READ size CONSTANT)
     Q_PROPERTY(QRectF staffPos READ staffPos CONSTANT)
-    Q_PROPERTY(bool belowStave READ belowStave CONSTANT)
 
 public:
     enum class Position {
@@ -58,13 +58,7 @@ public:
 
     bool isDiagram() const;
 
-    QPointF pos() const;
-
-    QPointF size() const;
-
     QRectF staffPos() const;
-
-    bool belowStave() const;
 
     QVector<Position> pedalState() const;
 
@@ -87,8 +81,6 @@ private:
     void setPopupPedalState(std::array<HarpPedalPopupModel::Position, mu::engraving::HARP_STRING_NO> pos);
 
     std::array<mu::engraving::PedalPosition, mu::engraving::HARP_STRING_NO> getPopupPedalState();
-
-    mu::engraving::HarpPedalDiagram* m_diagram = nullptr;
 
     bool m_isDiagram = false;
 

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2022 MuseScore BVBA and others
+ * Copyright (C) 2022 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -38,17 +38,17 @@ static constexpr Qt::WindowFlags splashScreenWindowFlags = (Qt::SplashScreen | Q
 static constexpr Qt::WindowFlags splashScreenWindowFlags = Qt::SplashScreen | Qt::FramelessWindowHint;
 #endif
 
-SplashScreen::SplashScreen(SplashScreen::SplashScreenType type, const QVariant& data)
+SplashScreen::SplashScreen(SplashScreen::SplashScreenType type, bool forNewScore, const QString& openingFileName)
     : QWidget(nullptr, splashScreenWindowFlags)
 {
     setAttribute(Qt::WA_TranslucentBackground);
 
     switch (type) {
     case SplashScreen::Default:
-        m_view = new LoadingScreenView();
+        m_view = new LoadingScreenView(this);
         break;
     case SplashScreen::ForNewInstance:
-        m_view = new NewInstanceLoadingScreenView(data.toString());
+        m_view = new NewInstanceLoadingScreenView(forNewScore, openingFileName, this);
         break;
     }
 

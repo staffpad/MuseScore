@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,11 +25,13 @@
 
 #include "style/defaultstyle.h"
 #include "rw/mscloader.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/part.h"
+#include "rw/mscsaver.h"
+#include "dom/masterscore.h"
+#include "dom/part.h"
 
 #include "log.h"
 
+using namespace muse;
 using namespace mu;
 using namespace mu::engraving;
 
@@ -57,16 +59,16 @@ std::shared_ptr<EngravingProject> EngravingProject::create(const MStyle& style)
 
 EngravingProject::EngravingProject()
 {
-    ObjectAllocator::used();
+    muse::ObjectAllocator::used();
 }
 
 EngravingProject::~EngravingProject()
 {
     delete m_masterScore;
 
-    ObjectAllocator::unused();
+    muse::ObjectAllocator::unused();
 
-    AllocatorsRegister::instance()->printStatistic("=== Destroy engraving project ===");
+    // muse::AllocatorsRegister::instance()->printStatistic("=== Destroy engraving project ===");
     //! NOTE At the moment, the allocator is working as leak detector. No need to do cleanup, at the moment it can lead to crashes
     // AllocatorsRegister::instance()->cleanupAll("engraving");
 }
@@ -121,7 +123,6 @@ Ret EngravingProject::doSetupMasterScore(bool forceMode)
 
     for (Score* s : m_masterScore->scoreList()) {
         s->setPlaylistDirty();
-        s->addLayoutFlags(LayoutFlag::FIX_PITCH_VELO);
         s->setLayoutAll();
     }
 
@@ -131,7 +132,7 @@ Ret EngravingProject::doSetupMasterScore(bool forceMode)
     Ret ret = checkCorrupted();
     m_isCorruptedUponLoading = !ret;
 
-    return forceMode ? make_ok() : ret;
+    return forceMode ? muse::make_ok() : ret;
 }
 
 MasterScore* EngravingProject::masterScore() const
@@ -142,6 +143,7 @@ MasterScore* EngravingProject::masterScore() const
 Ret EngravingProject::loadMscz(const MscReader& msc, SettingsCompat& settingsCompat, bool ignoreVersionError)
 {
     TRACEFUNC;
+
     MScore::setError(MsError::MS_NO_ERROR);
     MscLoader loader;
     return loader.loadMscz(m_masterScore, msc, settingsCompat, ignoreVersionError);
@@ -150,12 +152,9 @@ Ret EngravingProject::loadMscz(const MscReader& msc, SettingsCompat& settingsCom
 bool EngravingProject::writeMscz(MscWriter& writer, bool onlySelection, bool createThumbnail)
 {
     TRACEFUNC;
-    bool ok = m_masterScore->writeMscz(writer, onlySelection, createThumbnail);
-    if (ok && !onlySelection) {
-        m_masterScore->update();
-    }
 
-    return ok;
+    MscSaver saver;
+    return saver.writeMscz(m_masterScore, writer, onlySelection, createThumbnail);
 }
 
 bool EngravingProject::isCorruptedUponLoading() const

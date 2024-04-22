@@ -28,8 +28,7 @@
 #include "shortcutstypes.h"
 #include "log.h"
 
-using namespace mu::shortcuts;
-using namespace mu::framework;
+using namespace muse::shortcuts;
 
 EditShortcutModel::EditShortcutModel(QObject* parent)
     : QObject(parent)
@@ -79,13 +78,14 @@ void EditShortcutModel::clearNewSequence()
     emit newSequenceChanged();
 }
 
-void EditShortcutModel::inputKey(int key, Qt::KeyboardModifiers modifiers)
+void EditShortcutModel::inputKey(Qt::Key key, Qt::KeyboardModifiers modifiers)
 {
+#ifdef MU_QT5_COMPAT
     std::pair<int, Qt::KeyboardModifiers> correctedKeyInput = correctKeyInput(key, modifiers);
     int newKey = correctedKeyInput.first;
     int newModifiers = correctedKeyInput.second;
 
-    if (needIgnoreKey(newKey)) {
+    if (needIgnoreKey(Qt::Key(newKey))) {
         return;
     }
 
@@ -111,6 +111,36 @@ void EditShortcutModel::inputKey(int key, Qt::KeyboardModifiers modifiers)
     checkNewSequenceForConflicts();
 
     emit newSequenceChanged();
+#else
+    std::tie(key, modifiers) = correctKeyInput(key, modifiers);
+
+    if (needIgnoreKey(key)) {
+        return;
+    }
+
+    // remove shift-modifier for keys that don't need it: letters and special keys
+    if ((modifiers & Qt::ShiftModifier) && ((key < Qt::Key_A) || (key > Qt::Key_Z) || (key >= Qt::Key_Escape))) {
+        modifiers &= ~Qt::ShiftModifier;
+    }
+
+    QKeyCombination combination(modifiers, key);
+
+    for (int i = 0; i < m_newSequence.count(); i++) {
+        if (m_newSequence[i] == combination) {
+            return;
+        }
+    }
+
+    QKeySequence newSequence = QKeySequence(combination);
+    if (m_newSequence == newSequence) {
+        return;
+    }
+
+    m_newSequence = newSequence;
+    checkNewSequenceForConflicts();
+
+    emit newSequenceChanged();
+#endif
 }
 
 void EditShortcutModel::checkNewSequenceForConflicts()
@@ -151,7 +181,7 @@ QString EditShortcutModel::conflictWarning() const
         return QString();
     }
 
-    return qtrc("shortcuts", "This shortcut is already assigned to: <b>%1</b>").arg(title);
+    return muse::qtrc("shortcuts", "This shortcut is already assigned to: <b>%1</b>").arg(title);
 }
 
 void EditShortcutModel::applyNewSequence()
@@ -171,12 +201,12 @@ void EditShortcutModel::applyNewSequence()
         return;
     }
 
-    QString str = conflictWarn + "<br><br>" + mu::qtrc("shortcuts", "Are you sure you want to assign it to <b>%1</b> instead?")
+    QString str = conflictWarn + "<br><br>" + muse::qtrc("shortcuts", "Are you sure you want to assign it to <b>%1</b> instead?")
                   .arg(m_originShortcutTitle);
 
     IInteractive::Text text(str.toStdString(), IInteractive::TextFormat::RichText);
 
-    IInteractive::Button btn = interactive()->warning(mu::trc("shortcuts", "Reassign shortcut"), text, {
+    IInteractive::Button btn = interactive()->warning(muse::trc("shortcuts", "Reassign shortcut"), text, {
         interactive()->buttonData(IInteractive::Button::Cancel),
         interactive()->buttonData(IInteractive::Button::Ok)
     }, (int)IInteractive::Button::Ok).standardButton();

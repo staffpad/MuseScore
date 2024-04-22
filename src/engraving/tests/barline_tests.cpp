@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,15 +22,15 @@
 
 #include <gtest/gtest.h>
 
-#include "libmscore/barline.h"
-#include "libmscore/bracket.h"
-#include "libmscore/factory.h"
-#include "libmscore/layoutbreak.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/measure.h"
-#include "libmscore/system.h"
-#include "libmscore/timesig.h"
-#include "libmscore/undo.h"
+#include "dom/barline.h"
+#include "dom/bracket.h"
+#include "dom/factory.h"
+#include "dom/layoutbreak.h"
+#include "dom/masterscore.h"
+#include "dom/measure.h"
+#include "dom/system.h"
+#include "dom/timesig.h"
+#include "dom/undo.h"
 
 #include "utils/scorerw.h"
 #include "utils/scorecomp.h"
@@ -76,7 +76,7 @@ TEST_F(Engraving_BarlineTests, barline01)
     EXPECT_TRUE(score);
 
     double height, heightMin, heightMax;
-    double spatium = score->spatium();
+    double spatium = score->style().spatium();
     int sysNo = 0;
     for (System* sys : score->systems()) {
         // check number of the brackets of each system
@@ -85,7 +85,7 @@ TEST_F(Engraving_BarlineTests, barline01)
         // check height of the bracket of each system
         // (bracket height is different between first system (3 staves) and other systems (2 staves) )
         Bracket* bracket = sys->brackets().at(0);
-        height      = bracket->bbox().height() / spatium;
+        height      = bracket->ldata()->bbox().height() / spatium;
         heightMin   = (sysNo == 0) ? BRACKET0_HEIGHT_MIN : BRACKET_HEIGHT_MIN;
         heightMax   = (sysNo == 0) ? BRACKET0_HEIGHT_MAX : BRACKET_HEIGHT_MAX;
 
@@ -239,7 +239,7 @@ TEST_F(Engraving_BarlineTests, barline05)
     // create and add a LineBreak element
     LayoutBreak* lb = Factory::createLayoutBreak(msr);
     lb->setLayoutBreakType(LayoutBreakType::LINE);
-    lb->setTrack(mu::nidx);               // system-level element
+    lb->setTrack(muse::nidx);               // system-level element
     lb->setParent(msr);
     score->undoAddElement(lb);
     score->doLayout();

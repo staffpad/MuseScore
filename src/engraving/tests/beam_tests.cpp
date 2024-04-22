@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,13 +22,13 @@
 
 #include <gtest/gtest.h>
 
-#include "libmscore/beam.h"
-#include "libmscore/chord.h"
-#include "libmscore/chordrest.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/measure.h"
-#include "libmscore/note.h"
-#include "libmscore/tremolo.h"
+#include "dom/beam.h"
+#include "dom/chord.h"
+#include "dom/chordrest.h"
+#include "dom/masterscore.h"
+#include "dom/measure.h"
+#include "dom/note.h"
+#include "dom/tremolotwochord.h"
 
 #include "utils/scorerw.h"
 #include "utils/scorecomp.h"
@@ -118,7 +118,10 @@ TEST_F(Engraving_BeamTests, wideBeams)
 
 TEST_F(Engraving_BeamTests, flatBeams)
 {
-    beam("flatBeams.mscx");
+    MasterScore* score = ScoreRW::readScore(BEAM_DATA_DIR + u"flatBeams.mscx");
+    EXPECT_TRUE(score);
+    EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"flatBeams.mscx", BEAM_DATA_DIR + u"flatBeams-ref.mscx"));
+    delete score;
 }
 
 // cross staff beaming is not yet supported
@@ -244,7 +247,7 @@ TEST_F(Engraving_BeamTests, flipTremoloStemDir)
 
     Measure* m1 = score->firstMeasure();
     ChordRest* cr = toChordRest(m1->findSegment(SegmentType::ChordRest, m1->tick())->element(0));
-    Tremolo* t = toChord(cr)->tremolo();
+    TremoloTwoChord* t = toChord(cr)->tremoloTwoChord();
     Chord* c1 = t->chord1();
     Chord* c2 = t->chord2();
     EXPECT_TRUE(t->up() && c1->up() && c2->up());

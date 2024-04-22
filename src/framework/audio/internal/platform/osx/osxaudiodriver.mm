@@ -33,7 +33,8 @@
 
 typedef AudioDeviceID OSXAudioDeviceID;
 
-using namespace mu::audio;
+using namespace muse;
+using namespace muse::audio;
 static constexpr char DEFAULT_DEVICE_ID[] = "Systems default";
 
 struct OSXAudioDriver::Data {
@@ -186,8 +187,10 @@ bool OSXAudioDriver::isOpened() const
 
 AudioDeviceList OSXAudioDriver::availableOutputDevices() const
 {
+    std::lock_guard lock(m_devicesMutex);
+
     AudioDeviceList deviceList;
-    deviceList.push_back({ DEFAULT_DEVICE_ID, trc("audio", "System default") });
+    deviceList.push_back({ DEFAULT_DEVICE_ID, muse::trc("audio", "System default") });
 
     for (auto& device : m_outputDevices) {
         AudioDevice deviceInfo;
@@ -200,18 +203,20 @@ AudioDeviceList OSXAudioDriver::availableOutputDevices() const
     return deviceList;
 }
 
-mu::async::Notification OSXAudioDriver::availableOutputDevicesChanged() const
+async::Notification OSXAudioDriver::availableOutputDevicesChanged() const
 {
     return m_availableOutputDevicesChanged;
 }
 
-mu::audio::AudioDeviceID OSXAudioDriver::outputDevice() const
+muse::audio::AudioDeviceID OSXAudioDriver::outputDevice() const
 {
     return m_deviceId;
 }
 
 void OSXAudioDriver::updateDeviceMap()
 {
+    std::lock_guard lock(m_devicesMutex);
+
     UInt32 propertySize;
     OSStatus result;
     std::vector<AudioObjectID> audioObjects = {};
@@ -269,6 +274,7 @@ void OSXAudioDriver::updateDeviceMap()
 
     for (auto&& deviceId : audioObjects) {
         CFStringRef nameRef;
+        propertySize = sizeof(nameRef);
 
         result = AudioObjectGetPropertyData(deviceId, &namePropertyAddress, 0, NULL, &propertySize, &nameRef);
         if (result != noErr) {
@@ -323,7 +329,7 @@ bool OSXAudioDriver::setOutputDeviceBufferSize(unsigned int bufferSize)
     return ok;
 }
 
-mu::async::Notification OSXAudioDriver::outputDeviceBufferSizeChanged() const
+async::Notification OSXAudioDriver::outputDeviceBufferSizeChanged() const
 {
     return m_bufferSizeChanged;
 }
@@ -364,6 +370,8 @@ bool OSXAudioDriver::audioQueueSetDeviceName(const AudioDeviceID& deviceId)
         return true; //default device used
     }
 
+    std::lock_guard lock(m_devicesMutex);
+
     uint deviceIdInt = QString::fromStdString(deviceId).toInt();
     auto index = std::find_if(m_outputDevices.begin(), m_outputDevices.end(), [&deviceIdInt](auto& d) {
         return d.first == deviceIdInt;
@@ -396,7 +404,7 @@ bool OSXAudioDriver::audioQueueSetDeviceName(const AudioDeviceID& deviceId)
     return true;
 }
 
-mu::audio::AudioDeviceID OSXAudioDriver::defaultDeviceId() const
+muse::audio::AudioDeviceID OSXAudioDriver::defaultDeviceId() const
 {
     OSXAudioDeviceID osxDeviceId = kAudioObjectUnknown;
     UInt32 deviceIdSize = sizeof(osxDeviceId);
@@ -453,7 +461,7 @@ bool OSXAudioDriver::resetToDefaultOutputDevice()
     return selectOutputDevice(DEFAULT_DEVICE_ID);
 }
 
-mu::async::Notification OSXAudioDriver::outputDeviceChanged() const
+async::Notification OSXAudioDriver::outputDeviceChanged() const
 {
     return m_outputDeviceChanged;
 }

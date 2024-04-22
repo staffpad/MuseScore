@@ -22,13 +22,16 @@
 #include "testdialog.h"
 #include "ui_testdialog.h"
 
-using namespace mu::ui;
+using namespace muse::ui;
 
+#ifdef MU_QT5_COMPAT
 TestDialog::TestDialog(const TestDialog& dialog)
     : QDialog(dialog.parentWidget()),
     ui(dialog.ui)
 {
 }
+
+#endif
 
 TestDialog::TestDialog(QWidget* parent)
     : QDialog(parent),
@@ -45,11 +48,6 @@ TestDialog::~TestDialog()
 QString TestDialog::title() const
 {
     return m_title;
-}
-
-int TestDialog::static_metaTypeId()
-{
-    return qRegisterMetaType<TestDialog>("TestDialog");
 }
 
 void TestDialog::setTitle(QString title)

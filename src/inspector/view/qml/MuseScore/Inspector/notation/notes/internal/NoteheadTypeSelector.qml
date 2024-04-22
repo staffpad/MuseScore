@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,8 +22,8 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 
-import MuseScore.UiComponents 1.0
-import MuseScore.Ui 1.0
+import Muse.UiComponents 1.0
+import Muse.Ui 1.0
 import MuseScore.Inspector 1.0
 
 import "../../../common"
@@ -33,6 +33,8 @@ FlatRadioButtonGroupPropertyView {
     titleText: qsTrc("inspector", "Notehead duration")
 
     radioButtonGroup.height: 40
+    requestIconFontSize: 30
+
     model: [
         { text: qsTrc("inspector", "Auto"), value: NoteHead.TYPE_AUTO, title: qsTrc("inspector", "Auto") },
         { iconCode: IconCode.NOTE_HEAD_QUARTER, value: NoteHead.TYPE_QUARTER, title: qsTrc("inspector", "Quarter") },
@@ -40,8 +42,4 @@ FlatRadioButtonGroupPropertyView {
         { iconCode: IconCode.NOTE_HEAD_WHOLE, value: NoteHead.TYPE_WHOLE, title: qsTrc("inspector", "Whole") },
         { iconCode: IconCode.NOTE_HEAD_BREVIS, value: NoteHead.TYPE_BREVIS, title: qsTrc("inspector", "Brevis") }
     ]
-
-    radioButtonGroup.delegate: FlatRadioButtonGroupPropertyView.Delegate {
-        iconFontSize: 30
-    }
 }

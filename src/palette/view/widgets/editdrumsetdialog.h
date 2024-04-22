@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -29,8 +29,9 @@
 #include "context/iglobalcontext.h"
 #include "notation/inotationconfiguration.h"
 #include "engraving/iengravingfontsprovider.h"
+#include "engraving/rendering/isinglerenderer.h"
 
-#include "libmscore/drumset.h"
+#include "engraving/dom/drumset.h"
 
 namespace mu::palette {
 //---------------------------------------------------------
@@ -41,16 +42,17 @@ class EditDrumsetDialog : public QDialog, private Ui::EditDrumsetDialog
 {
     Q_OBJECT
 
-    INJECT(framework::IInteractive, interactive)
+    INJECT(muse::IInteractive, interactive)
     INJECT(context::IGlobalContext, globalContext)
     INJECT(notation::INotationConfiguration, notationConfiguration)
+    INJECT(engraving::rendering::ISingleRenderer, engravingRenderer)
     INJECT_STATIC(engraving::IEngravingFontsProvider, engravingFonts)
 
 public:
     EditDrumsetDialog(QWidget* parent = nullptr);
+#ifdef MU_QT5_COMPAT
     EditDrumsetDialog(const EditDrumsetDialog& other);
-
-    static int static_metaTypeId();
+#endif
 
 private slots:
     void bboxClicked(QAbstractButton* button);
@@ -75,6 +77,8 @@ private:
     void setEnabledPitchControls(bool enable);
     void fillNoteheadsComboboxes(bool customGroup, int pitch);
 
+    void notifyAboutNoteInputStateChanged();
+
     notation::INotationPtr m_notation;
     notation::InstrumentKey m_instrumentKey;
 
@@ -82,7 +86,5 @@ private:
     engraving::Drumset m_editedDrumset;
 };
 }
-
-Q_DECLARE_METATYPE(mu::palette::EditDrumsetDialog)
 
 #endif // MU_PALETTE_EDITDRUMSETDIALOG_H

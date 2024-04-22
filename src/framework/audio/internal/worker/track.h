@@ -20,20 +20,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_AUDIO_TRACK_H
-#define MU_AUDIO_TRACK_H
+#ifndef MUSE_AUDIO_TRACK_H
+#define MUSE_AUDIO_TRACK_H
 
-#include <unordered_map>
 #include <memory>
-#include <vector>
 
-#include "async/asyncable.h"
-#include "async/channel.h"
+#include "global/async/asyncable.h"
+#include "global/async/channel.h"
 
 #include "iaudiosource.h"
 #include "audiotypes.h"
 
-namespace mu::audio {
+namespace muse::audio {
 enum TrackType {
     Undefined = -1,
     Event_track,
@@ -217,4 +215,4 @@ using SoundTrackPtr = std::shared_ptr<SoundTrack>;
 using TracksMap = std::map<TrackId, TrackPtr>;
 }
 
-#endif // MU_AUDIO_TRACK_H
+#endif // MUSE_AUDIO_TRACK_H

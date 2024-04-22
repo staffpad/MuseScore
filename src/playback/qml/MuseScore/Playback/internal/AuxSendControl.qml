@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2023 MuseScore BVBA and others
+ * Copyright (C) 2023 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,9 +22,9 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
-import MuseScore.Audio 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
+import Muse.Audio 1.0
 
 Item {
     id: root
@@ -54,12 +54,14 @@ Item {
         KnobControl {
             id: audioSignalAmountKnob
 
-            radius: root.height / 2
+            radius: root.height / 2 + 1.5
 
             from: 0
             to: 100
             stepSize: 1
             value: root.auxSendItemModel.audioSignalPercentage
+
+            accentControl: root.auxSendItemModel.isActive
 
             navigation.panel: root.navigationPanel
             navigation.row: root.navigationRowStart
@@ -76,22 +78,32 @@ Item {
         }
 
         FlatButton {
-            readonly property bool isHovering: mouseArea.containsMouse
+            id: bypassBtn
+
+            readonly property bool isHovering: bypassBtn.mouseArea.containsMouse
 
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.preferredHeight: audioSignalAmountKnob.backgroundHeight
+            Layout.alignment: Qt.AlignTop
 
             navigation.panel: root.navigationPanel
             navigation.row: root.navigationRowStart + 1
-            navigation.accessible.name: isHovering ? root.accessibleName + " " + root.title + " " + qsTrc("playback", "Bypass") : root.title
+            navigation.accessible.name: bypassBtn.isHovering ? root.accessibleName + " " + root.title + " " + qsTrc("playback", "Bypass") : root.title
             navigation.onActiveChanged: {
                 if (navigation.active) {
                     root.navigateControlIndexChanged({row: navigation.row, column: navigation.column})
                 }
             }
 
-            text: isHovering ? "" : root.title
-            icon: isHovering ? IconCode.BYPASS : IconCode.NONE
+            text: {
+                if (audioSignalAmountKnob.mouseArea.pressed) {
+                    return audioSignalAmountKnob.value + "%"
+                }
+
+                return bypassBtn.isHovering ? "" : root.title
+            }
+
+            icon: bypassBtn.isHovering ? IconCode.BYPASS : IconCode.NONE
 
             accentButton: root.auxSendItemModel.isActive
 

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,8 +22,8 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.InstrumentsScene 1.0
 
 StyledDialogView {
@@ -75,21 +75,12 @@ StyledDialogView {
         RowLayout {
             spacing: 12
 
-            NavigationPanel {
-                id: navBottomPanel
-
-                name: "BottomPanel"
-                section: root.navigationSection
-                order: 100
-                direction: NavigationPanel.Horizontal
-            }
-
             StyledTextLabel {
                 id: descriptionLabel
                 text: instrumentsPage.description
 
                 Layout.fillWidth: true
-                Layout.maximumHeight: okButton.height
+                Layout.maximumHeight: buttonBox.height
 
                 font: ui.theme.bodyFont
                 opacity: 0.7
@@ -97,29 +88,32 @@ StyledDialogView {
                 wrapMode: Text.Wrap
             }
 
-            FlatButton {
-                text: qsTrc("global", "Cancel")
+            ButtonBox {
+                id: buttonBox
 
-                navigation.name: "Cancel"
-                navigation.panel: navBottomPanel
-                navigation.column: 1
+                Layout.preferredWidth: implicitWidth
 
-                onClicked: {
-                    root.reject()
+                buttons: [ ButtonBoxModel.Cancel ]
+
+                navigationPanel.section: root.navigationSection
+                navigationPanel.order: 100
+
+                FlatButton {
+                    text: qsTrc("global", "OK")
+                    buttonRole: ButtonBoxModel.AcceptRole
+                    buttonId: ButtonBoxModel.Ok
+                    enabled: instrumentsPage.hasSelectedInstruments
+                    accentButton: true
+
+                    onClicked: {
+                        root.submit()
+                    }
                 }
-            }
 
-            FlatButton {
-                id: okButton
-                text: qsTrc("global", "OK")
-                enabled: instrumentsPage.hasSelectedInstruments
-
-                navigation.name: "OK"
-                navigation.panel: navBottomPanel
-                navigation.column: 2
-
-                onClicked: {
-                    root.submit()
+                onStandardButtonClicked: function(buttonId) {
+                    if (buttonId === ButtonBoxModel.Cancel) {
+                        root.reject()
+                    }
                 }
             }
         }

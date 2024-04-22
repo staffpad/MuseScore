@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<museScore version="4.00">
+<museScore version="4.40">
   <Score>
-    <LayerTag id="0" tag="default"></LayerTag>
-    <currentLayer>0</currentLayer>
     <Division>480</Division>
     <showInvisible>1</showInvisible>
     <showUnprintable>1</showUnprintable>
@@ -14,7 +12,6 @@
     <metaTag name="lyricist"></metaTag>
     <metaTag name="movementNumber"></metaTag>
     <metaTag name="movementTitle"></metaTag>
-    <metaTag name="poet"></metaTag>
     <metaTag name="source"></metaTag>
     <metaTag name="translator"></metaTag>
     <metaTag name="workNumber"></metaTag>
@@ -28,11 +25,11 @@
         <defaultClef>PERC</defaultClef>
         </Staff>
       <trackName>Percussions</trackName>
-      <Instrument id="piano">
+      <Instrument id="automobile-brake-drums">
         <longName>Percussions</longName>
         <shortName>drm.</shortName>
         <trackName></trackName>
-        <instrumentId>drumset</instrumentId>
+        <instrumentId>metal.brake-drums</instrumentId>
         <useDrumset>1</useDrumset>
         <Drum pitch="27">
           <head>normal</head>
@@ -92,7 +89,7 @@
           </Drum>
         <Drum pitch="35">
           <head>normal</head>
-          <line>7</line>
+          <line>8</line>
           <voice>0</voice>
           <name>Acoustic Bass Drum</name>
           <stem>1</stem>
@@ -246,7 +243,7 @@
           </Drum>
         <Drum pitch="57">
           <head>cross</head>
-          <line>-1</line>
+          <line>-3</line>
           <voice>0</voice>
           <name>Crash Cymbal 2</name>
           <stem>1</stem>
@@ -468,6 +465,13 @@
           <name>Snare (Rim shot)</name>
           <stem>1</stem>
           </Drum>
+        <Drum pitch="92">
+          <head>cross</head>
+          <line>-1</line>
+          <voice>0</voice>
+          <name>Open Hi-Hat</name>
+          <stem>1</stem>
+          </Drum>
         <Drum pitch="93">
           <head>cross</head>
           <line>0</line>
@@ -499,35 +503,8 @@
           <string>0</string>
           <string>0</string>
           </StringData>
-        <Articulation name="staccatissimo">
-          <velocity>100</velocity>
-          <gateTime>30</gateTime>
-          </Articulation>
-        <Articulation name="staccato">
-          <velocity>100</velocity>
-          <gateTime>50</gateTime>
-          </Articulation>
-        <Articulation name="portato">
-          <velocity>100</velocity>
-          <gateTime>67</gateTime>
-          </Articulation>
-        <Articulation name="tenuto">
-          <velocity>100</velocity>
-          <gateTime>100</gateTime>
-          </Articulation>
-        <Articulation name="accent">
-          <velocity>120</velocity>
-          <gateTime>67</gateTime>
-          </Articulation>
-        <Articulation name="marcato">
-          <velocity>144</velocity>
-          <gateTime>67</gateTime>
-          </Articulation>
-        <Articulation name="sforzato">
-          <velocity>169</velocity>
-          <gateTime>100</gateTime>
-          </Articulation>
         <Channel>
+          <controller ctrl="0" value="1"/>
           <program value="0"/>
           <controller ctrl="7" value="61"/>
           </Channel>
@@ -536,6 +513,10 @@
     <Staff id="1">
       <Measure>
         <voice>
+          <KeySig>
+            <concertKey>0</concertKey>
+            <mode>major</mode>
+            </KeySig>
           <TimeSig>
             <sigN>4</sigN>
             <sigD>4</sigD>
@@ -586,11 +567,13 @@
             <durationType>half</durationType>
             <Note>
               <pitch>30</pitch>
-              <tpc>0</tpc>
+              <tpc>20</tpc>
               <fret>30</fret>
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -614,6 +597,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -632,11 +617,13 @@
             <durationType>half</durationType>
             <Note>
               <pitch>34</pitch>
-              <tpc>0</tpc>
+              <tpc>24</tpc>
               <fret>34</fret>
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -659,6 +646,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -667,7 +656,7 @@
             <durationType>half</durationType>
             <Note>
               <pitch>37</pitch>
-              <tpc>0</tpc>
+              <tpc>21</tpc>
               <head>cross</head>
               <fret>37</fret>
               <string>0</string>
@@ -682,6 +671,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -690,7 +681,7 @@
             <durationType>half</durationType>
             <Note>
               <pitch>39</pitch>
-              <tpc>0</tpc>
+              <tpc>11</tpc>
               <fret>39</fret>
               <string>0</string>
               </Note>
@@ -704,6 +695,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -721,12 +714,14 @@
             <durationType>half</durationType>
             <Note>
               <pitch>42</pitch>
-              <tpc>0</tpc>
+              <tpc>20</tpc>
               <head>cross</head>
               <fret>42</fret>
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -744,12 +739,14 @@
             <durationType>half</durationType>
             <Note>
               <pitch>44</pitch>
-              <tpc>0</tpc>
+              <tpc>22</tpc>
               <head>cross</head>
               <fret>44</fret>
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -767,12 +764,14 @@
             <durationType>half</durationType>
             <Note>
               <pitch>46</pitch>
-              <tpc>0</tpc>
+              <tpc>24</tpc>
               <head>xcircle</head>
               <fret>46</fret>
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -795,6 +794,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -803,7 +804,7 @@
             <durationType>half</durationType>
             <Note>
               <pitch>49</pitch>
-              <tpc>0</tpc>
+              <tpc>21</tpc>
               <head>cross</head>
               <fret>49</fret>
               <string>0</string>
@@ -818,6 +819,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -826,7 +829,7 @@
             <durationType>half</durationType>
             <Note>
               <pitch>51</pitch>
-              <tpc>0</tpc>
+              <tpc>11</tpc>
               <head>cross</head>
               <fret>51</fret>
               <string>0</string>
@@ -842,6 +845,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -860,12 +865,14 @@
             <durationType>half</durationType>
             <Note>
               <pitch>54</pitch>
-              <tpc>0</tpc>
+              <tpc>20</tpc>
               <head>cross</head>
               <fret>54</fret>
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -884,11 +891,13 @@
             <durationType>half</durationType>
             <Note>
               <pitch>56</pitch>
-              <tpc>0</tpc>
+              <tpc>22</tpc>
               <fret>56</fret>
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -907,11 +916,13 @@
             <durationType>half</durationType>
             <Note>
               <pitch>58</pitch>
-              <tpc>0</tpc>
+              <tpc>24</tpc>
               <fret>58</fret>
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -935,6 +946,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -943,7 +956,7 @@
             <durationType>half</durationType>
             <Note>
               <pitch>61</pitch>
-              <tpc>0</tpc>
+              <tpc>21</tpc>
               <fret>61</fret>
               <string>0</string>
               </Note>
@@ -958,6 +971,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -966,7 +981,7 @@
             <durationType>half</durationType>
             <Note>
               <pitch>63</pitch>
-              <tpc>0</tpc>
+              <tpc>11</tpc>
               <head>cross</head>
               <fret>63</fret>
               <string>0</string>
@@ -982,6 +997,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -1000,12 +1017,14 @@
             <durationType>half</durationType>
             <Note>
               <pitch>66</pitch>
-              <tpc>0</tpc>
+              <tpc>20</tpc>
               <head>cross</head>
               <fret>66</fret>
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -1023,11 +1042,13 @@
             <durationType>half</durationType>
             <Note>
               <pitch>68</pitch>
-              <tpc>0</tpc>
+              <tpc>22</tpc>
               <fret>68</fret>
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -1045,11 +1066,13 @@
             <durationType>half</durationType>
             <Note>
               <pitch>70</pitch>
-              <tpc>0</tpc>
+              <tpc>24</tpc>
               <fret>70</fret>
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -1072,6 +1095,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -1080,7 +1105,7 @@
             <durationType>half</durationType>
             <Note>
               <pitch>73</pitch>
-              <tpc>0</tpc>
+              <tpc>21</tpc>
               <fret>73</fret>
               <string>0</string>
               </Note>
@@ -1094,6 +1119,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -1102,7 +1129,7 @@
             <durationType>half</durationType>
             <Note>
               <pitch>75</pitch>
-              <tpc>0</tpc>
+              <tpc>11</tpc>
               <fret>75</fret>
               <string>0</string>
               </Note>
@@ -1116,6 +1143,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -1133,11 +1162,13 @@
             <durationType>half</durationType>
             <Note>
               <pitch>78</pitch>
-              <tpc>0</tpc>
+              <tpc>20</tpc>
               <fret>78</fret>
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -1155,11 +1186,13 @@
             <durationType>half</durationType>
             <Note>
               <pitch>80</pitch>
-              <tpc>0</tpc>
+              <tpc>22</tpc>
               <fret>80</fret>
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -1177,11 +1210,13 @@
             <durationType>half</durationType>
             <Note>
               <pitch>82</pitch>
-              <tpc>0</tpc>
+              <tpc>24</tpc>
               <fret>82</fret>
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -1204,6 +1239,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -1212,7 +1249,7 @@
             <durationType>half</durationType>
             <Note>
               <pitch>85</pitch>
-              <tpc>0</tpc>
+              <tpc>21</tpc>
               <fret>85</fret>
               <string>0</string>
               </Note>
@@ -1226,6 +1263,8 @@
               <string>0</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -1234,7 +1273,7 @@
             <durationType>half</durationType>
             <Note>
               <pitch>87</pitch>
-              <tpc>0</tpc>
+              <tpc>11</tpc>
               <fret>87</fret>
               <string>0</string>
               </Note>
@@ -1242,9 +1281,6 @@
           <Rest>
             <durationType>half</durationType>
             </Rest>
-          <BarLine>
-            <subtype>end</subtype>
-            </BarLine>
           </voice>
         </Measure>
       </Staff>

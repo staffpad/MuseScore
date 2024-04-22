@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,15 +23,15 @@
 
 #include "engraving/style/defaultstyle.h"
 
-#include "libmscore/masterscore.h"
-#include "libmscore/excerpt.h"
-#include "libmscore/mscore.h"
-#include "libmscore/undo.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/excerpt.h"
+#include "engraving/dom/mscore.h"
+#include "engraving/dom/undo.h"
 
 #include "log.h"
 
 using namespace mu::notation;
-using namespace mu::async;
+using namespace muse::async;
 
 NotationStyle::NotationStyle(IGetScore* getScore, INotationUndoStackPtr undoStack)
     : m_getScore(getScore), m_undoStack(undoStack)
@@ -40,7 +40,7 @@ NotationStyle::NotationStyle(IGetScore* getScore, INotationUndoStackPtr undoStac
 
 PropertyValue NotationStyle::styleValue(const StyleId& styleId) const
 {
-    return score()->styleV(styleId);
+    return score()->style().styleV(styleId);
 }
 
 PropertyValue NotationStyle::defaultStyleValue(const StyleId& styleId) const
@@ -67,6 +67,7 @@ void NotationStyle::setStyleValue(const StyleId& styleId, const PropertyValue& n
 void NotationStyle::resetStyleValue(const StyleId& styleId)
 {
     score()->resetStyleValue(styleId);
+    score()->update();
     m_styleChanged.notify();
 }
 
@@ -89,33 +90,9 @@ void NotationStyle::applyToAllParts()
     }
 }
 
-void NotationStyle::resetAllStyleValues(const std::set<StyleId>& exceptTheseOnes)
+void NotationStyle::resetAllStyleValues(const StyleIdSet& exceptTheseOnes)
 {
-    static const std::set<StyleId> stylesNotToReset {
-        StyleId::pageWidth,
-        StyleId::pageHeight,
-        StyleId::pagePrintableWidth,
-        StyleId::pageEvenTopMargin,
-        StyleId::pageEvenBottomMargin,
-        StyleId::pageEvenLeftMargin,
-        StyleId::pageOddTopMargin,
-        StyleId::pageOddBottomMargin,
-        StyleId::pageOddLeftMargin,
-        StyleId::pageTwosided,
-        StyleId::spatium,
-        StyleId::concertPitch,
-        StyleId::createMultiMeasureRests
-    };
-
-    int beginIdx = int(StyleId::NOSTYLE) + 1;
-    int endIdx = int(StyleId::STYLES);
-    for (int idx = beginIdx; idx < endIdx; idx++) {
-        StyleId styleId = StyleId(idx);
-        if (stylesNotToReset.find(styleId) == stylesNotToReset.cend() && exceptTheseOnes.find(styleId) == exceptTheseOnes.cend()) {
-            score()->resetStyleValue(styleId);
-        }
-    }
-
+    score()->cmdResetAllStyles(exceptTheseOnes);
     score()->update();
     m_styleChanged.notify();
 }
@@ -125,7 +102,7 @@ Notification NotationStyle::styleChanged() const
     return m_styleChanged;
 }
 
-bool NotationStyle::loadStyle(const mu::io::path_t& path, bool allowAnyVersion)
+bool NotationStyle::loadStyle(const muse::io::path_t& path, bool allowAnyVersion)
 {
     m_undoStack->prepareChanges();
     bool result = score()->loadStyle(path.toQString(), allowAnyVersion);
@@ -138,7 +115,7 @@ bool NotationStyle::loadStyle(const mu::io::path_t& path, bool allowAnyVersion)
     return result;
 }
 
-bool NotationStyle::saveStyle(const mu::io::path_t& path)
+bool NotationStyle::saveStyle(const muse::io::path_t& path)
 {
     return score()->saveStyle(path.toQString());
 }

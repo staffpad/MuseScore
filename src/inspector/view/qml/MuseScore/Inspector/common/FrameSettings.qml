@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,12 +22,12 @@
 
 import QtQuick 2.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.Inspector 1.0
 
 Column {
-    id: frameSettings
+    id: root
 
     width: parent.width
     spacing: 12
@@ -35,22 +35,23 @@ Column {
     property string navigationName: "FrameSettings"
     property NavigationPanel navigationPanel: null
     property int navigationRowStart: 0
+    readonly property int navigationRowEnd: cornerRadiusSection.navigationRowEnd
 
-    required property QtObject frameTypePropertyItem
-    required property QtObject frameBorderColorPropertyItem
-    required property QtObject frameFillColorPropertyItem
-    required property QtObject frameThicknessPropertyItem
-    required property QtObject frameMarginPropertyItem
-    required property QtObject frameCornerRadiusPropertyItem
+    required property PropertyItem frameType
+    required property PropertyItem frameBorderColor
+    required property PropertyItem frameFillColor
+    required property PropertyItem frameThickness
+    required property PropertyItem frameMargin
+    required property PropertyItem frameCornerRadius
 
     FlatRadioButtonGroupPropertyView {
         id: frameSection
         titleText: qsTrc("inspector", "Frame")
-        propertyItem: frameSettings.frameTypePropertyItem ? frameSettings.frameTypePropertyItem : null
+        propertyItem: root.frameType ? root.frameType : null
 
         navigationName: "FrameMenu"
-        navigationPanel: frameSettings.navigationPanel
-        navigationRowStart: frameSettings.navigationRowStart
+        navigationPanel: root.navigationPanel
+        navigationRowStart: root.navigationRowStart
 
         model: [
             { text: qsTrc("inspector", "None"), value: TextTypes.FRAME_TYPE_NONE, titleRole: qsTrc("inspector", "None") },
@@ -70,14 +71,14 @@ Column {
             anchors.rightMargin: 2
 
             navigationName: "BorderColorMenu"
-            navigationPanel: frameSettings.navigationPanel
+            navigationPanel: root.navigationPanel
             navigationRowStart: frameSection.navigationRowEnd + 1
 
-            visible: frameSettings.frameBorderColorPropertyItem.isEnabled
+            visible: root.frameBorderColor ? root.frameBorderColor.isEnabled : false
             height: visible ? implicitHeight : 0
 
             titleText: qsTrc("inspector", "Border")
-            propertyItem: frameSettings.frameBorderColorPropertyItem
+            propertyItem: root.frameBorderColor
         }
 
         ColorSection {
@@ -87,14 +88,14 @@ Column {
             anchors.right: parent.right
 
             navigationName: "HighlightColorMenu"
-            navigationPanel: frameSettings.navigationPanel
+            navigationPanel: root.navigationPanel
             navigationRowStart: borderColorSection.navigationRowEnd + 1
 
-            visible: frameSettings.frameFillColorPropertyItem.isEnabled
+            visible: root.frameFillColor ? root.frameFillColor.isEnabled : false
             height: visible ? implicitHeight : 0
 
             titleText: qsTrc("inspector", "Fill color")
-            propertyItem: frameSettings.frameFillColorPropertyItem
+            propertyItem: root.frameFillColor
         }
     }
 
@@ -109,14 +110,14 @@ Column {
             anchors.rightMargin: 2
 
             navigationName: "Thickness"
-            navigationPanel: frameSettings.navigationPanel
+            navigationPanel: root.navigationPanel
             navigationRowStart: highlightColorSection.navigationRowEnd + 1
 
-            visible: frameSettings.frameThicknessPropertyItem.isEnabled
+            visible: root.frameThickness ? root.frameThickness.isEnabled : false
             height: visible ? implicitHeight : 0
 
             titleText: qsTrc("inspector", "Thickness")
-            propertyItem: frameSettings.frameThicknessPropertyItem
+            propertyItem: root.frameThickness
 
             step: 0.1
             minValue: 0
@@ -129,15 +130,15 @@ Column {
             anchors.leftMargin: 2
             anchors.right: parent.right
 
-            navigationName: "Margin"
-            navigationPanel: frameSettings.navigationPanel
+            navigationName: "Padding"
+            navigationPanel: root.navigationPanel
             navigationRowStart: thicknessSection.navigationRowEnd + 1
 
-            visible: frameSettings.frameMarginPropertyItem.isEnabled
+            visible: root.frameMargin ? root.frameMargin.isEnabled : false
             height: visible ? implicitHeight : 0
 
-            titleText: qsTrc("inspector", "Margin")
-            propertyItem: frameSettings.frameMarginPropertyItem
+            titleText: qsTrc("inspector", "Padding")
+            propertyItem: root.frameMargin
 
             step: 0.1
             minValue: 0
@@ -152,14 +153,14 @@ Column {
         anchors.rightMargin: 2
 
         navigationName: "Corner radius"
-        navigationPanel: frameSettings.navigationPanel
+        navigationPanel: root.navigationPanel
         navigationRowStart: marginSection.navigationRowEnd + 1
 
-        visible: frameSettings.frameCornerRadiusPropertyItem.isEnabled
+        visible: root.frameCornerRadius ? root.frameCornerRadius.isEnabled : false
         height: visible ? implicitHeight : 0
 
         titleText: qsTrc("inspector", "Corner radius")
-        propertyItem: frameSettings.frameCornerRadiusPropertyItem
+        propertyItem: root.frameCornerRadius
 
         step: 1
         decimals: 2

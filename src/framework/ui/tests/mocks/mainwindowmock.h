@@ -19,15 +19,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_UI_MAINWINDOWMOCK_H
-#define MU_UI_MAINWINDOWMOCK_H
+#ifndef MUSE_UI_MAINWINDOWMOCK_H
+#define MUSE_UI_MAINWINDOWMOCK_H
 
 #include <gmock/gmock.h>
 
 #include "framework/ui/imainwindow.h"
 #include "async/notification.h"
 
-namespace mu::ui {
+namespace muse::ui {
 class MainWindowMock : public IMainWindow
 {
 public:
@@ -41,10 +41,10 @@ public:
 
     MOCK_METHOD(bool, isFullScreen, (), (const, override));
     MOCK_METHOD(async::Notification, isFullScreenChanged, (), (const, override));
-
     MOCK_METHOD(void, toggleFullScreen, (), (override));
+
     MOCK_METHOD(QScreen*, screen, (), (const, override));
 };
 }
 
-#endif // MU_UI_MAINWINDOWMOCK_H
+#endif // MUSE_UI_MAINWINDOWMOCK_H

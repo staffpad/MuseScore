@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,7 +25,7 @@
 #include "utils/scorerw.h"
 #include "realfn.h"
 #include "types/constants.h"
-#include "libmscore/tempo.h"
+#include "dom/tempo.h"
 
 using namespace mu;
 using namespace mu::engraving;
@@ -51,7 +51,7 @@ TEST_F(Engraving_TempoMapTests, DEFAULT_TEMPO)
     ASSERT_TRUE(score);
 
     // [GIVEN] Expected tempo
-    BeatsPerSecond expectedTempo = Constants::defaultTempo;
+    BeatsPerSecond expectedTempo = Constants::DEFAULT_TEMPO;
 
     // [WHEN] We request score's tempomap it should contain only 1 value, which is our expected tempo
     const TempoMap* tempoMap = score->tempomap();
@@ -84,7 +84,7 @@ TEST_F(Engraving_TempoMapTests, ABSOLUTE_TEMPO_80_BPM)
 
     // [THEN] Applied tempo matches with our expectations
     for (const auto& pair : *tempoMap) {
-        EXPECT_TRUE(RealIsEqual(RealRound(pair.second.tempo.val, 2), RealRound(expectedTempo.val, 2)));
+        EXPECT_TRUE(muse::RealIsEqual(muse::RealRound(pair.second.tempo.val, 2), muse::RealRound(expectedTempo.val, 2)));
     }
 }
 
@@ -104,7 +104,7 @@ TEST_F(Engraving_TempoMapTests, ABSOLUTE_TEMPO_FROM_80_TO_120_BPM)
     // [GIVEN] Expected tempomap
     std::map<int, BeatsPerSecond> expectedTempoMap = {
         { 0, BeatsPerSecond::fromBPM(BeatsPerMinute(80.f)) }, // first measure
-        { 4 * 4 * Constants::division, BeatsPerSecond::fromBPM(BeatsPerMinute(120.f)) } // 4-th measure
+        { 4 * 4 * Constants::DIVISION, BeatsPerSecond::fromBPM(BeatsPerMinute(120.f)) } // 4-th measure
     };
 
     // [WHEN] We request score's tempomap its size matches with our expectations
@@ -113,7 +113,7 @@ TEST_F(Engraving_TempoMapTests, ABSOLUTE_TEMPO_FROM_80_TO_120_BPM)
 
     // [THEN] Applied tempo matches with our expectations
     for (const auto& pair : *tempoMap) {
-        EXPECT_TRUE(RealIsEqual(RealRound(pair.second.tempo.val, 2), RealRound(expectedTempoMap.at(pair.first).val, 2)));
+        EXPECT_TRUE(muse::RealIsEqual(muse::RealRound(pair.second.tempo.val, 2), muse::RealRound(expectedTempoMap.at(pair.first).val, 2)));
     }
 }
 
@@ -140,18 +140,18 @@ TEST_F(Engraving_TempoMapTests, TEMPO_MULTIPLIER)
     // [GIVEN] Expected tempomap
     std::map<int, BeatsPerSecond> expectedTempoMap = {
         { 0, BeatsPerSecond::fromBPM(BeatsPerMinute(80.0)) }, // first measure
-        { 4 * 4 * Constants::division, BeatsPerSecond::fromBPM(BeatsPerMinute(120.0)) } // 4-th measure
+        { 4 * 4 * Constants::DIVISION, BeatsPerSecond::fromBPM(BeatsPerMinute(120.0)) } // 4-th measure
     };
 
     // [WHEN] We request score's tempomap its size matches with our expectations
     EXPECT_EQ(tempoMap->size(), expectedTempoMap.size());
 
     // [THEN] Applied tempo matches with our expectations
-    for (int tick : mu::keys(*tempoMap)) {
+    for (int tick : muse::keys(*tempoMap)) {
         double expectedBps = expectedTempoMap[tick].val;
 
-        EXPECT_TRUE(RealIsEqual(RealRound(tempoMap->tempo(tick).val, 2), RealRound(expectedBps * multiplier, 2)));
-        EXPECT_TRUE(RealIsEqual(RealRound(tempoMap->at(tick).tempo.val, 2), RealRound(expectedBps, 2)));
+        EXPECT_TRUE(muse::RealIsEqual(muse::RealRound(tempoMap->tempo(tick).val, 2), muse::RealRound(expectedBps * multiplier, 2)));
+        EXPECT_TRUE(muse::RealIsEqual(muse::RealRound(tempoMap->at(tick).tempo.val, 2), muse::RealRound(expectedBps, 2)));
     }
 }
 
@@ -172,7 +172,7 @@ TEST_F(Engraving_TempoMapTests, GRADUAL_TEMPO_CHANGE_ACCELERANDO)
     // [GIVEN] Expected tempomap
     std::map<int, BeatsPerSecond> expectedTempoMap = {
         { 0, BeatsPerSecond::fromBPM(BeatsPerMinute(120.f)) }, // beginning of the first measure
-        { 6 * 4 * Constants::division, BeatsPerSecond::fromBPM(BeatsPerMinute(159.6f)) } // beginning of the last measure
+        { 6 * 4 * Constants::DIVISION, BeatsPerSecond::fromBPM(BeatsPerMinute(159.6f)) } // beginning of the last measure
     };
 
     // [WHEN] We request score's tempomap its size matches with our expectations
@@ -181,7 +181,7 @@ TEST_F(Engraving_TempoMapTests, GRADUAL_TEMPO_CHANGE_ACCELERANDO)
 
     // [THEN] Applied tempo matches with our expectations
     for (const auto& pair : expectedTempoMap) {
-        EXPECT_TRUE(RealIsEqual(RealRound(tempoMap->at(pair.first).tempo.val, 2), RealRound(pair.second.val, 2)));
+        EXPECT_TRUE(muse::RealIsEqual(muse::RealRound(tempoMap->at(pair.first).tempo.val, 2), muse::RealRound(pair.second.val, 2)));
     }
 }
 
@@ -201,7 +201,7 @@ TEST_F(Engraving_TempoMapTests, GRADUAL_TEMPO_CHANGE_RALLENTANDO)
     // [GIVEN] Expected tempomap
     std::map<int, BeatsPerSecond> expectedTempoMap = {
         { 0, BeatsPerSecond::fromBPM(BeatsPerMinute(120.f)) }, // beginning of the first measure
-        { 6 * 4 * Constants::division, BeatsPerSecond::fromBPM(BeatsPerMinute(90.f)) } // beginning of the last measure
+        { 6 * 4 * Constants::DIVISION, BeatsPerSecond::fromBPM(BeatsPerMinute(90.f)) } // beginning of the last measure
     };
 
     // [WHEN] We request score's tempomap its size matches with our expectations
@@ -210,7 +210,7 @@ TEST_F(Engraving_TempoMapTests, GRADUAL_TEMPO_CHANGE_RALLENTANDO)
 
     // [THEN] Applied tempo matches with our expectations
     for (const auto& pair : expectedTempoMap) {
-        EXPECT_TRUE(RealIsEqual(RealRound(tempoMap->at(pair.first).tempo.val, 2), RealRound(pair.second.val, 2)));
+        EXPECT_TRUE(muse::RealIsEqual(muse::RealRound(tempoMap->at(pair.first).tempo.val, 2), muse::RealRound(pair.second.val, 2)));
     }
 }
 
@@ -253,6 +253,6 @@ TEST_F(Engraving_TempoMapTests, GRADUAL_TEMPO_CHANGE_DOESNT_OVERWRITE_OTHER_TEMP
 
     // [THEN] Applied tempo matches with our expectations
     for (const auto& pair : expectedTempoMap) {
-        EXPECT_TRUE(RealIsEqual(RealRound(tempoMap->at(pair.first).tempo.val, 2), RealRound(pair.second.val, 2)));
+        EXPECT_TRUE(muse::RealIsEqual(muse::RealRound(tempoMap->at(pair.first).tempo.val, 2), muse::RealRound(pair.second.val, 2)));
     }
 }

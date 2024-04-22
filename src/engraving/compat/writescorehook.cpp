@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,11 +23,14 @@
 
 #include "rw/xmlwriter.h"
 
-#include "libmscore/masterscore.h"
-#include "libmscore/excerpt.h"
+#include "dom/masterscore.h"
+#include "dom/excerpt.h"
+
+#include "rw/write/writer.h"
 
 using namespace mu::engraving;
 using namespace mu::engraving::compat;
+using namespace mu::engraving::write;
 
 void WriteScoreHook::onWriteStyle302(Score* score, XmlWriter& xml)
 {
@@ -48,7 +51,7 @@ void WriteScoreHook::onWriteStyle302(Score* score, XmlWriter& xml)
     }
 }
 
-void WriteScoreHook::onWriteExcerpts302(Score* score, XmlWriter& xml, bool selectionOnly)
+void WriteScoreHook::onWriteExcerpts302(Score* score, XmlWriter& xml, WriteContext& ctx, bool selectionOnly)
 {
     bool isWriteExcerpts = false;
 
@@ -57,18 +60,12 @@ void WriteScoreHook::onWriteExcerpts302(Score* score, XmlWriter& xml, bool selec
         isWriteExcerpts = true;
     }
 
-    if (isWriteExcerpts) {
-        if (score->isMaster()) {
-            if (!selectionOnly) {
-                MasterScore* mScore = static_cast<MasterScore*>(score);
-                for (const Excerpt* excerpt : mScore->excerpts()) {
-                    if (excerpt->excerptScore() != score) {
-                        excerpt->excerptScore()->write(xml, selectionOnly, *this); // recursion write
-                    }
-                }
+    if (isWriteExcerpts && score->isMaster() && !selectionOnly) {
+        MasterScore* mScore = static_cast<MasterScore*>(score);
+        for (const Excerpt* excerpt : mScore->excerpts()) {
+            if (excerpt->excerptScore() != score) {
+                write::Writer::write(excerpt->excerptScore(), xml, ctx, selectionOnly, *this);         // recursion write
             }
-        } else {
-            xml.tag("name", score->excerpt()->name());
         }
     }
 }

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -52,9 +52,10 @@
 #include "view/widgets/timedialog.h"
 
 using namespace mu::palette;
-using namespace mu::modularity;
-using namespace mu::ui;
-using namespace mu::accessibility;
+using namespace muse;
+using namespace muse::modularity;
+using namespace muse::ui;
+using namespace muse::accessibility;
 
 static void palette_init_qrc()
 {
@@ -80,36 +81,22 @@ void PaletteModule::registerExports()
 
 void PaletteModule::resolveImports()
 {
-    auto ar = ioc()->resolve<ui::IUiActionsRegister>(moduleName());
+    auto ar = ioc()->resolve<muse::ui::IUiActionsRegister>(moduleName());
     if (ar) {
         ar->reg(m_paletteUiActions);
     }
 
     auto ir = ioc()->resolve<IInteractiveUriRegister>(moduleName());
     if (ir) {
-        ir->registerUri(Uri("musescore://palette/masterpalette"),
-                        ContainerMeta(ContainerType::QWidgetDialog, MasterPalette::static_metaTypeId()));
+        ir->registerWidgetUri<MasterPalette>(Uri("musescore://palette/masterpalette"));
+        ir->registerWidgetUri<SpecialCharactersDialog>(Uri("musescore://palette/specialcharacters"));
+        ir->registerWidgetUri<TimeSignaturePropertiesDialog>(Uri("musescore://palette/timesignatureproperties"));
+        ir->registerWidgetUri<EditDrumsetDialog>(Uri("musescore://palette/editdrumset"));
+        ir->registerWidgetUri<KeyEditor>(Uri("musescore://notation/keysignatures"));
+        ir->registerWidgetUri<TimeDialog>(Uri("musescore://notation/timesignatures"));
 
-        ir->registerUri(Uri("musescore://palette/specialcharacters"),
-                        ContainerMeta(ContainerType::QWidgetDialog, SpecialCharactersDialog::static_metaTypeId()));
-
-        ir->registerUri(Uri("musescore://palette/timesignatureproperties"),
-                        ContainerMeta(ContainerType::QWidgetDialog, TimeSignaturePropertiesDialog::static_metaTypeId()));
-
-        ir->registerUri(Uri("musescore://palette/editdrumset"),
-                        ContainerMeta(ContainerType::QWidgetDialog, EditDrumsetDialog::static_metaTypeId()));
-
-        ir->registerUri(Uri("musescore://palette/properties"),
-                        ContainerMeta(ContainerType::QmlDialog, "MuseScore/Palette/PalettePropertiesDialog.qml"));
-
-        ir->registerUri(Uri("musescore://palette/cellproperties"),
-                        ContainerMeta(ContainerType::QmlDialog, "MuseScore/Palette/PaletteCellPropertiesDialog.qml"));
-
-        ir->registerUri(Uri("musescore://notation/keysignatures"),
-                        ContainerMeta(ContainerType::QWidgetDialog, qRegisterMetaType<KeyEditor>("KeySignaturesDialog")));
-
-        ir->registerUri(Uri("musescore://notation/timesignatures"),
-                        ContainerMeta(ContainerType::QWidgetDialog, qRegisterMetaType<TimeDialog>("TimeSignaturesDialog")));
+        ir->registerQmlUri(Uri("musescore://palette/properties"), "MuseScore/Palette/PalettePropertiesDialog.qml");
+        ir->registerQmlUri(Uri("musescore://palette/cellproperties"), "MuseScore/Palette/PaletteCellPropertiesDialog.qml");
     }
 
     auto accr = ioc()->resolve<IQAccessibleInterfaceRegister>(moduleName());
@@ -144,12 +131,12 @@ void PaletteModule::registerUiTypes()
     qRegisterMetaType<TimeSignaturePropertiesDialog>("TimeSignaturePropertiesDialog");
     qRegisterMetaType<EditDrumsetDialog>("EditDrumsetDialog");
 
-    ioc()->resolve<ui::IUiEngine>(moduleName())->addSourceImportPath(palette_QML_IMPORT);
+    ioc()->resolve<muse::ui::IUiEngine>(moduleName())->addSourceImportPath(palette_QML_IMPORT);
 }
 
-void PaletteModule::onInit(const framework::IApplication::RunMode& mode)
+void PaletteModule::onInit(const IApplication::RunMode& mode)
 {
-    if (framework::IApplication::RunMode::GuiApp != mode) {
+    if (IApplication::RunMode::GuiApp != mode) {
         return;
     }
 
@@ -159,9 +146,9 @@ void PaletteModule::onInit(const framework::IApplication::RunMode& mode)
     m_paletteProvider->init();
 }
 
-void PaletteModule::onAllInited(const framework::IApplication::RunMode& mode)
+void PaletteModule::onAllInited(const IApplication::RunMode& mode)
 {
-    if (framework::IApplication::RunMode::GuiApp != mode) {
+    if (IApplication::RunMode::GuiApp != mode) {
         return;
     }
 

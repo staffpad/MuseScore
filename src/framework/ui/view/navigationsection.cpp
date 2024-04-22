@@ -26,7 +26,8 @@
 
 #include "log.h"
 
-using namespace mu::ui;
+using namespace muse;
+using namespace muse::ui;
 
 NavigationSection::NavigationSection(QObject* parent)
     : AbstractNavigation(parent)
@@ -67,7 +68,7 @@ void NavigationSection::setIndex(const Index& index)
     AbstractNavigation::setIndex(index);
 }
 
-mu::async::Channel<INavigation::Index> NavigationSection::indexChanged() const
+async::Channel<INavigation::Index> NavigationSection::indexChanged() const
 {
     return AbstractNavigation::indexChanged();
 }
@@ -78,29 +79,18 @@ bool NavigationSection::enabled() const
         return false;
     }
 
-    bool enbl = true;
-
-    QWindow* sectionWindow = window();
-    QWindow* topWindow = application()->focusWindow();
-
-    if (sectionWindow && (topWindow != sectionWindow)) {
-        enbl = type() == INavigationSection::Type::Exclusive;
-    }
-
-    if (enbl) {
-        enbl = false;
-        for (INavigationPanel* p : m_panels) {
-            if (p->enabled()) {
-                enbl = true;
-                break;
-            }
+    bool enbl = false;
+    for (INavigationPanel* p : m_panels) {
+        if (p->enabled()) {
+            enbl = true;
+            break;
         }
     }
 
     return enbl;
 }
 
-mu::async::Channel<bool> NavigationSection::enabledChanged() const
+async::Channel<bool> NavigationSection::enabledChanged() const
 {
     return AbstractNavigation::enabledChanged();
 }
@@ -115,7 +105,7 @@ void NavigationSection::setActive(bool arg)
     AbstractNavigation::setActive(arg);
 }
 
-mu::async::Channel<bool> NavigationSection::activeChanged() const
+async::Channel<bool> NavigationSection::activeChanged() const
 {
     return AbstractNavigation::activeChanged();
 }
@@ -196,7 +186,7 @@ const std::set<INavigationPanel*>& NavigationSection::panels() const
     return m_panels;
 }
 
-mu::async::Notification NavigationSection::panelsListChanged() const
+async::Notification NavigationSection::panelsListChanged() const
 {
     return m_panelsListChanged;
 }

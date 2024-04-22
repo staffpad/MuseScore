@@ -19,13 +19,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_DRAW_FONTENGINEFT_H
-#define MU_DRAW_FONTENGINEFT_H
+#ifndef MUSE_DRAW_FONTENGINEFT_H
+#define MUSE_DRAW_FONTENGINEFT_H
 
 #include <QRectF>
-#include "io/path.h"
 
-namespace mu::draw {
+#include "global/io/path.h"
+
+namespace muse::draw {
 struct FTData;
 struct FTGlyphMetrics;
 class FontEngineFT
@@ -47,4 +48,4 @@ private:
 };
 }
 
-#endif // MU_DRAW_FONTENGINEFT_H
+#endif // MUSE_DRAW_FONTENGINEFT_H

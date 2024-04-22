@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -26,16 +26,18 @@
 #include "abstractimagewriter.h"
 
 #include "modularity/ioc.h"
-#include "iimagesexportconfiguration.h"
+#include "../iimagesexportconfiguration.h"
+#include "engraving/rendering/iscorerenderer.h"
 
 namespace mu::iex::imagesexport {
 class SvgWriter : public AbstractImageWriter
 {
     INJECT(IImagesExportConfiguration, configuration)
+    INJECT(engraving::rendering::IScoreRenderer, scoreRenderer)
 
 public:
     std::vector<project::INotationWriter::UnitType> supportedUnitTypes() const override;
-    Ret write(notation::INotationPtr notation, QIODevice& destinationDevice, const Options& options = Options()) override;
+    muse::Ret write(notation::INotationPtr notation, muse::io::IODevice& dstDevice, const Options& options = Options()) override;
 
 private:
     using BeatsColors = QHash<int /* beatIndex */, QColor>;

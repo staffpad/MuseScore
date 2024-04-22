@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,17 +25,21 @@
 #include <QDir>
 #include <QFile>
 
-#include "io/buffer.h"
+#include "global/io/buffer.h"
+#include "global/io/file.h"
+#include "global/io/ioretcodes.h"
 
-#include "libmscore/undo.h"
+#include "engraving/dom/undo.h"
 
-#include "engraving/libmscore/masterscore.h"
+#include "engraving/dom/masterscore.h"
 #include "engraving/engravingproject.h"
 #include "engraving/compat/scoreaccess.h"
 #include "engraving/compat/mscxcompat.h"
+#include "engraving/compat/engravingcompat.h"
 #include "engraving/infrastructure/mscio.h"
 #include "engraving/engravingerrors.h"
 #include "engraving/style/defaultstyle.h"
+#include "engraving/rendering/dev/beamlayout.h"
 
 #include "iprojectautosaver.h"
 #include "notation/notationerrors.h"
@@ -47,48 +51,11 @@
 #include "log.h"
 
 using namespace mu;
-using namespace mu::io;
+using namespace muse;
+using namespace muse::io;
 using namespace mu::engraving;
 using namespace mu::notation;
 using namespace mu::project;
-
-static const QString WORK_TITLE_TAG("workTitle");
-static const QString WORK_NUMBER_TAG("workNumber");
-static const QString SUBTITLE_TAG("subtitle");
-static const QString COMPOSER_TAG("composer");
-static const QString LYRICIST_TAG("lyricist");
-static const QString POET_TAG("poet");
-static const QString SOURCE_TAG("source");
-static const QString SOURCE_REVISION_ID_TAG("sourceRevisionId");
-static const QString COPYRIGHT_TAG("copyright");
-static const QString TRANSLATOR_TAG("translator");
-static const QString ARRANGER_TAG("arranger");
-static const QString CREATION_DATE_TAG("creationDate");
-static const QString PLATFORM_TAG("platform");
-static const QString MOVEMENT_TITLE_TAG("movementTitle");
-static const QString MOVEMENT_NUMBER_TAG("movementNumber");
-
-static bool isStandardTag(const QString& tag)
-{
-    static const QSet<QString> standardTags {
-        WORK_TITLE_TAG,
-        WORK_NUMBER_TAG,
-        SUBTITLE_TAG,
-        COMPOSER_TAG,
-        LYRICIST_TAG,
-        POET_TAG,
-        SOURCE_TAG,
-        COPYRIGHT_TAG,
-        TRANSLATOR_TAG,
-        ARRANGER_TAG,
-        CREATION_DATE_TAG,
-        PLATFORM_TAG,
-        MOVEMENT_NUMBER_TAG,
-        MOVEMENT_TITLE_TAG
-    };
-
-    return standardTags.contains(tag);
-}
 
 static void setupScoreMetaTags(mu::engraving::MasterScore* masterScore, const ProjectCreateOptions& projectOptions)
 {
@@ -107,11 +74,14 @@ static void setupScoreMetaTags(mu::engraving::MasterScore* masterScore, const Pr
     if (!projectOptions.copyright.isEmpty()) {
         masterScore->setMetaTag(COPYRIGHT_TAG, projectOptions.copyright);
     }
+    if (!projectOptions.templatePath.empty()) {
+        masterScore->setMetaTag(CREATION_DATE_TAG, QDate::currentDate().toString(Qt::ISODate));
+    }
 }
 
 static QString scoreDefaultTitle()
 {
-    return qtrc("project", "Untitled score");
+    return muse::qtrc("project", "Untitled score");
 }
 
 NotationProject::~NotationProject()
@@ -123,25 +93,15 @@ NotationProject::~NotationProject()
 
 void NotationProject::setupProject()
 {
+    TRACEFUNC;
+
     m_engravingProject = EngravingProject::create();
     m_engravingProject->setFileInfoProvider(std::make_shared<ProjectFileInfoProvider>(this));
-
     m_masterNotation = notationCreator()->newMasterNotationPtr();
-    m_masterNotation->needSave().notification.onNotify(this, [this]() {
-        if (!m_needSaveNotificationBlocked) {
-            m_needSaveNotification.notify();
-        }
-    });
-
     m_projectAudioSettings = std::shared_ptr<ProjectAudioSettings>(new ProjectAudioSettings());
-    m_projectAudioSettings->needSave().notification.onNotify(this, [this]() {
-        if (!m_needSaveNotificationBlocked) {
-            m_needSaveNotification.notify();
-        }
-    });
 }
 
-mu::Ret NotationProject::load(const io::path_t& path, const io::path_t& stylePath, bool forceMode, const std::string& format_)
+Ret NotationProject::load(const muse::io::path_t& path, const muse::io::path_t& stylePath, bool forceMode, const std::string& format_)
 {
     TRACEFUNC;
 
@@ -153,7 +113,12 @@ mu::Ret NotationProject::load(const io::path_t& path, const io::path_t& stylePat
     setPath(path);
 
     if (!isMuseScoreFile(format)) {
-        return doImport(path, stylePath.empty() ? notationConfiguration()->styleFileImportPath() : stylePath, forceMode);
+        Ret ret = doImport(path, stylePath.empty() ? notationConfiguration()->styleFileImportPath() : stylePath, forceMode);
+        if (ret) {
+            listenIfNeedSaveChanges();
+        }
+
+        return ret;
     }
 
     Ret ret = doLoad(path, stylePath, forceMode, format);
@@ -164,7 +129,8 @@ mu::Ret NotationProject::load(const io::path_t& path, const io::path_t& stylePat
 
     bool treatAsImported = m_masterNotation->mscVersion() < 400;
 
-    m_masterNotation->setSaved(!treatAsImported);
+    listenIfNeedSaveChanges();
+    setNeedSave(treatAsImported);
 
     m_isNewlyCreated = treatAsImported;
     m_isImported = treatAsImported;
@@ -172,7 +138,7 @@ mu::Ret NotationProject::load(const io::path_t& path, const io::path_t& stylePat
     return ret;
 }
 
-mu::Ret NotationProject::doLoad(const io::path_t& path, const io::path_t& stylePath, bool forceMode, const std::string& format)
+Ret NotationProject::doLoad(const muse::io::path_t& path, const muse::io::path_t& stylePath, bool forceMode, const std::string& format)
 {
     TRACEFUNC;
 
@@ -184,15 +150,16 @@ mu::Ret NotationProject::doLoad(const io::path_t& path, const io::path_t& styleP
     }
 
     MscReader reader(params);
-    if (!reader.open()) {
-        return make_ret(engraving::Err::FileOpenError);
+    Ret ret = reader.open();
+    if (!ret) {
+        return ret;
     }
 
     // Load engraving project
     m_engravingProject->setFileInfoProvider(std::make_shared<ProjectFileInfoProvider>(this));
 
     SettingsCompat settingsCompat;
-    Ret ret = m_engravingProject->loadMscz(reader, settingsCompat, forceMode);
+    ret = m_engravingProject->loadMscz(reader, settingsCompat, forceMode);
     if (!ret) {
         return ret;
     }
@@ -215,10 +182,12 @@ mu::Ret NotationProject::doLoad(const io::path_t& path, const io::path_t& styleP
 
     // Migration
     if (migrator()) {
+        masterScore->lockUpdates(false); // because migration needs a second layout
         ret = migrator()->migrateEngravingProjectIfNeed(m_engravingProject);
         if (!ret) {
             return ret;
         }
+        masterScore->lockUpdates(true);
     }
 
     // Load style if present
@@ -226,35 +195,63 @@ mu::Ret NotationProject::doLoad(const io::path_t& path, const io::path_t& styleP
         m_engravingProject->masterScore()->loadStyle(stylePath.toQString());
     }
 
+    mu::engraving::compat::EngravingCompat::doPreLayoutCompatIfNeeded(m_engravingProject->masterScore());
+
     masterScore->lockUpdates(false);
     masterScore->setLayoutAll();
     masterScore->update();
 
-    // Load other stuff from the project file
+    mu::engraving::compat::EngravingCompat::doPostLayoutCompatIfNeeded(m_engravingProject->masterScore());
+
+    // Load audio settings
+    bool tryCompatAudio = false;
     ret = m_projectAudioSettings->read(reader);
     if (!ret) {
-        //applyed compat audio settings
-        if (!settingsCompat.audioSettings.empty()) {
-            for (const auto& audioCompat : settingsCompat.audioSettings) {
-                IProjectAudioSettings::SoloMuteState state = { audioCompat.second.mute, audioCompat.second.solo };
-                m_projectAudioSettings->setSoloMuteState(audioCompat.second.instrumentId, state);
-            }
+        m_projectAudioSettings->makeDefault();
+        tryCompatAudio = true;
+    }
+
+    // Load cloud info
+    {
+        m_cloudInfo.sourceUrl = masterScore->metaTags()[SOURCE_TAG].toQString();
+        m_cloudInfo.revisionId = masterScore->metaTags()[SOURCE_REVISION_ID_TAG].toInt();
+
+        m_cloudAudioInfo.url = masterScore->metaTags()[AUDIO_COM_URL_TAG].toQString();
+
+        if (configuration()->isLegacyCloudProject(path)) {
+            m_cloudInfo.name = io::filename(path, false).toQString();
         }
     }
 
     // Set current if all success
     m_masterNotation->setMasterScore(masterScore);
 
-    // Load view settings (needs to be done after notations are created)
+    // Load view settings & solo-mute states (needs to be done after notations are created)
     m_masterNotation->notation()->viewState()->read(reader);
-    for (IExcerptNotationPtr excerpt : m_masterNotation->excerpts().val) {
-        excerpt->notation()->viewState()->read(reader, u"Excerpts/" + excerpt->name() + u"/");
+    m_masterNotation->notation()->soloMuteState()->read(reader);
+    for (IExcerptNotationPtr excerpt : m_masterNotation->excerpts()) {
+        if (!excerpt->hasFileName()) {
+            continue;
+        }
+
+        muse::io::path_t ePath = u"Excerpts/" + excerpt->fileName() + u"/";
+        excerpt->notation()->viewState()->read(reader, ePath);
+        excerpt->notation()->soloMuteState()->read(reader, ePath);
+    }
+
+    // Apply compat audio settings (needs to be done after notations are created)
+    if (tryCompatAudio && !settingsCompat.audioSettings.empty()) {
+        for (const auto& audioCompat : settingsCompat.audioSettings) {
+            notation::INotationSoloMuteState::SoloMuteState state = { audioCompat.second.mute, audioCompat.second.solo };
+            INotationSoloMuteStatePtr soloMuteStatePtr = m_masterNotation->notation()->soloMuteState();
+            soloMuteStatePtr->setTrackSoloMuteState(audioCompat.second.instrumentId, state);
+        }
     }
 
     return make_ret(Ret::Code::Ok);
 }
 
-mu::Ret NotationProject::doImport(const io::path_t& path, const io::path_t& stylePath, bool forceMode)
+Ret NotationProject::doImport(const muse::io::path_t& path, const muse::io::path_t& stylePath, bool forceMode)
 {
     TRACEFUNC;
 
@@ -271,24 +268,32 @@ mu::Ret NotationProject::doImport(const io::path_t& path, const io::path_t& styl
         options[INotationReader::OptionKey::ForceMode] = Val(forceMode);
     }
 
-    // Read(import) master score
+    // Setup engraving project
     mu::engraving::ScoreLoad sl;
     m_engravingProject->setFileInfoProvider(std::make_shared<ProjectFileInfoProvider>(this));
     mu::engraving::MasterScore* score = m_engravingProject->masterScore();
+
+    // The order of the steps matches the order in MS3
+    // (see https://github.com/musescore/MuseScore/blob/2513676e512d29d554cb6c4d37d3efaf53ea2c5b/mscore/file.cpp#L2260)
+
+    // Load style if present
+    if (!stylePath.empty()) {
+        score->loadStyle(stylePath.toQString());
+    }
+
+    // Init ChordList
+    score->checkChordList();
+
+    // Read (import) master score
     Ret ret = scoreReader->read(score, path, options);
     if (!ret) {
         return ret;
     }
 
-    // Setup master score
+    // Setup master score post-reading
     ret = m_engravingProject->setupMasterScore(forceMode);
     if (!ret) {
         return ret;
-    }
-
-    // Load style if present
-    if (!stylePath.empty()) {
-        score->loadStyle(stylePath.toQString());
     }
 
     // Setup audio settings
@@ -296,14 +301,14 @@ mu::Ret NotationProject::doImport(const io::path_t& path, const io::path_t& styl
 
     // Setup view state
     m_masterNotation->notation()->viewState()->makeDefault();
-    for (IExcerptNotationPtr excerpt : m_masterNotation->excerpts().val) {
+    for (IExcerptNotationPtr excerpt : m_masterNotation->excerpts()) {
         excerpt->notation()->viewState()->makeDefault();
     }
 
     // Set current if all success
     m_masterNotation->setMasterScore(score);
     setPath(path);
-    score->setSaved(true);
+    setNeedSave(false);
     score->setMetaTag(u"originalFormat", QString::fromStdString(suffix));
 
     m_isNewlyCreated = true;
@@ -312,7 +317,7 @@ mu::Ret NotationProject::doImport(const io::path_t& path, const io::path_t& styl
     return make_ret(Ret::Code::Ok);
 }
 
-mu::Ret NotationProject::createNew(const ProjectCreateOptions& projectOptions)
+Ret NotationProject::createNew(const ProjectCreateOptions& projectOptions)
 {
     TRACEFUNC;
 
@@ -320,7 +325,12 @@ mu::Ret NotationProject::createNew(const ProjectCreateOptions& projectOptions)
 
     // Load template if present
     if (!projectOptions.templatePath.empty()) {
-        return loadTemplate(projectOptions);
+        Ret ret = loadTemplate(projectOptions);
+        if (ret) {
+            listenIfNeedSaveChanges();
+        }
+
+        return ret;
     }
 
     // Create new engraving project
@@ -341,18 +351,19 @@ mu::Ret NotationProject::createNew(const ProjectCreateOptions& projectOptions)
 
     // Setup view state
     m_masterNotation->notation()->viewState()->makeDefault();
-    for (IExcerptNotationPtr excerpt : m_masterNotation->excerpts().val) {
+    for (IExcerptNotationPtr excerpt : m_masterNotation->excerpts()) {
         excerpt->notation()->viewState()->makeDefault();
     }
 
-    masterScore->setSaved(true);
+    listenIfNeedSaveChanges();
+    markAsUnsaved();
 
     m_isNewlyCreated = true;
 
     return make_ret(Ret::Code::Ok);
 }
 
-mu::Ret NotationProject::loadTemplate(const ProjectCreateOptions& projectOptions)
+Ret NotationProject::loadTemplate(const ProjectCreateOptions& projectOptions)
 {
     TRACEFUNC;
 
@@ -368,20 +379,19 @@ mu::Ret NotationProject::loadTemplate(const ProjectCreateOptions& projectOptions
         m_masterNotation->applyOptions(masterScore, projectOptions.scoreOptions, true /*createdFromTemplate*/);
         m_masterNotation->notation()->undoStack()->unlock();
 
-        masterScore->setSaved(true);
-
+        setNeedSave(false);
         m_isNewlyCreated = true;
     }
 
     return ret;
 }
 
-io::path_t NotationProject::path() const
+muse::io::path_t NotationProject::path() const
 {
     return m_path;
 }
 
-void NotationProject::setPath(const io::path_t& path)
+void NotationProject::setPath(const muse::io::path_t& path)
 {
     if (m_path == path) {
         return;
@@ -389,9 +399,10 @@ void NotationProject::setPath(const io::path_t& path)
 
     m_path = path;
     m_pathChanged.notify();
+    m_displayNameChanged.notify();
 }
 
-async::Notification NotationProject::pathChanged() const
+muse::async::Notification NotationProject::pathChanged() const
 {
     return m_pathChanged;
 }
@@ -410,11 +421,16 @@ QString NotationProject::displayName() const
     }
 
     if (isCloudProject()) {
-        // TODO(save-to-cloud)
+        return m_cloudInfo.name;
     }
 
     bool isSuffixInteresting = io::suffix(m_path) != engraving::MSCZ;
     return io::filename(m_path, isSuffixInteresting).toQString();
+}
+
+muse::async::Notification NotationProject::displayNameChanged() const
+{
+    return m_displayNameChanged;
 }
 
 bool NotationProject::isCloudProject() const
@@ -424,12 +440,6 @@ bool NotationProject::isCloudProject() const
 
 const CloudProjectInfo& NotationProject::cloudInfo() const
 {
-    if (!m_cloudInfo.isValid()) {
-        m_cloudInfo.name = io::filename(m_path, false).toQString();
-        m_cloudInfo.sourceUrl = m_masterNotation->masterScore()->metaTags()[SOURCE_TAG].toQString();
-        m_cloudInfo.revisionId = m_masterNotation->masterScore()->metaTags()[SOURCE_REVISION_ID_TAG].toInt();
-    }
-
     return m_cloudInfo;
 }
 
@@ -438,18 +448,32 @@ void NotationProject::setCloudInfo(const CloudProjectInfo& info)
     m_cloudInfo = info;
     m_masterNotation->masterScore()->setMetaTag(SOURCE_TAG, info.sourceUrl.toString());
     m_masterNotation->masterScore()->setMetaTag(SOURCE_REVISION_ID_TAG, String::number(info.revisionId));
+
+    m_displayNameChanged.notify();
 }
 
-mu::Ret NotationProject::save(const io::path_t& path, SaveMode saveMode)
+const CloudAudioInfo& NotationProject::cloudAudioInfo() const
+{
+    return m_cloudAudioInfo;
+}
+
+void NotationProject::setCloudAudioInfo(const CloudAudioInfo& audioInfo)
+{
+    m_cloudAudioInfo = audioInfo;
+    m_masterNotation->masterScore()->setMetaTag(AUDIO_COM_URL_TAG, audioInfo.url.toString());
+}
+
+Ret NotationProject::save(const muse::io::path_t& path, SaveMode saveMode)
 {
     TRACEFUNC;
+
     switch (saveMode) {
     case SaveMode::SaveSelection:
         return saveSelectionOnScore(path);
     case SaveMode::Save:
     case SaveMode::SaveAs:
     case SaveMode::SaveCopy: {
-        io::path_t savePath = path;
+        muse::io::path_t savePath = path;
         if (savePath.empty()) {
             IF_ASSERT_FAILED(!m_path.empty()) {
                 return false;
@@ -480,14 +504,16 @@ mu::Ret NotationProject::save(const io::path_t& path, SaveMode saveMode)
             suffix = engraving::MSCX;
         }
 
-        return saveScore(path, suffix);
+        return saveScore(path, suffix, false /*generateBackup*/, false /*createThumbnail*/);
     }
 
     return make_ret(notation::Err::UnknownError);
 }
 
-mu::Ret NotationProject::writeToDevice(QIODevice* device)
+Ret NotationProject::writeToDevice(QIODevice* device)
 {
+    TRACEFUNC;
+
     IF_ASSERT_FAILED(!m_path.empty()) {
         return make_ret(notation::Err::UnknownError);
     }
@@ -507,15 +533,24 @@ mu::Ret NotationProject::writeToDevice(QIODevice* device)
     msczWriter.close();
 
     if (ret) {
+        if (msczWriter.hasError()) {
+            LOGE() << "MSCZ writer has error";
+            return make_ret(Ret::Code::UnknownError);
+        }
+
         buf.open(IODevice::OpenMode::ReadOnly);
         ByteArray ba = buf.readAll();
-        device->write(ba.toQByteArrayNoCopy());
+
+        if ((size_t)device->write(ba.toQByteArrayNoCopy()) != ba.size()) {
+            LOGE() << "Error writing to device";
+            return make_ret(Ret::Code::UnknownError);
+        }
     }
 
     return ret;
 }
 
-mu::Ret NotationProject::saveScore(const io::path_t& path, const std::string& fileSuffix)
+Ret NotationProject::saveScore(const muse::io::path_t& path, const std::string& fileSuffix, bool generateBackup, bool createThumbnail)
 {
     if (!isMuseScoreFile(fileSuffix) && !fileSuffix.empty()) {
         return exportProject(path, fileSuffix);
@@ -523,29 +558,31 @@ mu::Ret NotationProject::saveScore(const io::path_t& path, const std::string& fi
 
     MscIoMode ioMode = mscIoModeBySuffix(fileSuffix);
 
-    return doSave(path, true, ioMode);
+    return doSave(path, ioMode, generateBackup, createThumbnail);
 }
 
-mu::Ret NotationProject::doSave(const io::path_t& path, bool generateBackup, engraving::MscIoMode ioMode)
+Ret NotationProject::doSave(const muse::io::path_t& path, engraving::MscIoMode ioMode, bool generateBackup, bool createThumbnail)
 {
+    TRACEFUNC;
+
     QString targetContainerPath = engraving::containerPath(path).toQString();
-    io::path_t targetMainFilePath = engraving::mainFilePath(path);
-    io::path_t targetMainFileName = engraving::mainFileName(path);
+    muse::io::path_t targetMainFilePath = engraving::mainFilePath(path);
+    muse::io::path_t targetMainFileName = engraving::mainFileName(path);
     QString savePath = targetContainerPath + "_saving";
 
     // Step 1: check writable
     {
-        QFileInfo fi(savePath);
-        if (fi.exists() && !QFileInfo(savePath).isWritable()) {
-            LOGE() << "failed save, not writable path: " << savePath;
-            return make_ret(notation::Err::UnknownError);
+        if ((fileSystem()->exists(savePath) && !fileSystem()->isWritable(savePath))
+            || (fileSystem()->exists(targetContainerPath) && !fileSystem()->isWritable(targetContainerPath))) {
+            LOGE() << "failed save, not writable path: " << targetContainerPath;
+            return make_ret(io::Err::FSWriteError);
         }
 
         if (ioMode == engraving::MscIoMode::Dir) {
             // Dir needs to be created, otherwise we can't move to it
             if (!QDir(targetContainerPath).mkpath(".")) {
-                LOGE() << "Couldn't create container directory";
-                return make_ret(notation::Err::UnknownError);
+                LOGE() << "Couldn't create container directory: " << targetContainerPath;
+                return make_ret(io::Err::FSMakingError);
             }
         }
     }
@@ -561,13 +598,18 @@ mu::Ret NotationProject::doSave(const io::path_t& path, bool generateBackup, eng
         }
 
         MscWriter msczWriter(params);
-        Ret ret = writeProject(msczWriter, false);
+        Ret ret = writeProject(msczWriter, false /*onlySelection*/, createThumbnail);
+        msczWriter.close();
+
         if (!ret) {
-            LOGE() << "failed write project to buffer";
+            LOGE() << "failed write project to buffer: " << ret.toString();
             return ret;
         }
 
-        msczWriter.close();
+        if (msczWriter.hasError()) {
+            LOGE() << "MscWriter has error after writing project";
+            return make_ret(Ret::Code::UnknownError);
+        }
     }
 
     // Step 3: create backup if need
@@ -585,11 +627,11 @@ mu::Ret NotationProject::doSave(const io::path_t& path, bool generateBackup, eng
                 return filesToBeMoved.ret;
             }
 
-            Ret ret = make_ok();
+            Ret ret = muse::make_ok();
 
-            for (const io::path_t& fileToBeMoved : filesToBeMoved.val) {
-                io::path_t destinationFile
-                    = io::path_t(targetContainerPath).appendingComponent(io::filename(fileToBeMoved));
+            for (const muse::io::path_t& fileToBeMoved : filesToBeMoved.val) {
+                muse::io::path_t destinationFile
+                    = muse::io::path_t(targetContainerPath).appendingComponent(io::filename(fileToBeMoved));
                 LOGD() << fileToBeMoved << " to " << destinationFile;
                 ret = fileSystem()->move(fileToBeMoved, destinationFile, true);
                 if (!ret) {
@@ -620,14 +662,16 @@ mu::Ret NotationProject::doSave(const io::path_t& path, bool generateBackup, eng
     return make_ret(Ret::Code::Ok);
 }
 
-mu::Ret NotationProject::makeCurrentFileAsBackup()
+Ret NotationProject::makeCurrentFileAsBackup()
 {
+    TRACEFUNC;
+
     if (isNewlyCreated()) {
         LOGD() << "project just created";
         return make_ret(Ret::Code::Ok);
     }
 
-    io::path_t filePath = m_path;
+    muse::io::path_t filePath = m_path;
     if (io::suffix(filePath) != engraving::MSCZ) {
         LOGW() << "backup allowed only for MSCZ, currently: " << filePath;
         return make_ret(Ret::Code::Ok);
@@ -639,8 +683,8 @@ mu::Ret NotationProject::makeCurrentFileAsBackup()
         return ret;
     }
 
-    io::path_t backupPath = configuration()->projectBackupPath(filePath);
-    io::path_t backupDir = io::absoluteDirpath(backupPath);
+    muse::io::path_t backupPath = configuration()->projectBackupPath(filePath);
+    muse::io::path_t backupDir = io::absoluteDirpath(backupPath);
     ret = fileSystem()->makePath(backupDir);
     if (!ret) {
         LOGE() << "failed to create backup directory: " << backupDir;
@@ -660,40 +704,51 @@ mu::Ret NotationProject::makeCurrentFileAsBackup()
     return ret;
 }
 
-mu::Ret NotationProject::writeProject(MscWriter& msczWriter, bool onlySelection)
+Ret NotationProject::writeProject(MscWriter& msczWriter, bool onlySelection, bool createThumbnail)
 {
+    TRACEFUNC;
+
     // Create MsczWriter
-    bool ok = msczWriter.open();
-    if (!ok) {
-        LOGE() << "failed open writer";
-        return make_ret(engraving::Err::FileOpenError);
+    Ret ret = msczWriter.open();
+    if (!ret) {
+        LOGE() << "failed open writer: " << ret.toString();
+        return ret;
     }
 
     // Write engraving project
-    ok = m_engravingProject->writeMscz(msczWriter, onlySelection, true);
-    if (!ok) {
-        LOGE() << "failed write engraving project to mscz";
+    ret = m_engravingProject->writeMscz(msczWriter, onlySelection, createThumbnail);
+    if (!ret) {
+        LOGE() << "failed write engraving project to mscz: " << ret.toString();
         return make_ret(notation::Err::UnknownError);
     }
 
-    // Write audio settings
-    Ret ret = m_projectAudioSettings->write(msczWriter);
+    // Write master audio settings
+    ret = m_projectAudioSettings->write(msczWriter, m_masterNotation->notation()->soloMuteState());
     if (!ret) {
         LOGE() << "failed write project audio settings, err: " << ret.toString();
         return ret;
     }
 
-    // Write view settings
+    // Write view settings and excerpt solo-mute states
     m_masterNotation->notation()->viewState()->write(msczWriter);
-    for (IExcerptNotationPtr excerpt : m_masterNotation->excerpts().val) {
-        excerpt->notation()->viewState()->write(msczWriter, u"Excerpts/" + excerpt->name() + u"/");
+    for (IExcerptNotationPtr excerpt : m_masterNotation->excerpts()) {
+        muse::io::path_t path = u"Excerpts/" + excerpt->fileName() + u"/";
+        excerpt->notation()->viewState()->write(msczWriter, path);
+
+        ByteArray soloMuteData;
+        Buffer soloMuteBuf(&soloMuteData);
+        soloMuteBuf.open(IODevice::WriteOnly);
+        excerpt->notation()->soloMuteState()->write(&soloMuteBuf /*out*/);
+        msczWriter.writeAudioSettingsJsonFile(soloMuteData, path);
     }
 
     return make_ret(Ret::Code::Ok);
 }
 
-mu::Ret NotationProject::saveSelectionOnScore(const mu::io::path_t& path)
+Ret NotationProject::saveSelectionOnScore(const muse::io::path_t& path)
 {
+    TRACEFUNC;
+
     IF_ASSERT_FAILED(path != m_path) {
         return make_ret(notation::Err::UnknownError);
     }
@@ -703,14 +758,13 @@ mu::Ret NotationProject::saveSelectionOnScore(const mu::io::path_t& path)
         return make_ret(notation::Err::EmptySelection);
     }
     // Check writable
-    QFileInfo info(path.toQString());
-    if (info.exists() && !info.isWritable()) {
-        LOGE() << "failed save, not writable path: " << info.filePath();
+    if (fileSystem()->exists(path) && !fileSystem()->isWritable(path)) {
+        LOGE() << "failed save, not writable path: " << path;
         return make_ret(notation::Err::UnknownError);
     }
 
     // Write project
-    std::string suffix = io::suffix(info.fileName());
+    std::string suffix = io::suffix(path);
     MscWriter::Params params;
     params.filePath = path.toQString();
     params.mode = mscIoModeBySuffix(suffix);
@@ -722,17 +776,19 @@ mu::Ret NotationProject::saveSelectionOnScore(const mu::io::path_t& path)
     Ret ret = writeProject(msczWriter, true);
 
     if (ret) {
-        QFile::setPermissions(info.filePath(),
+        QFile::setPermissions(path.toQString(),
                               QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::ReadGroup | QFile::ReadOther);
     }
-    LOGI() << "success save file: " << info.filePath();
+    LOGI() << "success save file: " << path;
     return ret;
 }
 
-mu::Ret NotationProject::exportProject(const io::path_t& path, const std::string& suffix)
+Ret NotationProject::exportProject(const muse::io::path_t& path, const std::string& suffix)
 {
-    QFile file(path.toQString());
-    file.open(QFile::WriteOnly);
+    TRACEFUNC;
+
+    File file(path);
+    file.open(File::WriteOnly);
 
     auto writer = writers()->writer(suffix);
     if (!writer) {
@@ -765,7 +821,8 @@ void NotationProject::markAsNewlyCreated()
     QString title = masterScore->metaTag(WORK_TITLE_TAG);
     setPath(!title.isEmpty() ? title : scoreDefaultTitle());
 
-    masterScore->setSaved(false);
+    markAsUnsaved();
+
     m_masterNotation->notation()->undoStack()->stackChanged().notify();
 }
 
@@ -776,41 +833,94 @@ bool NotationProject::isImported() const
 
 void NotationProject::markAsUnsaved()
 {
-    m_masterNotation->masterScore()->setSaved(false);
+    setNeedSave(true);
 }
 
-void NotationProject::markAsSaved(const io::path_t& path)
+void NotationProject::listenIfNeedSaveChanges()
 {
+    m_masterNotation->notation()->undoStack()->changesChannel().onReceive(this, [this](const ScoreChangesRange&) {
+        bool isStackClean = m_masterNotation && m_masterNotation->notation()->undoStack()->isStackClean();
+
+        if (isStackClean && !m_hasNonUndoStackChanges) {
+            setNeedSave(false);
+        } else {
+            setNeedSave(true);
+        }
+    });
+
+    auto listenNonUndoStackChanges = [this](const INotationPtr& notation) {
+        notation->openChanged().onNotify(this, [this]() {
+            markAsUnsaved();
+            m_hasNonUndoStackChanges = true;
+        });
+
+        notation->viewState()->stateChanged().onNotify(this, [this]() {
+            markAsUnsaved();
+            m_hasNonUndoStackChanges = true;
+        });
+    };
+
+    listenNonUndoStackChanges(m_masterNotation->notation());
+
+    for (const IExcerptNotationPtr& excerpt : m_masterNotation->excerpts()) {
+        listenNonUndoStackChanges(excerpt->notation());
+    }
+
+    m_masterNotation->excerptsChanged().onNotify(this, [this, listenNonUndoStackChanges]() {
+        for (const IExcerptNotationPtr& excerpt : m_masterNotation->excerpts()) {
+            listenNonUndoStackChanges(excerpt->notation());
+        }
+    });
+
+    m_projectAudioSettings->settingsChanged().onNotify(this, [this]() {
+        markAsUnsaved();
+        m_hasNonUndoStackChanges = true;
+    });
+}
+
+void NotationProject::markAsSaved(const muse::io::path_t& path)
+{
+    TRACEFUNC;
+
     //! NOTE: order is important
     m_isNewlyCreated = false;
 
-    m_needSaveNotificationBlocked = true;
-
-    // Mark engraving project as saved
-    m_masterNotation->setSaved(true);
-
-    // Mark audio settings as saved
-    m_projectAudioSettings->markAsSaved();
-
-    // Mark view settings as saved
-    m_masterNotation->notation()->viewState()->markAsSaved();
-    for (IExcerptNotationPtr excerpt : m_masterNotation->excerpts().val) {
-        excerpt->notation()->viewState()->markAsSaved();
-    }
-
-    m_needSaveNotificationBlocked = false;
-    m_needSaveNotification.notify();
+    setNeedSave(false);
 
     setPath(path);
 
     m_masterNotation->notation()->undoStack()->stackChanged().notify();
 }
 
-mu::ValNt<bool> NotationProject::needSave() const
+void NotationProject::setNeedSave(bool needSave)
 {
+    mu::engraving::MasterScore* score = m_masterNotation->masterScore();
+    if (!score) {
+        return;
+    }
+
+    setNeedAutoSave(needSave);
+
+    bool saved = !needSave;
+
+    if (saved) {
+        m_hasNonUndoStackChanges = false;
+    }
+
+    if (score->saved() == saved) {
+        return;
+    }
+
+    score->setSaved(saved);
+    m_needSaveNotification.notify();
+}
+
+ValNt<bool> NotationProject::needSave() const
+{
+    const mu::engraving::MasterScore* score = m_masterNotation->masterScore();
+
     ValNt<bool> needSave;
-    needSave.val = m_masterNotation->needSave().val
-                   || m_projectAudioSettings->needSave().val;
+    needSave.val = score && !score->saved();
     needSave.notification = m_needSaveNotification;
 
     return needSave;
@@ -831,6 +941,16 @@ Ret NotationProject::canSave() const
     return ret;
 }
 
+bool NotationProject::needAutoSave() const
+{
+    return m_needAutoSave;
+}
+
+void NotationProject::setNeedAutoSave(bool val)
+{
+    m_needAutoSave = val;
+}
+
 ProjectMeta NotationProject::metaInfo() const
 {
     TRACEFUNC;
@@ -838,33 +958,35 @@ ProjectMeta NotationProject::metaInfo() const
     mu::engraving::MasterScore* score = m_masterNotation->masterScore();
 
     ProjectMeta meta;
+    meta.filePath = m_path;
+
     auto allTags = score->metaTags();
 
     meta.title = allTags[WORK_TITLE_TAG];
     meta.subtitle = allTags[SUBTITLE_TAG];
     meta.composer = allTags[COMPOSER_TAG];
-    meta.lyricist = allTags[LYRICIST_TAG];
-    meta.copyright = allTags[COPYRIGHT_TAG];
-    meta.translator = allTags[TRANSLATOR_TAG];
     meta.arranger = allTags[ARRANGER_TAG];
-    meta.source = allTags[SOURCE_TAG];
+    meta.lyricist = allTags[LYRICIST_TAG];
+    meta.translator = allTags[TRANSLATOR_TAG];
+    meta.copyright = allTags[COPYRIGHT_TAG];
     meta.creationDate = QDate::fromString(allTags[CREATION_DATE_TAG], Qt::ISODate);
+
+    meta.partsCount = score->excerpts().size();
+
+    meta.source = allTags[SOURCE_TAG];
+    meta.audioComUrl = allTags[AUDIO_COM_URL_TAG];
     meta.platform = allTags[PLATFORM_TAG];
     meta.musescoreVersion = score->mscoreVersion();
     meta.musescoreRevision = score->mscoreRevision();
     meta.mscVersion = score->mscVersion();
 
-    for (const String& tag : mu::keys(allTags)) {
-        if (isStandardTag(tag)) {
+    for (const String& tag : muse::keys(allTags)) {
+        if (isRepresentedInProjectMeta(tag)) {
             continue;
         }
 
         meta.additionalTags[tag] = allTags[tag].toQString();
     }
-
-    meta.filePath = m_path;
-
-    meta.partsCount = score->excerpts().size();
 
     return meta;
 }
@@ -879,13 +1001,14 @@ void NotationProject::setMetaInfo(const ProjectMeta& meta, bool undoable)
         { WORK_TITLE_TAG, meta.title },
         { SUBTITLE_TAG, meta.subtitle },
         { COMPOSER_TAG, meta.composer },
-        { LYRICIST_TAG, meta.lyricist },
-        { COPYRIGHT_TAG, meta.copyright },
-        { TRANSLATOR_TAG, meta.translator },
         { ARRANGER_TAG, meta.arranger },
+        { LYRICIST_TAG, meta.lyricist },
+        { TRANSLATOR_TAG, meta.translator },
+        { COPYRIGHT_TAG, meta.copyright },
+        { CREATION_DATE_TAG, meta.creationDate.toString(Qt::ISODate) },
         { SOURCE_TAG, meta.source },
+        { AUDIO_COM_URL_TAG, meta.audioComUrl },
         { PLATFORM_TAG, meta.platform },
-        { CREATION_DATE_TAG, meta.creationDate.toString(Qt::ISODate) }
     };
 
     for (const QString& tag : meta.additionalTags.keys()) {

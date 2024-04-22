@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<museScore version="4.00">
+<museScore version="4.40">
   <Score>
-    <LayerTag id="0" tag="default"></LayerTag>
-    <currentLayer>0</currentLayer>
     <Division>480</Division>
     <Style>
       <frameSystemDistance>7</frameSystemDistance>
@@ -20,7 +18,6 @@
     <metaTag name="lyricist"></metaTag>
     <metaTag name="movementNumber"></metaTag>
     <metaTag name="movementTitle"></metaTag>
-    <metaTag name="poet"></metaTag>
     <metaTag name="source"></metaTag>
     <metaTag name="translator"></metaTag>
     <metaTag name="workNumber"></metaTag>
@@ -71,7 +68,7 @@
             <isHeader>1</isHeader>
             </Clef>
           <KeySig>
-            <accidental>0</accidental>
+            <concertKey>0</concertKey>
             </KeySig>
           <TimeSig>
             <sigN>4</sigN>
@@ -84,11 +81,11 @@
               <pitch>72</pitch>
               <tpc>14</tpc>
               </Note>
-            <Tremolo>
+            <TremoloTwoChord>
               <subtype>c8</subtype>
               <l1>34</l1>
               <l2>30</l2>
-              </Tremolo>
+              </TremoloTwoChord>
             </Chord>
           <Chord>
             <durationType>whole</durationType>
@@ -111,11 +108,11 @@
               <pitch>72</pitch>
               <tpc>14</tpc>
               </Note>
-            <Tremolo>
+            <TremoloTwoChord>
               <subtype>c16</subtype>
               <l1>38</l1>
               <l2>36</l2>
-              </Tremolo>
+              </TremoloTwoChord>
             </Chord>
           <Chord>
             <durationType>whole</durationType>
@@ -138,11 +135,11 @@
               <pitch>72</pitch>
               <tpc>14</tpc>
               </Note>
-            <Tremolo>
+            <TremoloTwoChord>
               <subtype>c32</subtype>
               <l1>44</l1>
               <l2>42</l2>
-              </Tremolo>
+              </TremoloTwoChord>
             </Chord>
           <Chord>
             <durationType>whole</durationType>

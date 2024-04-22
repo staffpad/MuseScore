@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,7 +25,8 @@
 
 using namespace mu::project;
 using namespace mu::notation;
-using namespace mu::ui;
+using namespace muse;
+using namespace muse::ui;
 
 using PreferredScoreCreationMode = IProjectConfiguration::PreferredScoreCreationMode;
 
@@ -106,7 +107,7 @@ ProjectCreateOptions NewScoreModel::parseOptions(const QVariantMap& info) const
 
         PartInstrument pi;
 
-        std::string instrumentId = objMap["instrumentId"].toString().toStdString();
+        String instrumentId = objMap["instrumentId"].toString();
         pi.instrumentTemplate = instrumentsRepository()->instrumentTemplate(instrumentId);
         pi.isExistingPart = objMap["isExistingPart"].toBool();
         pi.isSoloist = objMap["isSoloist"].toBool();
@@ -115,7 +116,7 @@ ProjectCreateOptions NewScoreModel::parseOptions(const QVariantMap& info) const
     }
 
     QVariantMap orderMap = info["scoreOrder"].toMap();
-    scoreOptions.order = instrumentsRepository()->order(orderMap["id"].toString().toStdString());
+    scoreOptions.order = instrumentsRepository()->order(orderMap["id"].toString());
     scoreOptions.order.customized = orderMap["customized"].toBool();
 
     return projectOptions;

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,14 +22,14 @@
 #ifndef MU_PROJECT_MACOSRECENTFILESCONTROLLER_H
 #define MU_PROJECT_MACOSRECENTFILESCONTROLLER_H
 
-#include "internal/iplatformrecentfilescontroller.h"
+#include "internal/recentfilescontroller.h"
 
 namespace mu::project {
-class MacOSRecentFilesController : public IPlatformRecentFilesController
+class MacOSRecentFilesController : public RecentFilesController
 {
 public:
-    void addRecentFile(const io::path_t& path) override;
-    void clearRecentFiles() override;
+    void prependPlatformRecentFile(const muse::io::path_t& path) override;
+    void clearPlatformRecentFiles() override;
 };
 }
 

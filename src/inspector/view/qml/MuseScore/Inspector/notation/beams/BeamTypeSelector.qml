@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,8 +22,8 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 
-import MuseScore.UiComponents 1.0
-import MuseScore.Ui 1.0
+import Muse.UiComponents 1.0
+import Muse.Ui 1.0
 import MuseScore.Inspector 1.0
 
 import "../../common"
@@ -58,7 +58,7 @@ InspectorPropertyView {
 
             model: [
                 { value: Beam.MODE_AUTO, iconCode: IconCode.AUTO_TEXT, hint: qsTrc("inspector", "Auto") },
-                { value: Beam.MODE_NONE, iconCode: IconCode.NOTE_HEAD_EIGHTH, hint: qsTrc("inspector", "No beam") },
+                { value: Beam.MODE_NONE, iconCode: IconCode.BEAM_NONE, hint: qsTrc("inspector", "No beam") },
                 { value: Beam.MODE_BEGIN, iconCode: IconCode.BEAM_BREAK_LEFT, hint: qsTrc("inspector", "Break beam left") },
                 { value: Beam.MODE_BEGIN32, iconCode: IconCode.BEAM_BREAK_INNER_8TH, hint: qsTrc("inspector", "Break inner beams (8th)") },
                 { value: Beam.MODE_BEGIN64, iconCode: IconCode.BEAM_BREAK_INNER_16TH, hint: qsTrc("inspector", "Break inner beams (16th)") },

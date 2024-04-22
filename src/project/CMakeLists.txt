@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# MuseScore-CLA-applies
+# MuseScore-Studio-CLA-applies
 #
-# MuseScore
+# MuseScore Studio
 # Music Composition & Notation
 #
-# Copyright (C) 2021 MuseScore BVBA and others
+# Copyright (C) 2021 MuseScore Limited
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-set(MODULE project)
+declare_module(project)
 
 set(MODULE_QRC project.qrc)
 
@@ -43,17 +43,11 @@ elseif(OS_IS_WIN)
         ${CMAKE_CURRENT_LIST_DIR}/internal/platform/windows/windowsrecentfilescontroller.cpp
         ${CMAKE_CURRENT_LIST_DIR}/internal/platform/windows/windowsrecentfilescontroller.h
     )
-else()
-    set(PLATFORM_SRC
-        ${CMAKE_CURRENT_LIST_DIR}/internal/platform/stub/stubrecentfilescontroller.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/internal/platform/stub/stubrecentfilescontroller.h
-    )
 endif()
 
 set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/projectmodule.cpp
     ${CMAKE_CURRENT_LIST_DIR}/projectmodule.h
-    ${CMAKE_CURRENT_LIST_DIR}/projecttypes.h
     ${CMAKE_CURRENT_LIST_DIR}/projecterrors.h
     ${CMAKE_CURRENT_LIST_DIR}/inotationproject.h
     ${CMAKE_CURRENT_LIST_DIR}/iprojectcreator.h
@@ -64,13 +58,15 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/iprojectaudiosettings.h
     ${CMAKE_CURRENT_LIST_DIR}/iprojectfilescontroller.h
     ${CMAKE_CURRENT_LIST_DIR}/iprojectconfiguration.h
-    ${CMAKE_CURRENT_LIST_DIR}/irecentprojectsprovider.h
+    ${CMAKE_CURRENT_LIST_DIR}/irecentfilescontroller.h
     ${CMAKE_CURRENT_LIST_DIR}/imscmetareader.h
     ${CMAKE_CURRENT_LIST_DIR}/iprojectautosaver.h
     ${CMAKE_CURRENT_LIST_DIR}/iprojectrwregister.h
     ${CMAKE_CURRENT_LIST_DIR}/iprojectwriter.h
 
-    ${CMAKE_CURRENT_LIST_DIR}/internal/iplatformrecentfilescontroller.h
+    ${CMAKE_CURRENT_LIST_DIR}/types/projecttypes.h
+    ${CMAKE_CURRENT_LIST_DIR}/types/projectmeta.h
+
     ${CMAKE_CURRENT_LIST_DIR}/internal/iprojectmigrator.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationproject.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationproject.h
@@ -95,11 +91,11 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/internal/iexportprojectscenario.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/exportprojectscenario.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/exportprojectscenario.h
-    ${CMAKE_CURRENT_LIST_DIR}/internal/isaveprojectscenario.h
-    ${CMAKE_CURRENT_LIST_DIR}/internal/saveprojectscenario.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/internal/saveprojectscenario.h
-    ${CMAKE_CURRENT_LIST_DIR}/internal/recentprojectsprovider.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/internal/recentprojectsprovider.h
+    ${CMAKE_CURRENT_LIST_DIR}/internal/iopensaveprojectscenario.h
+    ${CMAKE_CURRENT_LIST_DIR}/internal/opensaveprojectscenario.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/internal/opensaveprojectscenario.h
+    ${CMAKE_CURRENT_LIST_DIR}/internal/recentfilescontroller.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/internal/recentfilescontroller.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/mscmetareader.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/mscmetareader.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/itemplatesrepository.h
@@ -116,14 +112,24 @@ set(MODULE_SRC
 
     ${CMAKE_CURRENT_LIST_DIR}/view/exportdialogmodel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/exportdialogmodel.h
-    ${CMAKE_CURRENT_LIST_DIR}/view/recentprojectsmodel.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/view/recentprojectsmodel.h
+    ${CMAKE_CURRENT_LIST_DIR}/view/scorespagemodel.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/view/scorespagemodel.h
+    ${CMAKE_CURRENT_LIST_DIR}/view/abstractscoresmodel.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/view/abstractscoresmodel.h
+    ${CMAKE_CURRENT_LIST_DIR}/view/recentscoresmodel.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/view/recentscoresmodel.h
+    ${CMAKE_CURRENT_LIST_DIR}/view/cloudscoresmodel.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/view/cloudscoresmodel.h
+    ${CMAKE_CURRENT_LIST_DIR}/view/cloudscorestatuswatcher.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/view/cloudscorestatuswatcher.h
+    ${CMAKE_CURRENT_LIST_DIR}/view/scorethumbnailloader.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/view/scorethumbnailloader.h
+    ${CMAKE_CURRENT_LIST_DIR}/view/pixmapscorethumbnailview.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/view/pixmapscorethumbnailview.h
     ${CMAKE_CURRENT_LIST_DIR}/view/newscoremodel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/newscoremodel.h
     ${CMAKE_CURRENT_LIST_DIR}/view/additionalinfomodel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/additionalinfomodel.h
-    ${CMAKE_CURRENT_LIST_DIR}/view/scorethumbnail.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/view/scorethumbnail.h
     ${CMAKE_CURRENT_LIST_DIR}/view/templatesmodel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/templatesmodel.h
     ${CMAKE_CURRENT_LIST_DIR}/view/templatepaintview.cpp
@@ -135,12 +141,12 @@ set(MODULE_SRC
     )
 
 set(MODULE_LINK
-    uicomponents
+    muse::uicomponents
     notation
 )
 
-include(SetupModule)
+setup_module()
 
-if (MUE_BUILD_UNIT_TESTS)
+if (MUE_BUILD_PROJECT_TESTS)
     add_subdirectory(tests)
 endif()

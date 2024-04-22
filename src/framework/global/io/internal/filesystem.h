@@ -19,12 +19,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_SYSTEM_FILESYSTEM_H
-#define MU_SYSTEM_FILESYSTEM_H
+#ifndef MUSE_IO_FILESYSTEM_H
+#define MUSE_IO_FILESYSTEM_H
 
 #include "../ifilesystem.h"
 
-namespace mu::io {
+namespace muse::io {
 class FileSystem : public IFileSystem
 {
 public:
@@ -45,7 +45,7 @@ public:
                                   ScanMode mode = ScanMode::FilesInCurrentDirAndSubdirs) const override;
 
     RetVal<ByteArray> readFile(const io::path_t& filePath) const override;
-    bool readFile(const io::path_t& filePath, ByteArray& data) const override;
+    Ret readFile(const io::path_t& filePath, ByteArray& data) const override;
     Ret writeFile(const io::path_t& filePath, const ByteArray& data) const override;
 
     void setAttribute(const io::path_t& path, Attribute attribute) const override;
@@ -56,7 +56,7 @@ public:
     io::path_t absoluteFilePath(const io::path_t& filePath) const override;
     DateTime birthTime(const io::path_t& filePath) const override;
     DateTime lastModified(const io::path_t& filePath) const override;
-    bool isWritable(const path_t& filePath) const override;
+    Ret isWritable(const path_t& filePath) const override;
 
 private:
     Ret removeFile(const io::path_t& path) const;
@@ -65,4 +65,4 @@ private:
 };
 }
 
-#endif // MU_SYSTEM_FILESYSTEM_H
+#endif // MUSE_IO_FILESYSTEM_H

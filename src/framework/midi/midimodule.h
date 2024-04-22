@@ -19,15 +19,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_MIDI_MIDIMODULE_H
-#define MU_MIDI_MIDIMODULE_H
+#ifndef MUSE_MIDI_MIDIMODULE_H
+#define MUSE_MIDI_MIDIMODULE_H
 
 #include <memory>
+
 #include "modularity/imodulesetup.h"
 
-namespace mu::midi {
+namespace muse::midi {
 class MidiConfiguration;
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX)
+class AlsaMidiOutPort;
+class AlsaMidiInPort;
+#elif defined(Q_OS_FREEBSD)
 class AlsaMidiOutPort;
 class AlsaMidiInPort;
 #elif defined(Q_OS_WIN)
@@ -47,13 +51,13 @@ public:
 
     void registerExports() override;
     void registerUiTypes() override;
-    void onInit(const framework::IApplication::RunMode& mode) override;
+    void onInit(const IApplication::RunMode& mode) override;
     void onDeinit() override;
 
 private:
     std::shared_ptr<MidiConfiguration> m_configuration;
 
-    #ifdef Q_OS_LINUX
+    #if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
     std::shared_ptr<AlsaMidiOutPort> m_midiOutPort;
     std::shared_ptr<AlsaMidiInPort> m_midiInPort;
 
@@ -72,4 +76,4 @@ private:
 };
 }
 
-#endif // MU_MIDI_MIDIMODULE_H
+#endif // MUSE_MIDI_MIDIMODULE_H

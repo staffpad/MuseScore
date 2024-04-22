@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,8 +21,8 @@
  */
 import QtQuick 2.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.Inspector 1.0
 
 import "../../common"
@@ -64,47 +64,23 @@ Column {
         maxValue: 1000
     }
 
-    InspectorPropertyView {
-        id: avoidBarLinesSection
-        titleText: ""
+    CheckBoxPropertyView {
+        id: avoidBarLines
+
+        navigationName: "Avoid barlines"
+        navigationPanel: root.navigationPanel
+        navigationRowStart: dynamicSize.navigationRowEnd + 1
+
+        titleText: qsTrc("inspector", "Avoid barlines")
         propertyItem: root.model ? root.model.avoidBarLines : null
-
-        isModified: root.model ? root.model.avoidBarLines.isModified: false
-
-        onRequestResetToDefault: {
-            if (root.model) {
-                root.model.avoidBarLines.resetToDefault()
-            }
-        }
-
-        onRequestApplyToStyle: {
-            if (root.model) {
-                root.model.avoidBarLines.applyToStyle()
-            }
-        }
-
-        Item {
-            CheckBoxPropertyView {
-                id: avoidBarLines
-
-                navigation.name: "Avoid bar lines"
-                navigation.panel: root.navigationPanel
-                navigation.row: dynamicSize.navigationRowEnd + 1
-
-                text: qsTrc("inspector", "Avoid bar lines")
-                propertyItem: root.model ? root.model.avoidBarLines : null
-                height: implicitHeight
-            }
-        }
     }
-
 
     PlacementSection {
         id: dynamicsPlacementSection
         propertyItem: root.model ? root.model.placement : null
 
         navigationPanel: root.navigationPanel
-        navigationRowStart: avoidBarLinesSection.navigationRowEnd + 1
+        navigationRowStart: avoidBarLines.navigationRowEnd + 1
     }
 
     ExpandableBlank {
@@ -123,6 +99,7 @@ Column {
 
             FlatRadioButtonGroupPropertyView {
                 id: dynamicAlignmentGroup
+
                 requestHeight: 55
                 requestIconFontSize: 32
 
@@ -130,7 +107,7 @@ Column {
                 propertyItem: root.model ? root.model.centerOnNotehead : null
 
                 navigationPanel: root.navigationPanel
-                navigationRowStart: showItem.navigationRowStart + 1
+                navigationRowStart: showItem.navigation.row + 1
 
                 model: [
                     { iconCode: IconCode.DYNAMIC_CENTER_1, value: true, title: qsTrc("inspector", "Center on notehead") },
@@ -142,14 +119,14 @@ Column {
                 id: frameSettings
 
                 navigationPanel: root.navigationPanel
-                navigationRowStart: parent.navigationRowEnd + 1
+                navigationRowStart: dynamicAlignmentGroup.navigationRowEnd + 1
 
-                frameTypePropertyItem: root.model ? root.model.frameType : null
-                frameBorderColorPropertyItem: root.model ? root.model.frameBorderColor : null
-                frameFillColorPropertyItem: root.model ? root.model.frameFillColor : null
-                frameThicknessPropertyItem: root.model ? root.model.frameThickness : null
-                frameMarginPropertyItem: root.model ? root.model.frameMargin : null
-                frameCornerRadiusPropertyItem: root.model ? root.model.frameCornerRadius : null
+                frameType: root.model ? root.model.frameType : null
+                frameBorderColor: root.model ? root.model.frameBorderColor : null
+                frameFillColor: root.model ? root.model.frameFillColor : null
+                frameThickness: root.model ? root.model.frameThickness : null
+                frameMargin: root.model ? root.model.frameMargin : null
+                frameCornerRadius: root.model ? root.model.frameCornerRadius : null
             }
         }
     }

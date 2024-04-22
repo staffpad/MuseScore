@@ -25,8 +25,8 @@
 
 #include "settings.h"
 
-using namespace mu::midi;
-using namespace mu::framework;
+using namespace muse;
+using namespace muse::midi;
 
 static const std::string module_name("midi");
 
@@ -52,6 +52,11 @@ void MidiConfiguration::init()
     settings()->setDefaultValue(USE_MIDI20_OUTPUT_KEY, Val(true));
 }
 
+bool MidiConfiguration::midiPortIsAvalaible() const
+{
+    return true;
+}
+
 bool MidiConfiguration::useRemoteControl() const
 {
     return settings()->value(USE_REMOTE_CONTROL_KEY).toBool();
@@ -72,7 +77,7 @@ void MidiConfiguration::setMidiInputDeviceId(const MidiDeviceID& deviceId)
     settings()->setSharedValue(MIDI_INPUT_DEVICE_ID, Val(deviceId));
 }
 
-mu::async::Notification MidiConfiguration::midiInputDeviceIdChanged() const
+async::Notification MidiConfiguration::midiInputDeviceIdChanged() const
 {
     return m_midiInputDeviceIdChanged;
 }
@@ -87,7 +92,7 @@ void MidiConfiguration::setMidiOutputDeviceId(const MidiDeviceID& deviceId)
     settings()->setSharedValue(MIDI_OUTPUT_DEVICE_ID, Val(deviceId));
 }
 
-mu::async::Notification MidiConfiguration::midiOutputDeviceIdChanged() const
+async::Notification MidiConfiguration::midiOutputDeviceIdChanged() const
 {
     return m_midiOutputDeviceIdChanged;
 }

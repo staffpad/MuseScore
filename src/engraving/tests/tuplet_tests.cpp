@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,13 +22,13 @@
 
 #include <gtest/gtest.h>
 
-#include "libmscore/chord.h"
-#include "libmscore/factory.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/measure.h"
-#include "libmscore/staff.h"
-#include "libmscore/timesig.h"
-#include "libmscore/tuplet.h"
+#include "dom/chord.h"
+#include "dom/factory.h"
+#include "dom/masterscore.h"
+#include "dom/measure.h"
+#include "dom/staff.h"
+#include "dom/timesig.h"
+#include "dom/tuplet.h"
 
 #include "utils/scorerw.h"
 #include "utils/scorecomp.h"

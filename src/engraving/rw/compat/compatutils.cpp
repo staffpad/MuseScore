@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,25 +22,24 @@
 
 #include "compatutils.h"
 
-#include "libmscore/articulation.h"
-#include "libmscore/chord.h"
-#include "libmscore/dynamic.h"
-#include "libmscore/expression.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/score.h"
-#include "libmscore/excerpt.h"
-#include "libmscore/part.h"
-#include "libmscore/linkedobjects.h"
-#include "libmscore/measure.h"
-#include "libmscore/factory.h"
-#include "libmscore/ornament.h"
-#include "libmscore/stafftext.h"
-#include "libmscore/stafftextbase.h"
-#include "libmscore/playtechannotation.h"
-
-#include "rw/xmlreader.h"
-#include "rw/400/readcontext.h"
-#include "rw/400/tread.h"
+#include "dom/articulation.h"
+#include "dom/chord.h"
+#include "dom/dynamic.h"
+#include "dom/expression.h"
+#include "dom/masterscore.h"
+#include "dom/score.h"
+#include "dom/excerpt.h"
+#include "dom/part.h"
+#include "dom/stem.h"
+#include "dom/linkedobjects.h"
+#include "dom/measure.h"
+#include "dom/factory.h"
+#include "dom/ornament.h"
+#include "dom/rest.h"
+#include "dom/stafftext.h"
+#include "dom/stafftextbase.h"
+#include "dom/playtechannotation.h"
+#include "dom/capo.h"
 
 #include "types/string.h"
 
@@ -49,8 +48,34 @@
 using namespace mu::engraving;
 using namespace mu::engraving::compat;
 
+const std::set<SymId> CompatUtils::ORNAMENT_IDS {
+    SymId::ornamentTurn,
+    SymId::ornamentTurnInverted,
+    SymId::ornamentTurnSlash,
+    SymId::ornamentTrill,
+    SymId::brassMuteClosed,
+    SymId::ornamentMordent,
+    SymId::ornamentShortTrill,
+    SymId::ornamentTremblement,
+    SymId::ornamentPrallMordent,
+    SymId::ornamentLinePrall,
+    SymId::ornamentUpPrall,
+    SymId::ornamentUpMordent,
+    SymId::ornamentPrecompMordentUpperPrefix,
+    SymId::ornamentDownMordent,
+    SymId::ornamentPrallUp,
+    SymId::ornamentPrallDown,
+    SymId::ornamentPrecompSlide,
+    SymId::ornamentShake3,
+    SymId::ornamentShakeMuffat1,
+    SymId::ornamentTremblementCouperin,
+    SymId::ornamentPinceCouperin
+};
+
 void CompatUtils::doCompatibilityConversions(MasterScore* masterScore)
 {
+    TRACEFUNC;
+
     if (!masterScore) {
         return;
     }
@@ -63,6 +88,15 @@ void CompatUtils::doCompatibilityConversions(MasterScore* masterScore)
         reconstructTypeOfCustomDynamics(masterScore);
         replaceOldWithNewExpressions(masterScore);
         replaceOldWithNewOrnaments(masterScore);
+        resetRestVerticalOffset(masterScore);
+        splitArticulations(masterScore);
+        resetArticulationOffsets(masterScore);
+        resetStemLengthsForTwoNoteTrems(masterScore);
+        replaceStaffTextWithCapo(masterScore);
+    }
+    if (masterScore->mscVersion() < 420) {
+        addMissingInitKeyForTransposingInstrument(masterScore);
+        resetFramesExclusionFromParts(masterScore);
     }
 }
 
@@ -71,7 +105,7 @@ void CompatUtils::replaceStaffTextWithPlayTechniqueAnnotation(MasterScore* score
     TRACEFUNC;
 
     //! NOTE: Before MU4, they were available in the Staff Text Properties dialog (Change Channel page)
-    static const std::unordered_map<mu::String, PlayingTechniqueType> textToPlayTechniqueType {
+    static const std::unordered_map<muse::String, PlayingTechniqueType> textToPlayTechniqueType {
         { u"natural", PlayingTechniqueType::Natural },
         { u"normal", PlayingTechniqueType::Natural },
 
@@ -101,13 +135,13 @@ void CompatUtils::replaceStaffTextWithPlayTechniqueAnnotation(MasterScore* score
 
                 StaffTextBase* text = toStaffTextBase(annotation);
                 PlayingTechniqueType type
-                    = mu::value(textToPlayTechniqueType, text->plainText().toLower(), PlayingTechniqueType::Undefined);
+                    = muse::value(textToPlayTechniqueType, text->plainText().toLower(), PlayingTechniqueType::Undefined);
 
                 if (type == PlayingTechniqueType::Undefined) {
-                    mu::String channelName = text->channelName(0).toLower();
+                    muse::String channelName = text->channelName(0).toLower();
 
                     if (!channelName.isEmpty()) {
-                        type = mu::value(textToPlayTechniqueType, channelName, PlayingTechniqueType::Undefined);
+                        type = muse::value(textToPlayTechniqueType, channelName, PlayingTechniqueType::Undefined);
                     }
                 }
 
@@ -176,7 +210,7 @@ void CompatUtils::assignInitialPartToExcerpts(const std::vector<Excerpt*>& excer
         }
 
         for (Part* part : excerpt->excerptScore()->parts()) {
-            if (mu::contains(assignedPartIdSet, part->id())) {
+            if (muse::contains(assignedPartIdSet, part->id())) {
                 continue;
             }
 
@@ -190,30 +224,6 @@ void CompatUtils::assignInitialPartToExcerpts(const std::vector<Excerpt*>& excer
 
 void CompatUtils::replaceOldWithNewOrnaments(MasterScore* score)
 {
-    static const std::set<SymId> ornamentIds {
-        SymId::ornamentTurn,
-        SymId::ornamentTurnInverted,
-        SymId::ornamentTurnSlash,
-        SymId::ornamentTrill,
-        SymId::brassMuteClosed,
-        SymId::ornamentMordent,
-        SymId::ornamentShortTrill,
-        SymId::ornamentTremblement,
-        SymId::ornamentPrallMordent,
-        SymId::ornamentLinePrall,
-        SymId::ornamentUpPrall,
-        SymId::ornamentUpMordent,
-        SymId::ornamentPrecompMordentUpperPrefix,
-        SymId::ornamentDownMordent,
-        SymId::ornamentPrallUp,
-        SymId::ornamentPrallDown,
-        SymId::ornamentPrecompSlide,
-        SymId::ornamentShake3,
-        SymId::ornamentShakeMuffat1,
-        SymId::ornamentTremblementCouperin,
-        SymId::ornamentPinceCouperin
-    };
-
     std::set<Articulation*> oldOrnaments;     // ornaments used to be articulations
 
     for (Measure* meas = score->firstMeasure(); meas; meas = meas->nextMeasure()) {
@@ -229,7 +239,7 @@ void CompatUtils::replaceOldWithNewOrnaments(MasterScore* score)
                     if (articulation->isOrnament()) {
                         continue;
                     }
-                    if (ornamentIds.find(articulation->symId()) != ornamentIds.end()) {
+                    if (ORNAMENT_IDS.find(articulation->symId()) != ORNAMENT_IDS.end()) {
                         oldOrnaments.insert(articulation);
                         LinkedObjects* links = articulation->links();
                         if (!links || links->empty()) {
@@ -256,6 +266,8 @@ void CompatUtils::replaceOldWithNewOrnaments(MasterScore* score)
         newOrnament->setPos(oldOrnament->pos());
         newOrnament->setOrnamentStyle(oldOrnament->ornamentStyle());
         newOrnament->setDirection(oldOrnament->direction());
+        newOrnament->setAutoplace(oldOrnament->autoplace());
+        newOrnament->setPlayArticulation(oldOrnament->playArticulation());
 
         LinkedObjects* links = oldOrnament->links();
         newOrnament->setLinks(links);
@@ -343,6 +355,104 @@ void CompatUtils::reconstructTypeOfCustomDynamics(MasterScore* score)
     }
 }
 
+void CompatUtils::splitArticulations(MasterScore* masterScore)
+{
+    std::set<Articulation*> toRemove;
+    for (Measure* meas = masterScore->firstMeasure(); meas; meas = meas->nextMeasure()) {
+        for (Segment& seg : meas->segments()) {
+            if (!seg.isChordRestType()) {
+                continue;
+            }
+            for (EngravingItem* item : seg.elist()) {
+                if (!item || !item->isChord()) {
+                    continue;
+                }
+                Chord* chord = toChord(item);
+                for (Articulation* a : chord->articulations()) {
+                    if (a->isLinked()) {
+                        continue; // only worry about main artics, links will be done later
+                    }
+                    std::set<SymId> ids = mu::engraving::splitArticulations({ a->symId() });
+                    if (ids.size() <= 1) {
+                        continue;
+                    }
+                    toRemove.insert(a);
+                }
+            }
+        }
+    }
+    // separate into individual articulations
+    for (Articulation* combinedArtic : toRemove) {
+        auto components = mu::engraving::splitArticulations({ combinedArtic->symId() });
+        Chord* parentChord = toChord(combinedArtic->parentItem());
+        for (SymId id : components) {
+            Articulation* newArtic = Factory::createArticulation(masterScore->dummy()->chord());
+            newArtic->setSymId(id);
+            if (parentChord->hasArticulation(newArtic)) {
+                delete newArtic;
+                continue;
+            }
+            newArtic->setParent(parentChord);
+            newArtic->setTrack(combinedArtic->track());
+            newArtic->setPos(combinedArtic->pos());
+            newArtic->setDirection(combinedArtic->direction());
+            newArtic->setAnchor(combinedArtic->anchor());
+            newArtic->setColor(combinedArtic->color());
+            newArtic->setPlayArticulation(combinedArtic->playArticulation());
+            newArtic->setVisible(combinedArtic->visible());
+            newArtic->setOrnamentStyle(combinedArtic->ornamentStyle());
+            LinkedObjects* links = new LinkedObjects(masterScore);
+            links->push_back(newArtic);
+            newArtic->setLinks(links);
+            parentChord->add(newArtic);
+
+            // newArtic is the main articulation
+            LinkedObjects* oldLinks = combinedArtic->links();
+            if (!oldLinks || oldLinks->empty()) {
+                continue;
+            }
+            for (EngravingObject* linkedItem : *oldLinks) {
+                IF_ASSERT_FAILED(linkedItem && linkedItem->isArticulation()) {
+                    continue;
+                }
+                if (linkedItem == combinedArtic) {
+                    continue;
+                }
+                Articulation* oldArtic = toArticulation(linkedItem);
+                Chord* oldParent = toChord(oldArtic->parentItem());
+                oldParent->add(newArtic->linkedClone());
+            }
+        }
+    }
+    // finally, remove the combined articulations
+    for (Articulation* combinedArtic : toRemove) {
+        LinkedObjects* links = combinedArtic->links();
+        if (!links || links->empty()) {
+            Chord* parentChord = toChord(combinedArtic->parentItem());
+            parentChord->remove(combinedArtic);
+            delete combinedArtic;
+            continue;
+        }
+        std::set<Articulation*> removeLinks;
+        for (auto linked : *links) {
+            IF_ASSERT_FAILED(linked && linked->isArticulation()) {
+                continue;
+            }
+            removeLinks.insert(toArticulation(linked));
+        }
+        for (Articulation* linkedArtic : removeLinks) {
+            if (linkedArtic != combinedArtic) {
+                Chord* linkedParent = toChord(linkedArtic->parentItem());
+                linkedParent->remove(linkedArtic);
+                delete linkedArtic;
+            }
+        }
+        Chord* parentChord = toChord(combinedArtic->parentItem());
+        parentChord->remove(combinedArtic);
+        delete combinedArtic;
+    }
+}
+
 DynamicType CompatUtils::reconstructDynamicTypeFromString(Dynamic* dynamic)
 {
     static std::vector<Dyn> sortedDynList; // copy of dynList sorted by string length
@@ -383,5 +493,178 @@ ArticulationAnchor CompatUtils::translateToNewArticulationAnchor(int anchor)
     default:
         return ArticulationAnchor::AUTO;
         break;
+    }
+}
+
+void CompatUtils::resetRestVerticalOffset(MasterScore* masterScore)
+{
+    for (Score* score : masterScore->scoreList()) {
+        for (Measure* measure = score->firstMeasure(); measure; measure = measure->nextMeasure()) {
+            for (Segment& segment : measure->segments()) {
+                if (!segment.isChordRestType()) {
+                    continue;
+                }
+                for (EngravingItem* item : segment.elist()) {
+                    if (!item || !item->isRest()) {
+                        continue;
+                    }
+                    Rest* rest = toRest(item);
+                    if (rest->offset().y() != 0) {
+                        PointF newOffset = PointF(rest->offset().x(), 0.0);
+                        rest->setProperty(Pid::OFFSET, newOffset);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void CompatUtils::resetArticulationOffsets(MasterScore* masterScore)
+{
+    for (Score* score : masterScore->scoreList()) {
+        for (Measure* measure = score->firstMeasure(); measure; measure = measure->nextMeasure()) {
+            for (Segment& segment : measure->segments()) {
+                if (!segment.isChordRestType()) {
+                    continue;
+                }
+                for (EngravingItem* item : segment.elist()) {
+                    if (!item || !item->isChord()) {
+                        continue;
+                    }
+                    Chord* chord = toChord(item);
+                    for (Articulation* artic : chord->articulations()) {
+                        if (!artic) {
+                            continue;
+                        }
+                        artic->setProperty(Pid::OFFSET, PointF());
+                    }
+                }
+            }
+        }
+    }
+}
+
+void CompatUtils::resetStemLengthsForTwoNoteTrems(MasterScore* masterScore)
+{
+    for (Score* score : masterScore->scoreList()) {
+        for (Measure* measure = score->firstMeasure(); measure; measure = measure->nextMeasure()) {
+            for (Segment& segment : measure->segments()) {
+                if (!segment.isChordRestType()) {
+                    continue;
+                }
+                for (EngravingItem* item : segment.elist()) {
+                    if (!item || !item->isChord()) {
+                        continue;
+                    }
+                    Chord* chord = toChord(item);
+                    TremoloTwoChord* trem = chord->tremoloTwoChord();
+                    Stem* stem = chord->stem();
+                    if (stem && trem) {
+                        if (stem->userLength() != Millimetre(0)) {
+                            stem->setUserLength(Millimetre(0));
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+void CompatUtils::replaceStaffTextWithCapo(MasterScore* score)
+{
+    TRACEFUNC;
+
+    std::set<StaffTextBase*> oldCapoSet;
+
+    for (Measure* measure = score->firstMeasure(); measure; measure = measure->nextMeasure()) {
+        for (Segment* segment = measure->first(); segment; segment = segment->next()) {
+            for (EngravingItem* annotation : segment->annotations()) {
+                if (!annotation || !annotation->isStaffTextBase()) {
+                    continue;
+                }
+
+                StaffTextBase* text = toStaffTextBase(annotation);
+
+                if (text->capo() > 0) {
+                    oldCapoSet.insert(text);
+                } else {
+                    continue;
+                }
+
+                LinkedObjects* links = text->links();
+                if (!links || links->empty()) {
+                    continue;
+                }
+
+                for (EngravingObject* linked : *links) {
+                    if (linked != text && linked && linked->isStaffTextBase()) {
+                        oldCapoSet.insert(toStaffTextBase(linked));
+                    }
+                }
+            }
+        }
+    }
+
+    for (StaffTextBase* oldCapo : oldCapoSet) {
+        Segment* parentSegment = oldCapo->segment();
+        Capo* newCapo = Factory::createCapo(parentSegment);
+
+        int capoFretPosition = oldCapo->capo() - 1;
+
+        CapoParams params;
+        params.active = capoFretPosition > 0;
+        params.fretPosition = capoFretPosition;
+
+        newCapo->setTrack(oldCapo->track());
+        newCapo->setParams(params);
+        newCapo->setProperty(Pid::PLACEMENT, oldCapo->placement());
+
+        LinkedObjects* links = oldCapo->links();
+        newCapo->setLinks(links);
+        if (links) {
+            links->push_back(newCapo);
+        }
+
+        parentSegment->add(newCapo);
+        parentSegment->removeAnnotation(oldCapo);
+
+        delete oldCapo;
+    }
+}
+
+void CompatUtils::addMissingInitKeyForTransposingInstrument(MasterScore* score)
+{
+    TRACEFUNC;
+
+    for (Part* part : score->parts()) {
+        Instrument* instrument = part->instrument();
+        Interval v = instrument->transpose();
+        if (v.chromatic % 12) {
+            for (Staff* staff : part->staves()) {
+                KeyList* keys = staff->keyList();
+                if (keys->find(0) == keys->end()) {
+                    KeySigEvent kse;
+                    Key key = Key::C;
+                    Key cKey = key;
+                    if (!score->style().styleB(Sid::concertPitch)) {
+                        cKey = transposeKey(key, v);
+                    }
+                    kse.setConcertKey(cKey);
+                    kse.setKey(key);
+                    score->undoChangeKeySig(staff, Fraction(0, 1), kse);
+                }
+            }
+        }
+    }
+}
+
+void CompatUtils::resetFramesExclusionFromParts(MasterScore* masterScore)
+{
+    for (Score* score : masterScore->scoreList()) {
+        for (MeasureBase* measureBase = score->first(); measureBase; measureBase = measureBase->next()) {
+            if (!measureBase->isMeasure()) {
+                measureBase->setExcludeFromOtherParts(false);
+            }
+        }
     }
 }

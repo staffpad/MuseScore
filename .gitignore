@@ -5,11 +5,13 @@
 .qped
 .directory
 .idea
+.vscode/
 /builds
 /build_overrides.cmake
 build.release
 build.debug
 build.install
+build.tooldata
 build.qtc
 build-*
 win32build
@@ -28,9 +30,7 @@ MuseScorePortable
 /*.includes
 *.user
 /share/locale/*placeholder.ts
-*.qm
-share/manual/en
-share/manual/de
+/share/locale/*.qm
 /share/instruments/tsv
 Doc
 DocLib
@@ -67,3 +67,5 @@ VERSION
 *.orig
 
 temp_*
+
+*.local.cmake

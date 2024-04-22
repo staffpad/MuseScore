@@ -29,8 +29,9 @@
 
 #include "log.h"
 
-using namespace mu::ui;
-using namespace mu::modularity;
+using namespace muse;
+using namespace muse::ui;
+using namespace muse::modularity;
 
 MainWindowBridge::MainWindowBridge(QObject* parent)
     : QObject(parent), m_window(nullptr)
@@ -64,14 +65,10 @@ void MainWindowBridge::init()
 {
     mainWindow()->init(this);
 
+    updateFullScreen();
     connect(m_window, &QWindow::windowStateChanged, this, [this]() {
-        m_isFullScreenChanged.notify();
+        updateFullScreen();
     });
-}
-
-mu::async::Notification MainWindowBridge::isFullScreenChanged() const
-{
-    return m_isFullScreenChanged;
 }
 
 QString MainWindowBridge::filePath() const
@@ -135,7 +132,12 @@ void MainWindowBridge::showOnFront()
 
 bool MainWindowBridge::isFullScreen() const
 {
-    return m_window ? m_window->visibility() == QWindow::FullScreen : false;
+    return m_isFullScreen;
+}
+
+async::Notification MainWindowBridge::isFullScreenChanged() const
+{
+    return m_isFullScreenChanged;
 }
 
 void MainWindowBridge::toggleFullScreen()
@@ -150,6 +152,17 @@ void MainWindowBridge::toggleFullScreen()
         m_windowVisibility = m_window->visibility();
         m_window->setVisibility(QWindow::FullScreen);
     }
+}
+
+void MainWindowBridge::updateFullScreen()
+{
+    bool isFullScreen = m_window ? m_window->windowStates().testFlag(Qt::WindowFullScreen) : false;
+    if (isFullScreen == m_isFullScreen) {
+        return;
+    }
+
+    m_isFullScreen = isFullScreen;
+    m_isFullScreenChanged.notify();
 }
 
 QScreen* MainWindowBridge::screen() const

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,8 +22,8 @@
 import QtQuick 2.0
 import QtQuick.Controls 2.0
 import MuseScore.Inspector 1.0
-import MuseScore.UiComponents 1.0
-import MuseScore.Ui 1.0
+import Muse.UiComponents 1.0
+import Muse.Ui 1.0
 import "../../common"
 import "internal"
 
@@ -69,9 +69,9 @@ FocusableItem {
             navigationRowStart: noteHeadParenthesesView.navigationRowEnd + 1
         }
 
-        CheckBoxPropertyView {
-            visible: root.model ? !root.model.isTrillCueNote : true
+        PropertyCheckBox {
             id: hideNoteheadCheckBox
+            visible: root.model ? !root.model.isTrillCueNote : true
 
             text: qsTrc("inspector", "Hide notehead")
             propertyItem: root.model ? root.model.isHeadHidden : null
@@ -81,7 +81,7 @@ FocusableItem {
             navigation.row: noteHeadSection.navigationRowEnd + 1
         }
 
-        CheckBoxPropertyView {
+        PropertyCheckBox {
             id: smallNoteheadCheckBox
 
             text: qsTrc("inspector", "Small notehead")
@@ -93,8 +93,8 @@ FocusableItem {
         }
 
         FlatRadioButtonGroupPropertyView {
-            visible: root.model ? !root.model.isTrillCueNote : true
             id: durationDotPosition
+            visible: root.model ? !root.model.isTrillCueNote : true
 
             titleText: qsTrc("inspector", "Duration dot position")
             propertyItem: root.model ? root.model.dotPosition : null
@@ -110,19 +110,9 @@ FocusableItem {
             ]
         }
 
-        OffsetSection {
-            visible: root.model ? root.model.isTrillCueNote : false
-            titleText: qsTrc("inspector", "Notehead offset")
-            propertyItem: root.model ? root.model.offset : null
-
-            navigationName: "NoteHeadOffsetSection"
-            navigationPanel: root.navigationPanel
-            navigationRowStart: noteDirectionSection.navigationRowEnd + 1
-        }
-
         ExpandableBlank {
-            visible: root.model ? !root.model.isTrillCueNote : true
             id: showItem
+            visible: root.model ? !root.model.isTrillCueNote : true
 
             isExpanded: false
 
@@ -142,7 +132,7 @@ FocusableItem {
                 DropdownPropertyView {
                     id: noteHeadSystemSection
 
-                    titleText: qsTrc("inspector", "Notehead system")
+                    titleText: qsTrc("inspector", "Notehead scheme")
                     propertyItem: root.model ? root.model.headSystem : null
 
                     model: root.model.possibleHeadSystemTypes()

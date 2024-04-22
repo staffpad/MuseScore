@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,8 +22,8 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.InstrumentsScene 1.0
 
 import "internal"
@@ -35,9 +35,13 @@ Rectangle {
     property string currentInstrumentId: ""
     property string description: instrumentsModel.selectedInstrument ? instrumentsModel.selectedInstrument.description : ""
 
-    property bool hasSelectedInstruments: instrumentsOnScoreView.hasInstruments
+    property bool hasSelectedInstruments: root.canSelectMultipleInstruments
+                                          ? instrumentsOnScoreView.hasInstruments
+                                          : Boolean(instrumentsModel.selectedInstrument)
 
     property NavigationSection navigationSection: null
+
+    property alias navigation: instrumentsView.navigation
 
     signal submitRequested()
 
@@ -66,8 +70,8 @@ Rectangle {
     InstrumentListModel {
         id: instrumentsModel
 
-        onFocusRequested: function(groupIndex) {
-            familyView.focusGroup(groupIndex)
+        onFocusRequested: function(groupIndex, instrumentIndex) {
+            familyView.scrollToGroup(groupIndex)
             instrumentsView.focusInstrument(instrumentIndex)
         }
     }
@@ -114,7 +118,6 @@ Rectangle {
             }
 
             onGroupSelected: function(newIndex) {
-                var selectedGroupName = groupName(newIndex)
                 instrumentsModel.currentGroupIndex = newIndex
 
                 if (instrumentsView.searching) {
@@ -122,7 +125,7 @@ Rectangle {
                     instrumentsView.clearSearch()
                 }
 
-                restoreGroupNavigationActive(selectedGroupName)
+                focusGroupNavigation(newIndex)
             }
         }
 
@@ -142,9 +145,9 @@ Rectangle {
             instrumentsModel: instrumentsModel
 
             onAddSelectedInstrumentsToScoreRequested: {
-                prv.addSelectedInstrumentsToScore()
-
-                if (!root.canSelectMultipleInstruments) {
+                if (root.canSelectMultipleInstruments) {
+                    prv.addSelectedInstrumentsToScore()
+                } else {
                     root.submitRequested()
                 }
             }

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -28,18 +28,16 @@
 #include "modularity/ioc.h"
 #include "accessibility/iaccessibilitycontroller.h"
 
-#include "libmscore/engravingitem.h"
-#include "libmscore/textbase.h"
-
-//! NOTE At the moment this is just a concept, not a production-ready system, a lot of work yet.
+#include "../dom/engravingitem.h"
+#include "../dom/textbase.h"
 
 namespace mu::engraving {
 class AccessibleRoot;
-class AccessibleItem : public accessibility::IAccessible, public std::enable_shared_from_this<AccessibleItem>
+class AccessibleItem : public muse::accessibility::IAccessible, public std::enable_shared_from_this<AccessibleItem>
 {
     OBJECT_ALLOCATOR(engraving, AccessibleItem)
 
-    INJECT_STATIC(accessibility::IAccessibilityController, accessibilityController)
+    INJECT_STATIC(muse::accessibility::IAccessibilityController, accessibilityController)
 
 public:
     AccessibleItem(EngravingItem* e, Role role = Role::ElementOnScore);
@@ -85,8 +83,11 @@ public:
     QString accessibleTextAtOffset(int offset, TextBoundaryType boundaryType, int* startOffset, int* endOffset) const override;
     int accessibleCharacterCount() const override;
 
-    async::Channel<Property, Val> accessiblePropertyChanged() const override;
-    async::Channel<State, bool> accessibleStateChanged() const override;
+    // ListView item Interface
+    int accessibleRowIndex() const override;
+
+    muse::async::Channel<Property, muse::Val> accessiblePropertyChanged() const override;
+    muse::async::Channel<State, bool> accessibleStateChanged() const override;
 
     void setState(State state, bool arg) override;
     // ---
@@ -103,8 +104,8 @@ protected:
 
     Role m_role = Role::ElementOnScore;
 
-    mu::async::Channel<IAccessible::Property, Val> m_accessiblePropertyChanged;
-    mu::async::Channel<IAccessible::State, bool> m_accessibleStateChanged;
+    muse::async::Channel<IAccessible::Property, muse::Val> m_accessiblePropertyChanged;
+    muse::async::Channel<IAccessible::State, bool> m_accessibleStateChanged;
 };
 using AccessibleItemPtr = std::shared_ptr<AccessibleItem>;
 using AccessibleItemWeakPtr = std::weak_ptr<AccessibleItem>;

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -30,7 +30,8 @@
 
 using namespace mu::project;
 using namespace mu::notation;
-using namespace mu::actions;
+using namespace muse;
+using namespace muse::actions;
 
 TemplatePaintView::TemplatePaintView(QQuickItem* parent)
     : AbstractNotationPaintView(parent)
@@ -129,6 +130,6 @@ void TemplatePaintView::resetNotation()
 
 QString TemplatePaintView::shortcutsTitleByActionCode(const ActionCode& code) const
 {
-    shortcuts::Shortcut shortcut = shortcutsRegister()->shortcut(code);
-    return shortcuts::sequencesToNativeText(shortcut.sequences);
+    muse::shortcuts::Shortcut shortcut = shortcutsRegister()->shortcut(code);
+    return muse::shortcuts::sequencesToNativeText(shortcut.sequences);
 }

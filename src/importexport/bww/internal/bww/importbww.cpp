@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -32,25 +32,25 @@
 #include "engraving/engravingerrors.h"
 #include "engraving/types/fraction.h"
 
-#include "libmscore/box.h"
-#include "libmscore/chord.h"
-#include "libmscore/clef.h"
-#include "libmscore/factory.h"
-#include "libmscore/keysig.h"
-#include "libmscore/layoutbreak.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/measure.h"
-#include "libmscore/note.h"
-#include "libmscore/part.h"
-#include "libmscore/pitchspelling.h"
-#include "libmscore/segment.h"
-#include "libmscore/staff.h"
-#include "libmscore/tempotext.h"
-#include "libmscore/text.h"
-#include "libmscore/tie.h"
-#include "libmscore/timesig.h"
-#include "libmscore/tuplet.h"
-#include "libmscore/volta.h"
+#include "engraving/dom/box.h"
+#include "engraving/dom/chord.h"
+#include "engraving/dom/clef.h"
+#include "engraving/dom/factory.h"
+#include "engraving/dom/keysig.h"
+#include "engraving/dom/layoutbreak.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/measure.h"
+#include "engraving/dom/note.h"
+#include "engraving/dom/part.h"
+#include "engraving/dom/pitchspelling.h"
+#include "engraving/dom/segment.h"
+#include "engraving/dom/staff.h"
+#include "engraving/dom/tempotext.h"
+#include "engraving/dom/text.h"
+#include "engraving/dom/tie.h"
+#include "engraving/dom/timesig.h"
+#include "engraving/dom/tuplet.h"
+#include "engraving/dom/volta.h"
 
 #include "log.h"
 
@@ -129,9 +129,11 @@ static void setTempo(mu::engraving::Score* score, int tempo)
     mu::engraving::TempoText* tt = new mu::engraving::TempoText(segment);
     tt->setTempo(double(tempo) / 60.0);
     tt->setTrack(0);
-    QString tempoText = mu::engraving::TempoText::duration2tempoTextString(mu::engraving::DurationType::V_QUARTER);
-    tempoText += QString(" = %1").arg(tempo);
-    tt->setPlainText(tempoText);
+    tt->setFollowText(true);
+    muse::String tempoText = mu::engraving::TempoText::duration2tempoTextString(mu::engraving::DurationType::V_QUARTER);
+    tempoText += u" = ";
+    tempoText += muse::String::number(tempo);
+    tt->setXmlText(tempoText);
     segment->add(tt);
 }
 
@@ -253,14 +255,14 @@ void MsScWriter::beginMeasure(const Bww::MeasureBeginFlags mbf)
     // set clef, key and time signature in the first measure
     if (measureNumber == 1) {
         // clef
-        mu::engraving::Segment* s = currentMeasure->getSegment(mu::engraving::SegmentType::Clef, tick);
+        mu::engraving::Segment* s = currentMeasure->getSegment(mu::engraving::SegmentType::HeaderClef, tick);
         mu::engraving::Clef* clef = Factory::createClef(s);
         clef->setClefType(mu::engraving::ClefType::G);
         clef->setTrack(0);
         s->add(clef);
         // keysig
         mu::engraving::KeySigEvent key;
-        key.setKey(mu::engraving::Key::D);
+        key.setConcertKey(mu::engraving::Key::D);
         s = currentMeasure->getSegment(mu::engraving::SegmentType::KeySig, tick);
         mu::engraving::KeySig* keysig = Factory::createKeySig(s);
         keysig->setKeySigEvent(key);
@@ -344,7 +346,7 @@ void MsScWriter::note(const QString pitch, const QVector<Bww::BeamType> beamList
     }
     StepAlterOct sao = stepAlterOctMap.value(pitch);
 
-    int ticks = 4 * mu::engraving::Constants::division / type.toInt();
+    int ticks = 4 * mu::engraving::Constants::DIVISION / type.toInt();
     if (dots) {
         ticks = 3 * ticks / 2;
     }
@@ -567,7 +569,6 @@ Err importBww(MasterScore* score, const QString& path)
     Bww::Parser p(lex, wrt);
     p.parse();
 
-    score->setSaved(false);
     score->connectTies();
     LOGD("Score::importBww() done");
     return engraving::Err::NoError; // OK

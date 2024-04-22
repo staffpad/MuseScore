@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -28,6 +28,7 @@
 #include "modularity/ioc.h"
 #include "ipaletteconfiguration.h"
 #include "internal/ipaletteprovider.h"
+#include "engraving/rendering/isinglerenderer.h"
 
 namespace mu::palette {
 class PaletteWidget;
@@ -41,10 +42,13 @@ class TimeDialog : public QWidget, Ui::TimeDialogBase
 
     INJECT(IPaletteConfiguration, configuration)
     INJECT(IPaletteProvider, paletteProvider)
+    INJECT(engraving::rendering::ISingleRenderer, engravingRender)
 
 public:
     TimeDialog(QWidget* parent = 0);
+#ifdef MU_QT5_COMPAT
     TimeDialog(const TimeDialog& dialog);
+#endif
 
     bool dirty() const;
     bool showTimePalette() const;

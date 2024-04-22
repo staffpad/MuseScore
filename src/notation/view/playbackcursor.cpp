@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,11 +21,12 @@
  */
 #include "playbackcursor.h"
 
-#include "engraving/libmscore/system.h"
+#include "engraving/dom/system.h"
 
 using namespace mu::notation;
+using namespace muse;
 
-void PlaybackCursor::paint(mu::draw::Painter* painter)
+void PlaybackCursor::paint(muse::draw::Painter* painter)
 {
     if (!m_visible) {
         return;
@@ -39,13 +40,13 @@ void PlaybackCursor::setNotation(INotationPtr notation)
     m_notation = notation;
 }
 
-void PlaybackCursor::move(midi::tick_t tick)
+void PlaybackCursor::move(muse::midi::tick_t tick)
 {
     m_rect = resolveCursorRectByTick(tick);
 }
 
 //! NOTE Copied from ScoreView::moveCursor(const Fraction& tick)
-mu::RectF PlaybackCursor::resolveCursorRectByTick(midi::tick_t _tick) const
+muse::RectF PlaybackCursor::resolveCursorRectByTick(muse::midi::tick_t _tick) const
 {
     if (!m_notation) {
         return RectF();
@@ -106,7 +107,7 @@ mu::RectF PlaybackCursor::resolveCursorRectByTick(midi::tick_t _tick) const
     }
 
     double y = system->staffYpage(0) + system->page()->pos().y();
-    double _spatium = score->spatium();
+    double _spatium = score->style().spatium();
 
     double w  = 8;
     double h  = 6 * _spatium;
@@ -140,7 +141,7 @@ void PlaybackCursor::setVisible(bool arg)
     m_visible = arg;
 }
 
-const mu::RectF& PlaybackCursor::rect() const
+const muse::RectF& PlaybackCursor::rect() const
 {
     return m_rect;
 }

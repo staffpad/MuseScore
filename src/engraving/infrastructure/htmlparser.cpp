@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -26,7 +26,7 @@
 #endif
 
 namespace mu::engraving {
-String HtmlParser::parse(const String& name)
+muse::String HtmlParser::parse(const muse::String& name)
 {
 #ifndef ENGRAVING_NO_QTEXTDOCUMENT
     return QTextDocumentFragment::fromHtml(name.toQString()).toPlainText();

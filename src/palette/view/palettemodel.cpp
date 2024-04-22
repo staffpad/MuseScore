@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -27,10 +27,10 @@
 #include "internal/palettetree.h"
 #include "internal/palettecelliconengine.h"
 
-#include "engraving/libmscore/actionicon.h"
-#include "engraving/libmscore/beam.h"
-#include "engraving/libmscore/chordrest.h"
-#include "engraving/libmscore/select.h"
+#include "engraving/dom/actionicon.h"
+#include "engraving/dom/beam.h"
+#include "engraving/dom/chordrest.h"
+#include "engraving/dom/select.h"
 
 #include "commonscene/commonscenetypes.h"
 

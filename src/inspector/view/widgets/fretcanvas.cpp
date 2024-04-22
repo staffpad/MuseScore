@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -24,19 +24,12 @@
 
 #include <cmath>
 
-#include "libmscore/fret.h"
-#include "libmscore/measure.h"
-#include "libmscore/system.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/chord.h"
-#include "libmscore/note.h"
-#include "libmscore/segment.h"
-#include "libmscore/undo.h"
+#include "engraving/dom/fret.h"
 
 using namespace mu::inspector;
 
 FretCanvas::FretCanvas(QQuickItem* parent)
-    : uicomponents::QuickPaintedView(parent)
+    : muse::uicomponents::QuickPaintedView(parent)
 {
     setAcceptedMouseButtons(Qt::AllButtons);
     setAcceptHoverEvents(true);
@@ -134,7 +127,7 @@ void FretCanvas::draw(QPainter* painter)
         qreal newX2 = endString == -1 ? x2 : stringDist * endString;
 
         qreal y    = fretDist * (fret - 1) + fretDist * .5;
-        pen.setWidthF(dotd * m_diagram->score()->styleD(mu::engraving::Sid::barreLineWidth));          // don't use style barreLineWidth - why not?
+        pen.setWidthF(dotd * m_diagram->score()->style().styleD(mu::engraving::Sid::barreLineWidth));          // don't use style barreLineWidth - why not?
         pen.setCapStyle(Qt::RoundCap);
         painter->setPen(pen);
         painter->drawLine(QLineF(x1, y, newX2, y));
@@ -309,9 +302,16 @@ void FretCanvas::mousePressEvent(QMouseEvent* ev)
 
 void FretCanvas::hoverMoveEvent(QHoverEvent* ev)
 {
-    int string;
-    int fret;
-    getPosition(ev->pos(), &string, &fret);
+    int string = 0;
+    int fret = 0;
+
+#ifdef MU_QT5_COMPAT
+    QPointF pos = ev->pos();
+#else
+    QPointF pos = ev->position();
+#endif
+
+    getPosition(pos, &string, &fret);
     if (m_cstring != string || m_cfret != fret) {
         m_cfret = fret;
         m_cstring = string;

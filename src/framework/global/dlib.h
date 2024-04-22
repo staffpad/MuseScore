@@ -20,10 +20,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_GLOBAL_DLIB_H
-#define MU_GLOBAL_DLIB_H
+#ifndef MUSE_GLOBAL_DLIB_H
+#define MUSE_GLOBAL_DLIB_H
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) && !defined(__MINGW64__)
 #include <windows.h>
 #else
 #include <dlfcn.h>
@@ -31,10 +31,12 @@
 
 #include "io/path.h"
 
-namespace mu {
+#include "log.h"
+
+namespace muse {
 inline void* loadLib(const io::path_t& path)
 {
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) && !defined(__MINGW64__)
     return LoadLibrary(path.toStdWString().c_str());
 #else
     return dlopen(path.c_str(), RTLD_LAZY);
@@ -43,7 +45,7 @@ inline void* loadLib(const io::path_t& path)
 
 inline void* getLibFunc(void* libHandle, const char* funcName)
 {
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) && !defined(__MINGW64__)
     return GetProcAddress((HINSTANCE)libHandle, funcName);
 #else
     return dlsym(libHandle, funcName);
@@ -52,7 +54,7 @@ inline void* getLibFunc(void* libHandle, const char* funcName)
 
 inline void closeLib(void* libHandle)
 {
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) && !defined(__MINGW64__)
     UNUSED(libHandle);
     return;
 #else
@@ -61,4 +63,4 @@ inline void closeLib(void* libHandle)
 }
 }
 
-#endif // MU_GLOBAL_DLIB_H
+#endif // MUSE_GLOBAL_DLIB_H

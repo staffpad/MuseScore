@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,15 +22,15 @@
 
 #include <gtest/gtest.h>
 
-#include "libmscore/accidental.h"
-#include "libmscore/measure.h"
-#include "libmscore/chord.h"
-#include "libmscore/note.h"
-#include "libmscore/ornament.h"
-#include "libmscore/rest.h"
-#include "libmscore/stem.h"
-#include "libmscore/hook.h"
-#include "libmscore/beam.h"
+#include "dom/accidental.h"
+#include "dom/measure.h"
+#include "dom/chord.h"
+#include "dom/note.h"
+#include "dom/ornament.h"
+#include "dom/rest.h"
+#include "dom/stem.h"
+#include "dom/hook.h"
+#include "dom/beam.h"
 
 #include "utils/scorerw.h"
 #include "utils/scorecomp.h"
@@ -227,7 +227,7 @@ TEST_F(Engraving_ChangeVisibilityTests, UndoChangeVisible_IgnoredElements)
     };
 
     for (EngravingObject* child : chord->scanChildren()) {
-        if (mu::contains(IGNORED_TYPES, child->type())) {
+        if (muse::contains(IGNORED_TYPES, child->type())) {
             EngravingItem* item = toEngravingItem(child);
             EXPECT_TRUE(item->visible());
         }
@@ -244,7 +244,7 @@ TEST_F(Engraving_ChangeVisibilityTests, UndoChangeVisible_IgnoredElements)
     EXPECT_TRUE(note->visible());
 
     for (EngravingObject* child : chord->scanChildren()) {
-        if (mu::contains(IGNORED_TYPES, child->type())) {
+        if (muse::contains(IGNORED_TYPES, child->type())) {
             EngravingItem* item = toEngravingItem(child);
             EXPECT_TRUE(item->visible());
         }
@@ -551,7 +551,7 @@ TEST_F(Engraving_ChangeVisibilityTests, CmdToggleVisible)
     };
 
     for (const EngravingItem* item : items) {
-        if (mu::contains(alwaysVisibleItems, item->type())) {
+        if (muse::contains(alwaysVisibleItems, item->type())) {
             EXPECT_TRUE(item->visible());
         } else {
             EXPECT_FALSE(item->visible());

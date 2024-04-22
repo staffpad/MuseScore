@@ -19,8 +19,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_UI_IMAINWINDOW_H
-#define MU_UI_IMAINWINDOW_H
+#ifndef MUSE_UI_IMAINWINDOW_H
+#define MUSE_UI_IMAINWINDOW_H
 
 #include "modularity/imoduleinterface.h"
 #include "async/notification.h"
@@ -28,7 +28,7 @@
 class QWindow;
 class QScreen;
 
-namespace mu::ui {
+namespace muse::ui {
 class MainWindowBridge;
 
 class IMainWindow : MODULE_EXPORT_INTERFACE
@@ -47,10 +47,11 @@ public:
     virtual void requestShowOnFront() = 0;
 
     virtual bool isFullScreen() const = 0;
-    virtual void toggleFullScreen() = 0;
-    virtual QScreen* screen() const = 0;
     virtual async::Notification isFullScreenChanged() const = 0;
+    virtual void toggleFullScreen() = 0;
+
+    virtual QScreen* screen() const = 0;
 };
 }
 
-#endif // MU_UI_IMAINWINDOW_H
+#endif // MUSE_UI_IMAINWINDOW_H

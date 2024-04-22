@@ -19,16 +19,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_AUDIO_ISOUNDFONTREPOSITORY_H
-#define MU_AUDIO_ISOUNDFONTREPOSITORY_H
+#ifndef MUSE_AUDIO_ISOUNDFONTREPOSITORY_H
+#define MUSE_AUDIO_ISOUNDFONTREPOSITORY_H
 
 #include "modularity/imoduleinterface.h"
 
-#include "types/ret.h"
-#include "async/channel.h"
-#include "synthtypes.h"
+#include "global/types/ret.h"
+#include "global/async/notification.h"
 
-namespace mu::audio {
+#include "soundfonttypes.h"
+
+namespace muse::audio {
 class ISoundFontRepository : MODULE_EXPORT_INTERFACE
 {
     INTERFACE_ID(ISoundFontRepository)
@@ -36,11 +37,12 @@ class ISoundFontRepository : MODULE_EXPORT_INTERFACE
 public:
     virtual ~ISoundFontRepository() = default;
 
-    virtual synth::SoundFontPaths soundFontPaths() const = 0;
-    virtual async::Notification soundFontPathsChanged() const = 0;
+    virtual const synth::SoundFontPaths& soundFontPaths() const = 0;
+    virtual const synth::SoundFontsMap& soundFonts() const = 0;
+    virtual async::Notification soundFontsChanged() const = 0;
 
-    virtual mu::Ret addSoundFont(const synth::SoundFontPath& path) = 0;
+    virtual Ret addSoundFont(const synth::SoundFontPath& path) = 0;
 };
 }
 
-#endif // MU_AUDIO_ISOUNDFONTREPOSITORY_H
+#endif // MUSE_AUDIO_ISOUNDFONTREPOSITORY_H

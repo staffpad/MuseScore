@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,7 +23,6 @@
 #include "editgridsizedialogmodel.h"
 
 using namespace mu::notation;
-using namespace mu::framework;
 
 EditGridSizeDialogModel::EditGridSizeDialogModel(QObject* parent)
     : QObject(parent)
@@ -62,12 +61,12 @@ void EditGridSizeDialogModel::setHorizontalGridSizeSpatium(int size)
 
 void EditGridSizeDialogModel::load()
 {
-    setVerticalGridSizeSpatium(configuration()->gridSizeSpatium(Orientation::Vertical));
-    setHorizontalGridSizeSpatium(configuration()->gridSizeSpatium(Orientation::Horizontal));
+    setVerticalGridSizeSpatium(configuration()->gridSizeSpatium(muse::Orientation::Vertical));
+    setHorizontalGridSizeSpatium(configuration()->gridSizeSpatium(muse::Orientation::Horizontal));
 }
 
 void EditGridSizeDialogModel::apply()
 {
-    configuration()->setGridSize(Orientation::Vertical, m_verticalGridSizeSpatium);
-    configuration()->setGridSize(Orientation::Horizontal, m_horizontalGridSizeSpatium);
+    configuration()->setGridSize(muse::Orientation::Vertical, m_verticalGridSizeSpatium);
+    configuration()->setGridSize(muse::Orientation::Horizontal, m_horizontalGridSizeSpatium);
 }

@@ -21,15 +21,16 @@
  */
 #include "audiothread.h"
 
-#include "log.h"
-#include "runtime.h"
-#include "async/processevents.h"
+#include "global/runtime.h"
+#include "global/async/processevents.h"
 
 #ifdef Q_OS_WASM
 #include <emscripten/html5.h>
 #endif
 
-using namespace mu::audio;
+#include "log.h"
+
+using namespace muse::audio;
 
 std::thread::id AudioThread::ID;
 
@@ -74,7 +75,7 @@ bool AudioThread::isRunning() const
 
 void AudioThread::main()
 {
-    mu::runtime::setThreadName("audio_worker");
+    runtime::setThreadName("audio_worker");
 
     AudioThread::ID = std::this_thread::get_id();
 
@@ -83,7 +84,7 @@ void AudioThread::main()
     }
 
     while (m_running) {
-        mu::async::processEvents();
+        async::processEvents();
 
         if (m_mainLoopBody) {
             m_mainLoopBody();

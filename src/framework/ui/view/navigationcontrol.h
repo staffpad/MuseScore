@@ -19,20 +19,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_UI_NAVIGATIONCONTROL_H
-#define MU_UI_NAVIGATIONCONTROL_H
+#ifndef MUSE_UI_NAVIGATIONCONTROL_H
+#define MUSE_UI_NAVIGATIONCONTROL_H
 
 #include <QObject>
 #include <QQuickItem>
 
 #include "abstractnavigation.h"
 
-namespace mu::ui {
+#ifndef MU_QT5_COMPAT
+Q_MOC_INCLUDE("ui/view/navigationpanel.h")
+#endif
+
+namespace muse::ui {
 class NavigationPanel;
 class NavigationControl : public AbstractNavigation, public INavigationControl
 {
     Q_OBJECT
-    Q_PROPERTY(mu::ui::NavigationPanel * panel READ panel_property WRITE setPanel NOTIFY panelChanged)
+    Q_PROPERTY(muse::ui::NavigationPanel * panel READ panel_property WRITE setPanel NOTIFY panelChanged)
 
 public:
     explicit NavigationControl(QObject* parent = nullptr);
@@ -78,4 +82,4 @@ private:
 };
 }
 
-#endif // MU_UI_NAVIGATIONCONTROL_H
+#endif // MUSE_UI_NAVIGATIONCONTROL_H

@@ -19,22 +19,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_ACCESSIBILITY_IACCESSIBLE_H
-#define MU_ACCESSIBILITY_IACCESSIBLE_H
-
-#include <utility>
+#ifndef MUSE_ACCESSIBILITY_IACCESSIBLE_H
+#define MUSE_ACCESSIBILITY_IACCESSIBLE_H
 
 #include <QString>
 #include <QRect>
 #include <QVariant>
 #include <QMap>
 
-#include "async/channel.h"
-#include "types/val.h"
+#include "global/async/channel.h"
+#include "global/types/val.h"
 
 class QWindow;
 
-namespace mu::accessibility {
+namespace muse::accessibility {
 class IAccessible
 {
 public:
@@ -53,6 +51,7 @@ public:
         CheckBox,
         RadioButton,
         ComboBox,
+        List,
         ListItem,
         MenuItem,
         Range,
@@ -148,6 +147,9 @@ public:
     virtual QString accessibleTextAtOffset(int offset, TextBoundaryType boundaryType, int* startOffset, int* endOffset) const = 0;
     virtual int accessibleCharacterCount() const = 0;
 
+    // ListView item Interface
+    virtual int accessibleRowIndex() const = 0;
+
     virtual async::Channel<IAccessible::Property, Val> accessiblePropertyChanged() const = 0;
 
     virtual void setState(State state, bool arg) = 0;
@@ -155,4 +157,4 @@ public:
 };
 }
 
-#endif // MU_ACCESSIBILITY_IACCESSIBLE_H
+#endif // MUSE_ACCESSIBILITY_IACCESSIBLE_H

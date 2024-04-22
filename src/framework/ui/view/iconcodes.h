@@ -20,8 +20,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_UI_ICONCODE_H
-#define MU_UI_ICONCODE_H
+#ifndef MUSE_UI_ICONCODE_H
+#define MUSE_UI_ICONCODE_H
 
 #include <QObject>
 
@@ -42,7 +42,7 @@
 #undef FILE_OPEN
 #endif
 
-namespace mu::ui {
+namespace muse::ui {
 /**
  * @brief The IconCode class simplifies access to the icons from the icon font
  *
@@ -121,8 +121,8 @@ public:
         TEXT_SUBSCRIPT = 0xEF4C,
         TEXT_SUPERSCRIPT = 0xEF4D,
         AUDIO = 0xEF4E,
-        VISIBILITY_ON = 0xEF53,
-        VISIBILITY_OFF = 0xEF54,
+        EYE_OPEN = 0xEF53,
+        EYE_CLOSED = 0xEF54,
         SETTINGS_COG = 0xEF55,
         BEAM_FEATHERING_RIGHT_HEIGHT = 0xEF56,
         BEAM_FEATHERING_LEFT_HEIGHT = 0xEF57,
@@ -201,7 +201,7 @@ public:
         CLEF_TREBLE = 0xF31A,
 
         AUTO_TEXT = 0xF329,
-        NOTE_HEAD_EIGHTH = 0xF33A,
+        BEAM_NONE = 0xF33A,
         BEAM_BREAK_LEFT = 0xF33B,
         BEAM_JOIN = 0xF33D,
         BEAM_BREAK_INNER_8TH = 0xF33E,
@@ -308,7 +308,11 @@ public:
 
         TOOLBAR_GRIP = 0xF3A2,
 
+        GRID = 0xF3A4,
+
         PAGE = 0xF3A5,
+
+        LIST = 0xF3AA,
 
         CAMERA = 0xF3AE,
 
@@ -317,6 +321,7 @@ public:
         PAN_SCORE = 0xF3B0,
         COUNT_IN = 0xF3B1,
 
+        GLOBE = 0xF3B6,
         PRINT = 0xF3B7,
 
         DOWN = 0xF3C1,
@@ -379,13 +384,32 @@ public:
         PLUGIN = 0xF440,
         LYRICS = 0xF441,
 
-        QUAVER_REST = 0xF44C,
+        STOP_FILL = 0xF447,
+
+        REST_8TH = 0xF44C,
 
         SHARE_AUDIO = 0xF44F,
 
         DYNAMIC_CENTER_1 = 0xF451,
         DYNAMIC_CENTER_2 = 0xF452,
         EXPRESSION = 0xF453,
+
+        CLOUD_FILL = 0xF454,
+        BRAILLE = 0xF455,
+
+        GUITAR_BEND_REGULAR = 0xF45F,
+        GUITAR_PRE_BEND = 0xF460,
+        GUITAR_GRACE_NOTE_BEND = 0xF461,
+        GUITAR_SLIGHT_BEND = 0xF462,
+        GUITAR_BEND_STYLE_1 = 0xF463,
+        GUITAR_BEND_STYLE_FULL = 0xF464,
+
+        TIE_OUTSIDE = 0xF45D,
+        TIE_INSIDE = 0xF45E,
+        TIE_CHORD_OUTSIDE = 0xF466,
+        TIE_CHORD_INSIDE = 0xF467,
+
+        TRIANGLE_SYMBOL = 0xF46D,
 
         NONE = 0xFFFF
     };
@@ -399,4 +423,4 @@ static inline QChar iconCodeToChar(IconCode::Code code)
 }
 }
 
-#endif // MU_UI_ICONCODE_H
+#endif // MUSE_UI_ICONCODE_H

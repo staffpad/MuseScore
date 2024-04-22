@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -20,9 +20,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "beamsettingsmodel.h"
+#include "engraving/dom/beam.h"
 
 #include "translation.h"
-#include "dataformatter.h"
 
 using namespace mu::inspector;
 using namespace mu::engraving;
@@ -31,8 +31,19 @@ BeamSettingsModel::BeamSettingsModel(QObject* parent, IElementRepositoryService*
     : AbstractInspectorModel(parent, repository)
 {
     setModelType(InspectorModelType::TYPE_BEAM);
-    setTitle(qtrc("inspector", "Beam"));
-    setBeamModesModel(new BeamModesModel(this, repository));
+    setTitle(muse::qtrc("inspector", "Beam"));
+
+    m_beamModesModel = new BeamModesModel(this, repository);
+    m_beamModesModel->init();
+
+    connect(m_beamModesModel->isFeatheringAvailable(), &PropertyItem::propertyModified,
+            this, [this](const mu::engraving::Pid, const QVariant& newValue) {
+        if (!newValue.toBool()) {
+            setFeatheringMode(BeamTypes::FeatheringMode::FEATHERING_NONE);
+        }
+    });
+
+    connect(m_beamModesModel->mode(), &PropertyItem::propertyModified, this, &AbstractInspectorModel::requestReloadPropertyItems);
 
     createProperties();
 }
@@ -65,6 +76,14 @@ void BeamSettingsModel::createProperties()
         onPropertyValueChanged(pid, newValue);
         loadBeamHeightProperties();
     });
+
+    m_stemDirection = buildPropertyItem(mu::engraving::Pid::STEM_DIRECTION);
+
+    m_crossStaffMove = buildPropertyItem(mu::engraving::Pid::BEAM_CROSS_STAFF_MOVE,
+                                         [this](const mu::engraving::Pid pid, const QVariant& newValue) {
+        onPropertyValueChanged(pid, newValue);
+        loadPropertyItem(m_crossStaffMove);
+    });
 }
 
 void BeamSettingsModel::requestElements()
@@ -81,6 +100,8 @@ void BeamSettingsModel::loadProperties()
         Pid::BEAM_POS,
         Pid::BEAM_NO_SLOPE,
         Pid::USER_MODIFIED,
+        Pid::BEAM_CROSS_STAFF_MOVE,
+        Pid::STEM_DIRECTION,
     };
 
     loadProperties(propertyIdSet);
@@ -93,17 +114,17 @@ void BeamSettingsModel::onNotationChanged(const PropertyIdSet& changedPropertyId
 
 void BeamSettingsModel::loadProperties(const mu::engraving::PropertyIdSet& propertyIdSet)
 {
-    if (mu::contains(propertyIdSet, Pid::VISIBLE)) {
+    if (muse::contains(propertyIdSet, Pid::VISIBLE)) {
         loadPropertyItem(m_isBeamHidden, [](const QVariant& isVisible) -> QVariant {
             return !isVisible.toBool();
         });
     }
 
-    if (mu::contains(propertyIdSet, Pid::GROW_LEFT)) {
+    if (muse::contains(propertyIdSet, Pid::GROW_LEFT)) {
         loadPropertyItem(m_featheringHeightLeft, formatDoubleFunc);
     }
 
-    if (mu::contains(propertyIdSet, Pid::GROW_RIGHT)) {
+    if (muse::contains(propertyIdSet, Pid::GROW_RIGHT)) {
         loadPropertyItem(m_featheringHeightRight, formatDoubleFunc);
     }
 
@@ -112,6 +133,10 @@ void BeamSettingsModel::loadProperties(const mu::engraving::PropertyIdSet& prope
     if (m_featheringHeightLeft->value().isValid() && m_featheringHeightRight->value().isValid()) {
         updateFeatheringMode(m_featheringHeightLeft->value().toDouble(), m_featheringHeightRight->value().toDouble());
     }
+
+    loadPropertyItem(m_stemDirection);
+    loadPropertyItem(m_crossStaffMove);
+    updateisCrossStaffMoveAvailable();
 }
 
 void BeamSettingsModel::loadBeamHeightProperties()
@@ -139,6 +164,8 @@ void BeamSettingsModel::resetProperties()
     m_beamHeightRight->resetToDefault();
     m_forceHorizontal->resetToDefault();
     m_customPositioned->resetToDefault();
+    m_stemDirection->resetToDefault();
+    m_crossStaffMove->resetToDefault();
 
     m_cachedBeamHeights = PairF();
 
@@ -149,6 +176,21 @@ void BeamSettingsModel::resetProperties()
 PropertyItem* BeamSettingsModel::forceHorizontal()
 {
     return m_forceHorizontal;
+}
+
+PropertyItem* BeamSettingsModel::stemDirection() const
+{
+    return m_stemDirection;
+}
+
+PropertyItem* BeamSettingsModel::crossStaffMove() const
+{
+    return m_crossStaffMove;
+}
+
+bool BeamSettingsModel::isCrossStaffMoveAvailable() const
+{
+    return m_isCrossStaffMoveAvailable;
 }
 
 PropertyItem* BeamSettingsModel::customPositioned()
@@ -204,6 +246,22 @@ void BeamSettingsModel::updateFeatheringMode(const qreal left, const qreal right
         m_featheringMode = newFeathering;
         emit featheringModeChanged(m_featheringMode);
     }
+}
+
+void BeamSettingsModel::updateisCrossStaffMoveAvailable()
+{
+    bool available = true;
+    for (EngravingItem* item : m_elementList) {
+        if (!item->isBeam()) {
+            continue;
+        }
+        if (!toBeam(item)->cross()) {
+            available = false;
+            break;
+        }
+    }
+
+    setisCrossStaffMoveAvailable(available);
 }
 
 bool BeamSettingsModel::isBeamHeightLocked() const
@@ -287,18 +345,19 @@ void BeamSettingsModel::setFeatheringMode(BeamTypes::FeatheringMode featheringMo
     emit featheringModeChanged(featheringMode);
 }
 
-void BeamSettingsModel::setBeamModesModel(BeamModesModel* beamModesModel)
+void BeamSettingsModel::setisCrossStaffMoveAvailable(bool isCrossStaffMoveAvailable)
 {
-    m_beamModesModel = beamModesModel;
+    if (m_isCrossStaffMoveAvailable == isCrossStaffMoveAvailable) {
+        return;
+    }
 
-    connect(m_beamModesModel->isFeatheringAvailable(), &PropertyItem::propertyModified,
-            this, [this](const mu::engraving::Pid, const QVariant& newValue) {
-        if (!newValue.toBool()) {
-            setFeatheringMode(BeamTypes::FeatheringMode::FEATHERING_NONE);
-        }
-    });
+    m_isCrossStaffMoveAvailable = isCrossStaffMoveAvailable;
+    emit isCrossStaffMoveAvailableChanged(isCrossStaffMoveAvailable);
+}
 
-    connect(m_beamModesModel->mode(), &PropertyItem::propertyModified, this, &AbstractInspectorModel::requestReloadPropertyItems);
+void BeamSettingsModel::onCurrentNotationChanged()
+{
+    AbstractInspectorModel::onCurrentNotationChanged();
 
-    emit beamModesModelChanged(m_beamModesModel);
+    m_beamModesModel->onCurrentNotationChanged();
 }

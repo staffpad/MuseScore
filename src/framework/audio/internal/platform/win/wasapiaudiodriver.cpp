@@ -22,14 +22,17 @@
 
 #include "wasapiaudiodriver.h"
 
-#include "log.h"
-#include "translation.h"
+#include "global/translation.h"
 
+#include "wasapitypes.h"
 #include "wasapiaudioclient.h"
 #include "audiodeviceslistener.h"
 
+#include "log.h"
+
 using namespace winrt;
-using namespace mu::audio;
+using namespace muse;
+using namespace muse::audio;
 
 static constexpr char DEFAULT_DEVICE_ID[] = "default";
 
@@ -65,6 +68,10 @@ WasapiAudioDriver::WasapiAudioDriver()
     });
 
     m_devicesListener->defaultDeviceChanged().onNotify(this, [this]() {
+        if (s_data.wasapiClient.get()) {
+            s_data.wasapiClient->setFallbackDevice(to_hstring<std::string>(this->defaultDeviceId()));
+        }
+
         if (m_deviceId == DEFAULT_DEVICE_ID) {
             reopen();
         }
@@ -100,13 +107,15 @@ bool WasapiAudioDriver::open(const Spec& spec, Spec* activeSpec)
     LOGI() << "WASAPI: trying to open the audio end-point with the following samples per channel number - " << spec.samples;
 
     hstring deviceId;
+    hstring defaultDeviceId = to_hstring<std::string>(this->defaultDeviceId());
 
     if (m_deviceId.empty() || m_deviceId == DEFAULT_DEVICE_ID) {
-        deviceId = s_data.wasapiClient->defaultDeviceId();
+        deviceId = defaultDeviceId;
     } else {
         deviceId = to_hstring<std::string>(m_deviceId);
     }
 
+    s_data.wasapiClient->setFallbackDevice(defaultDeviceId);
     s_data.wasapiClient->asyncInitializeAudioDevice(deviceId);
 
     static constexpr DWORD handleCount = 2;
@@ -188,7 +197,7 @@ bool WasapiAudioDriver::resetToDefaultOutputDevice()
     return selectOutputDevice(DEFAULT_DEVICE_ID);
 }
 
-mu::async::Notification WasapiAudioDriver::outputDeviceChanged() const
+async::Notification WasapiAudioDriver::outputDeviceChanged() const
 {
     return m_outputDeviceChanged;
 }
@@ -196,16 +205,26 @@ mu::async::Notification WasapiAudioDriver::outputDeviceChanged() const
 AudioDeviceList WasapiAudioDriver::availableOutputDevices() const
 {
     using namespace Windows::Devices::Enumeration;
-
-    if (!s_data.wasapiClient.get()) {
-        return {};
-    }
+    using namespace winrt::Windows::Media::Devices;
 
     AudioDeviceList result;
 
-    result.push_back({ DEFAULT_DEVICE_ID, trc("audio", "System default") });
+    result.push_back({ DEFAULT_DEVICE_ID, muse::trc("audio", "System default") });
 
-    DeviceInformationCollection devices = s_data.wasapiClient->availableDevices();
+    // Get the string identifier of the audio renderer
+    hstring AudioSelector = MediaDevice::GetAudioRenderSelector();
+
+    winrt::Windows::Foundation::IAsyncOperation<DeviceInformationCollection> deviceRequest
+        = DeviceInformation::FindAllAsync(AudioSelector, {});
+
+    DeviceInformationCollection devices = nullptr;
+
+    try {
+        devices = deviceRequest.get();
+    } catch (...) {
+        LOGE() << to_string(hresult_error(to_hresult()).message());
+    }
+
     for (const auto& deviceInfo : devices) {
         AudioDevice device { to_string(deviceInfo.Id()), to_string(deviceInfo.Name()) };
         result.emplace_back(std::move(device));
@@ -214,7 +233,7 @@ AudioDeviceList WasapiAudioDriver::availableOutputDevices() const
     return result;
 }
 
-mu::async::Notification WasapiAudioDriver::availableOutputDevicesChanged() const
+async::Notification WasapiAudioDriver::availableOutputDevicesChanged() const
 {
     return m_availableOutputDevicesChanged;
 }
@@ -242,7 +261,7 @@ bool WasapiAudioDriver::setOutputDeviceBufferSize(unsigned int bufferSize)
     return result;
 }
 
-mu::async::Notification WasapiAudioDriver::outputDeviceBufferSizeChanged() const
+async::Notification WasapiAudioDriver::outputDeviceBufferSizeChanged() const
 {
     return m_outputDeviceBufferSizeChanged;
 }
@@ -273,4 +292,19 @@ void WasapiAudioDriver::reopen()
     close();
 
     open(m_activeSpec, &m_activeSpec);
+}
+
+AudioDeviceID WasapiAudioDriver::defaultDeviceId() const
+{
+    using namespace winrt::Windows::Media::Devices;
+
+    AudioDeviceID result;
+
+    try {
+        result = to_string(MediaDevice::GetDefaultAudioRenderId(AudioDeviceRole::Default));
+    } catch (...) {
+        LOGE() << to_string(hresult_error(to_hresult()).message());
+    }
+
+    return result;
 }

@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# MuseScore-CLA-applies
+# MuseScore-Studio-CLA-applies
 #
-# MuseScore
+# MuseScore Studio
 # Music Composition & Notation
 #
-# Copyright (C) 2021 MuseScore BVBA and others
+# Copyright (C) 2021 MuseScore Limited
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-set(MODULE iex_guitarpro)
+declare_module(iex_guitarpro)
 
 set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/guitarpromodule.cpp
@@ -35,6 +35,8 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/internal/importgtp.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/importptb.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/importptb.h
+    ${CMAKE_CURRENT_LIST_DIR}/internal/continiouselementsbuilder.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/internal/continiouselementsbuilder.h
 
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gp6dombuilder.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gp6dombuilder.h
@@ -42,8 +44,6 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gp7dombuilder.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gp67dombuilder.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gp67dombuilder.h
-    ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gpaudiotrack.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gpaudiotrack.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gpbar.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gpbar.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/gtp/gpbeat.cpp
@@ -81,8 +81,8 @@ set(MODULE_LINK
     engraving
     )
 
-include(SetupModule)
+setup_module()
 
-if (MUE_BUILD_UNIT_TESTS)
+if (MUE_BUILD_IMPORTEXPORT_TESTS)
     add_subdirectory(tests)
 endif()

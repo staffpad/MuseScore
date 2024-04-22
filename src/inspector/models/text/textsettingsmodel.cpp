@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -26,8 +26,8 @@
 #include "types/commontypes.h"
 #include "types/texttypes.h"
 
-#include "engraving/libmscore/dynamic.h"
-#include "engraving/libmscore/textbase.h"
+#include "engraving/dom/dynamic.h"
+#include "engraving/dom/textbase.h"
 #include "engraving/types/typesconv.h"
 
 #include "translation.h"
@@ -41,13 +41,15 @@ TextSettingsModel::TextSettingsModel(QObject* parent, IElementRepositoryService*
     : AbstractInspectorModel(parent, repository)
 {
     setSectionType(InspectorSectionType::SECTION_TEXT);
-    setTitle(qtrc("inspector", "Text"));
+    setTitle(muse::qtrc("inspector", "Text"));
     createProperties();
 
     isTextEditingChanged().onNotify(this, [this]() {
         loadProperties();
         setIsSpecialCharactersInsertionAvailable(isTextEditingStarted());
     });
+
+    setIsSpecialCharactersInsertionAvailable(isTextEditingStarted());
 }
 
 void TextSettingsModel::createProperties()
@@ -113,7 +115,7 @@ void TextSettingsModel::loadProperties()
     m_fontStyle->setIsEnabled(true);
 
     loadPropertyItem(m_fontSize, [](const QVariant& elementPropertyValue) -> QVariant {
-        return RealIsEqual(elementPropertyValue.toDouble(), mu::engraving::TextBase::UNDEFINED_FONT_SIZE)
+        return muse::RealIsEqual(elementPropertyValue.toDouble(), mu::engraving::TextBase::UNDEFINED_FONT_SIZE)
                ? QVariant() : elementPropertyValue.toDouble();
     });
 
@@ -174,7 +176,7 @@ void TextSettingsModel::resetProperties()
     m_textScriptAlignment->resetToDefault();
 }
 
-void TextSettingsModel::onNotationChanged(const PropertyIdSet&, const StyleIdSet& changedStyleIds)
+void TextSettingsModel::onNotationChanged(const PropertyIdSet& changedProperyIds, const StyleIdSet& changedStyleIds)
 {
     for (Sid s : {
         Sid::user1Name,
@@ -196,6 +198,11 @@ void TextSettingsModel::onNotationChanged(const PropertyIdSet&, const StyleIdSet
             return;
         }
     }
+
+    if (muse::contains(changedProperyIds, Pid::PLACEMENT)) {
+        loadPropertyItem(m_textPlacement);
+    }
+
     updateIsHorizontalAlignmentAvailable();
 }
 
@@ -426,10 +433,10 @@ bool TextSettingsModel::isTextEditingStarted() const
     return context()->currentNotation()->interaction()->isTextEditingStarted();
 }
 
-mu::async::Notification TextSettingsModel::isTextEditingChanged() const
+muse::async::Notification TextSettingsModel::isTextEditingChanged() const
 {
     IF_ASSERT_FAILED(context() && context()->currentNotation()) {
-        return mu::async::Notification();
+        return muse::async::Notification();
     }
 
     return context()->currentNotation()->interaction()->textEditingChanged();

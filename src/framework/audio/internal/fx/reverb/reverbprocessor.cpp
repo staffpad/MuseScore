@@ -36,7 +36,7 @@
 #include "sampledelay.h"
 #include "simdtypes.h"
 
-namespace mu::audio::fx {
+namespace muse::audio::fx {
 float fromDecibel(float dB)
 {
     return std::pow(10.f, dB / 20.f);
@@ -337,8 +337,10 @@ void ReverbProcessor::process(float* buffer, unsigned int sampleCount)
     }
 
     for (samples_t sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex) {
+        size_t offset = sampleIndex * m_processor._audioChannelsCount;
+
         for (audioch_t audioChannelIndex = 0; audioChannelIndex < m_processor._audioChannelsCount; ++audioChannelIndex) {
-            m_signalBuffers[audioChannelIndex][sampleIndex] = buffer[sampleIndex * m_processor._audioChannelsCount + audioChannelIndex];
+            m_signalBuffers[audioChannelIndex][sampleIndex] = buffer[offset + audioChannelIndex];
         }
     }
 
@@ -354,8 +356,10 @@ void ReverbProcessor::process(float* buffer, unsigned int sampleCount)
     }
 
     for (samples_t sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex) {
+        size_t offset = sampleIndex * m_processor._audioChannelsCount;
+
         for (audioch_t audioChannelIndex = 0; audioChannelIndex < m_processor._audioChannelsCount; ++audioChannelIndex) {
-            buffer[sampleIndex * m_processor._audioChannelsCount + audioChannelIndex] = m_signalBuffers[audioChannelIndex][sampleIndex];
+            buffer[offset + audioChannelIndex] = m_signalBuffers[audioChannelIndex][sampleIndex];
         }
     }
 }
@@ -653,7 +657,7 @@ void ReverbProcessor::_processLines(float** signalPtr, int32_t numSamples)
     d->work_buffer.assignSamples(1, signal_in[1]);
     d->pre_delay.processBlock(work_ptr, 2, numSamples);
 
-    const bool velvet_input = (getParameter(VelvetIn) != 0.f);
+    const bool velvet_input = !RealIsNull(getParameter(VelvetIn));
 
     bool er_muted = d->er_gain_smooth.isStaticAtValue(0.f);
     bool late_muted = d->late_gain_smooth.isStaticAtValue(0.f);
@@ -741,7 +745,7 @@ void ReverbProcessor::_processLines(float** signalPtr, int32_t numSamples)
         } // end of feedback loop
 
         // output velvet decorrelation
-        if (getParameter(VelvetOut) != 0.f) {
+        if (!RealIsNull(getParameter(VelvetOut))) {
             for (int i = 0; i < num_lines; ++i) {
                 d->ivnd_out[i].processBlock(delay_out_ptr[i], delay_out_ptr[i], numSamples);
             }
@@ -784,7 +788,7 @@ void ReverbProcessor::_processLines(float** signalPtr, int32_t numSamples)
     vo::constantMultiplyAndAdd(work_ptr[0], stereo_2, late_ptr[1], numSamples);
 
     // filtering
-    if (getParameter(PeakGain) != 0.f) {
+    if (!RealIsNull(getParameter(PeakGain))) {
         d->peakFilter.process(late_ptr, 2, numSamples);
     }
 

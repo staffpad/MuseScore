@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,15 +23,16 @@
 
 #include "videoencoder.h"
 
-#include "engraving/libmscore/page.h"
-#include "engraving/libmscore/system.h"
-#include "engraving/libmscore/repeatlist.h"
-#include "engraving/libmscore/masterscore.h"
+#include "engraving/dom/page.h"
+#include "engraving/dom/system.h"
+#include "engraving/dom/repeatlist.h"
+#include "engraving/dom/masterscore.h"
 
-#include "engraving/infrastructure/paint.h"
 #include "notation/view/playbackcursor.h"
 
 #include "log.h"
+
+#include <QPainter>
 
 using namespace mu::iex::videoexport;
 using namespace mu::project;
@@ -48,13 +49,13 @@ bool VideoWriter::supportsUnitType(UnitType unitType) const
     return std::find(unitTypes.cbegin(), unitTypes.cend(), unitType) != unitTypes.cend();
 }
 
-mu::Ret VideoWriter::write(INotationProjectPtr, QIODevice&, const Options&)
+Ret VideoWriter::write(INotationProjectPtr, QIODevice&, const Options&)
 {
     NOT_SUPPORTED;
     return make_ret(Ret::Code::NotSupported);
 }
 
-mu::Ret VideoWriter::write(INotationProjectPtr project, const io::path_t& filePath, const Options&)
+Ret VideoWriter::write(INotationProjectPtr project, const muse::io::path_t& filePath, const Options&)
 {
     Config cfg;
 
@@ -109,7 +110,7 @@ mu::Ret VideoWriter::write(INotationProjectPtr project, const io::path_t& filePa
     return ret;
 }
 
-mu::Ret VideoWriter::generatePagedOriginalVideo(INotationProjectPtr project, const io::path_t& filePath, const Config& config)
+Ret VideoWriter::generatePagedOriginalVideo(INotationProjectPtr project, const muse::io::path_t& filePath, const Config& config)
 {
     // --score-video -o ./simple5.mp4 ./simple5.mscz
 
@@ -123,9 +124,6 @@ mu::Ret VideoWriter::generatePagedOriginalVideo(INotationProjectPtr project, con
 
     engraving::MasterScore* score = masterNotation->notation()->elements()->msScore()->masterScore();
 
-    const double CANVAS_DPI = 300;
-    const draw::Color CURSOR_COLOR = draw::Color(0, 0, 255, 50);
-
     // Setup Score view
     masterNotation->notation()->setViewMode(notation::ViewMode::PAGE);
     score->setShowFrames(false);
@@ -135,24 +133,42 @@ mu::Ret VideoWriter::generatePagedOriginalVideo(INotationProjectPtr project, con
     score->setShowUnprintable(false);
     score->setShowVBox(false);
 
-    score->setStyleValue(engraving::Sid::pageHeight, config.height / CANVAS_DPI);
-    score->setStyleValue(engraving::Sid::pageWidth, config.width / CANVAS_DPI);
-    score->setStyleValue(engraving::Sid::pagePrintableWidth, score->styleD(engraving::Sid::pageWidth)
-                         - score->styleD(engraving::Sid::pageOddLeftMargin)
-                         - score->styleD(engraving::Sid::pageEvenLeftMargin));
+    PageList pages = masterNotation->notation()->elements()->pages();
+    if (pages.empty()) {
+        LOGE() << "No pages";
+        return make_ret(Ret::Code::UnknownError);
+    }
 
-    score->setStyleValue(engraving::Sid::pageEvenTopMargin, 0.0);
-    score->setStyleValue(engraving::Sid::pageEvenBottomMargin, 0.0);
-    score->setStyleValue(engraving::Sid::pageOddTopMargin, 0.0);
-    score->setStyleValue(engraving::Sid::pageOddBottomMargin, 0.0);
-    score->setStyleValue(engraving::Sid::pageTwosided, false);
-    score->setStyleValue(engraving::Sid::showHeader, false);
-    score->setStyleValue(engraving::Sid::showFooter, false);
+    double CANVAS_DPI = 300;
 
-    score->setStyleValue(engraving::Sid::minSystemDistance, engraving::Spatium(10));
-    score->setStyleValue(engraving::Sid::maxSystemDistance, engraving::Spatium(10));
-    score->setStyleValue(engraving::Sid::staffLowerBorder, engraving::Spatium(5));
-    score->setStyleValue(engraving::Sid::staffUpperBorder, engraving::Spatium(7));
+    const Page* page = pages.front();
+    if (score->staves().size() > 3) {
+        //! NOTE: Calculate the dpi to display all page elements
+        RectF ttbox = page->tbbox();
+        double margin = 100.0;
+        double ttboxHeight = ttbox.height() + margin * 2;
+        double scale = config.height / ttboxHeight;
+        CANVAS_DPI = scale * engraving::DPI;
+    }
+
+    score->style().set(engraving::Sid::pageHeight, config.height / CANVAS_DPI);
+    score->style().set(engraving::Sid::pageWidth, config.width / CANVAS_DPI);
+    score->style().set(engraving::Sid::pagePrintableWidth, score->style().styleD(engraving::Sid::pageWidth)
+                       - score->style().styleD(engraving::Sid::pageOddLeftMargin)
+                       - score->style().styleD(engraving::Sid::pageEvenLeftMargin));
+
+    score->style().set(engraving::Sid::pageEvenTopMargin, 0.0);
+    score->style().set(engraving::Sid::pageEvenBottomMargin, 0.0);
+    score->style().set(engraving::Sid::pageOddTopMargin, 0.0);
+    score->style().set(engraving::Sid::pageOddBottomMargin, 0.0);
+    score->style().set(engraving::Sid::pageTwosided, false);
+    score->style().set(engraving::Sid::showHeader, false);
+    score->style().set(engraving::Sid::showFooter, false);
+
+    score->style().set(engraving::Sid::minSystemDistance, engraving::Spatium(10));
+    score->style().set(engraving::Sid::maxSystemDistance, engraving::Spatium(10));
+    score->style().set(engraving::Sid::staffLowerBorder, engraving::Spatium(5));
+    score->style().set(engraving::Sid::staffUpperBorder, engraving::Spatium(7));
 
     score->setLayoutAll();
     score->update();
@@ -179,7 +195,8 @@ mu::Ret VideoWriter::generatePagedOriginalVideo(INotationProjectPtr project, con
 
     int frameCount = (totalPlayTimeSec + config.leadingSec + config.trailingSec) * config.fps;
 
-    PageList pages = masterNotation->notation()->elements()->pages();
+    //! NOTE: After setting the score above, the number of pages may change - get them again
+    pages = masterNotation->notation()->elements()->pages();
 
     auto pageByTick = [](const PageList& pages, midi::tick_t tick) -> const Page* {
         for (const Page* p : pages) {
@@ -189,6 +206,8 @@ mu::Ret VideoWriter::generatePagedOriginalVideo(INotationProjectPtr project, con
         }
         return nullptr;
     };
+
+    const draw::Color CURSOR_COLOR = draw::Color(0, 0, 255, 50);
 
     PlaybackCursor cursor;
     cursor.setNotation(masterNotation->notation());
@@ -232,5 +251,5 @@ mu::Ret VideoWriter::generatePagedOriginalVideo(INotationProjectPtr project, con
 
     encoder.close();
 
-    return make_ok();
+    return muse::make_ok();
 }

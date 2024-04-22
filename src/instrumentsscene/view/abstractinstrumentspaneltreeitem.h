@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -32,6 +32,12 @@
 #include "notation/iexcerptnotation.h"
 
 namespace mu::instrumentsscene {
+struct MoveParams {
+    muse::IDList childIdListToMove;
+    muse::ID destinationParentId;
+    notation::INotationParts::InsertMode insertMode = notation::INotationParts::InsertMode::Before;
+};
+
 class AbstractInstrumentsPanelTreeItem : public QObject
 {
     Q_OBJECT
@@ -51,7 +57,7 @@ public:
                                      notation::INotationPtr notation, QObject* parent);
     virtual ~AbstractInstrumentsPanelTreeItem();
 
-    ID id() const;
+    muse::ID id() const;
     QString idStr() const;
     QString title() const;
     int type() const;
@@ -66,13 +72,18 @@ public:
     Q_INVOKABLE virtual bool canAcceptDrop(const QVariant& item) const;
     Q_INVOKABLE virtual void appendNewItem();
 
-    virtual void moveChildren(int sourceRow, int count, AbstractInstrumentsPanelTreeItem* destinationParent, int destinationRow);
+    virtual MoveParams buildMoveParams(int sourceRow, int count, AbstractInstrumentsPanelTreeItem* destinationParent,
+                                       int destinationRow) const;
+
+    virtual void moveChildren(int sourceRow, int count, AbstractInstrumentsPanelTreeItem* destinationParent, int destinationRow,
+                              bool updateNotation);
+
     virtual void removeChildren(int row, int count = 1, bool deleteChild = false);
 
     AbstractInstrumentsPanelTreeItem* parentItem() const;
     void setParentItem(AbstractInstrumentsPanelTreeItem* parent);
 
-    AbstractInstrumentsPanelTreeItem* childAtId(const ID& id) const;
+    AbstractInstrumentsPanelTreeItem* childAtId(const muse::ID& id) const;
     AbstractInstrumentsPanelTreeItem* childAtRow(int row) const;
     const QList<AbstractInstrumentsPanelTreeItem*>& childItems() const;
 
@@ -87,7 +98,7 @@ public slots:
     void setType(InstrumentsTreeItemType::ItemType type);
     void setTitle(QString title);
     void setIsVisible(bool isVisible, bool setChildren = true);
-    void setId(const ID& id);
+    void setId(const muse::ID& id);
     void setIsExpandable(bool expandable);
     void setIsEditable(bool editable);
     void setIsRemovable(bool removable);
@@ -112,7 +123,7 @@ private:
     QList<AbstractInstrumentsPanelTreeItem*> m_children;
     AbstractInstrumentsPanelTreeItem* m_parent = nullptr;
 
-    ID m_id;
+    muse::ID m_id;
     QString m_title;
     InstrumentsTreeItemType::ItemType m_type = InstrumentsTreeItemType::ItemType::UNDEFINED;
     bool m_isVisible = false;

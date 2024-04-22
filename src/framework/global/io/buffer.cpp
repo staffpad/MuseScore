@@ -23,8 +23,8 @@
 
 #include <cstring>
 
-using namespace mu;
-using namespace mu::io;
+using namespace muse;
+using namespace muse::io;
 
 Buffer::Buffer()
 {
@@ -49,6 +49,12 @@ Buffer::Buffer(ByteArray* ba)
     if (!m_ref) {
         m_ref = &m_ba;
     }
+}
+
+Buffer::Buffer(ByteArray&& ba)
+{
+    m_ba = std::move(ba);
+    m_ref = &m_ba;
 }
 
 const ByteArray& Buffer::data() const

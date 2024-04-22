@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,7 +23,7 @@
 #define MU_ENGRAVING_ACCESSIBLEROOT_H
 
 #include "accessibleitem.h"
-#include "../libmscore/rootitem.h"
+#include "../dom/rootitem.h"
 
 namespace mu::engraving {
 using AccessibleMapToScreenFunc = std::function<RectF(const RectF&)>;
@@ -43,8 +43,8 @@ public:
     void setMapToScreenFunc(const AccessibleMapToScreenFunc& func);
     RectF toScreenRect(const RectF& rect, bool* ok = nullptr) const;
 
-    const accessibility::IAccessible* accessibleParent() const override;
-    accessibility::IAccessible::Role accessibleRole() const override;
+    const muse::accessibility::IAccessible* accessibleParent() const override;
+    muse::accessibility::IAccessible::Role accessibleRole() const override;
     QString accessibleName() const override;
 
     bool enabled() const;

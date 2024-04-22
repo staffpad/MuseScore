@@ -19,8 +19,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_UI_INTERACTIVETESTSMODEL_H
-#define MU_UI_INTERACTIVETESTSMODEL_H
+#ifndef MUSE_UI_INTERACTIVETESTSMODEL_H
+#define MUSE_UI_INTERACTIVETESTSMODEL_H
 
 #include <QObject>
 
@@ -28,12 +28,12 @@
 #include "iinteractive.h"
 #include "async/asyncable.h"
 
-namespace mu::ui {
+namespace muse::ui {
 class InteractiveTestsModel : public QObject, async::Asyncable
 {
     Q_OBJECT
 
-    INJECT(framework::IInteractive, interactive)
+    INJECT(IInteractive, interactive)
 
     Q_PROPERTY(QString currentUri READ currentUri NOTIFY currentUriChanged)
 
@@ -56,6 +56,7 @@ public:
     Q_INVOKABLE void information();
     Q_INVOKABLE void warning();
     Q_INVOKABLE void critical();
+    Q_INVOKABLE void criticalWithDetailedText();
 
     Q_INVOKABLE void require();
 
@@ -69,4 +70,4 @@ private:
 };
 }
 
-#endif // MU_UI_INTERACTIVETESTSMODEL_H
+#endif // MUSE_UI_INTERACTIVETESTSMODEL_H

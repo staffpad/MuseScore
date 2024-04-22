@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,9 +25,6 @@
 //
 #include "capella.h"
 
-#include <assert.h>
-#include <cmath>
-
 #include <QFile>
 #include <QtMath>
 
@@ -36,38 +33,38 @@
 
 #include "engraving/engravingerrors.h"
 
-#include "libmscore/arpeggio.h"
-#include "libmscore/articulation.h"
-#include "libmscore/box.h"
-#include "libmscore/breath.h"
-#include "libmscore/chord.h"
-#include "libmscore/clef.h"
-#include "libmscore/dynamic.h"
-#include "libmscore/factory.h"
-#include "libmscore/hairpin.h"
-#include "libmscore/harmony.h"
-#include "libmscore/keysig.h"
-#include "libmscore/layoutbreak.h"
-#include "libmscore/lyrics.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/measure.h"
-#include "libmscore/mscore.h"
-#include "libmscore/note.h"
-#include "libmscore/part.h"
-#include "libmscore/pitchspelling.h"
-#include "libmscore/rest.h"
-#include "libmscore/segment.h"
-#include "libmscore/sig.h"
-#include "libmscore/slur.h"
-#include "libmscore/staff.h"
-#include "libmscore/stafftext.h"
-#include "libmscore/text.h"
-#include "libmscore/tie.h"
-#include "libmscore/timesig.h"
-#include "libmscore/trill.h"
-#include "libmscore/tuplet.h"
-#include "libmscore/utils.h"
-#include "libmscore/volta.h"
+#include "engraving/dom/arpeggio.h"
+#include "engraving/dom/articulation.h"
+#include "engraving/dom/box.h"
+#include "engraving/dom/breath.h"
+#include "engraving/dom/chord.h"
+#include "engraving/dom/clef.h"
+#include "engraving/dom/dynamic.h"
+#include "engraving/dom/factory.h"
+#include "engraving/dom/hairpin.h"
+#include "engraving/dom/harmony.h"
+#include "engraving/dom/keysig.h"
+#include "engraving/dom/layoutbreak.h"
+#include "engraving/dom/lyrics.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/measure.h"
+#include "engraving/dom/mscore.h"
+#include "engraving/dom/note.h"
+#include "engraving/dom/part.h"
+#include "engraving/dom/pitchspelling.h"
+#include "engraving/dom/rest.h"
+#include "engraving/dom/segment.h"
+#include "engraving/dom/sig.h"
+#include "engraving/dom/slur.h"
+#include "engraving/dom/staff.h"
+#include "engraving/dom/stafftext.h"
+#include "engraving/dom/text.h"
+#include "engraving/dom/tie.h"
+#include "engraving/dom/timesig.h"
+#include "engraving/dom/trill.h"
+#include "engraving/dom/tuplet.h"
+#include "engraving/dom/utils.h"
+#include "engraving/dom/volta.h"
 
 #include "log.h"
 
@@ -292,7 +289,7 @@ static void processBasicDrawObj(QList<BasicDrawObj*> objects, Segment* s, int tr
                     break;
                 }
             }
-            TextBase* text = Factory::createStaffText(s);
+            StaffText* text = Factory::createStaffText(s);
             QFont f(st->font());
             text->setFamily(f.family());
             text->setItalic(f.italic());
@@ -303,9 +300,9 @@ static void processBasicDrawObj(QList<BasicDrawObj*> objects, Segment* s, int tr
 
             text->setPlainText(st->text());
             QPointF p(st->pos());
-            p = p / 32.0 * score->spatium();
+            p = p / 32.0 * score->style().spatium();
             // text->setUserOff(st->pos());
-            text->setOffset(mu::PointF::fromQPointF(p));
+            text->setOffset(muse::PointF::fromQPointF(p));
             // LOGD("setText %s (%f %f)(%f %f) <%s>",
             //            qPrintable(st->font().family()),
             //            st->pos().x(), st->pos().y(), p.x(), p.y(), qPrintable(st->text()));
@@ -323,7 +320,7 @@ static void processBasicDrawObj(QList<BasicDrawObj*> objects, Segment* s, int tr
                 break;
             }
             text->setAlign(Align(textalign, AlignV::BASELINE));
-            text->setOffset(mu::PointF(0.0, 2.0));
+            text->setOffset(muse::PointF(0.0, 2.0));
             text->setTrack(track);
             s->add(text);
         }
@@ -419,7 +416,7 @@ static bool findChordRests(BasicDrawObj const* const o, Score* score, const int 
     int graceNumber1 = 0;
     bool foundcr1 = false;
     Fraction tick2 = tick;
-    foreach (NoteObj* nobj, objects) {
+    for (NoteObj* nobj : objects) {
         BasicDurationalObj* d = 0;
         if (nobj->type() == CapellaNoteObjectType::REST) {
             d = static_cast<BasicDurationalObj*>(static_cast<RestObj*>(nobj));
@@ -468,14 +465,14 @@ static bool findChordRests(BasicDrawObj const* const o, Score* score, const int 
         if (seg->segmentType() != SegmentType::ChordRest) {
             continue;
         }
-        ChordRest* cr = static_cast<ChordRest*>(seg->element(track));
+        ChordRest* cr = toChordRest(seg->element(track));
         if (cr) {
-            if (graceNumber1 > 0) {       // the spanner is starting from a grace note
-                Chord* chord = static_cast<Chord*>(cr);
-                foreach (Chord* cc, chord->graceNotes()) {
+            if ((graceNumber1 > 0) && cr->isChord()) {       // the spanner is starting from a grace note
+                Chord* chord = toChord(cr);
+                for (Chord* cc : chord->graceNotes()) {
                     --graceNumber1;
                     if ((graceNumber1 == 0) && (!cr1)) {
-                        cr1 = static_cast<ChordRest*>(cc);             // found first ChordRest
+                        cr1 = toChordRest(cc);             // found first ChordRest
                     }
                 }
             }
@@ -489,14 +486,14 @@ static bool findChordRests(BasicDrawObj const* const o, Score* score, const int 
         if (seg->segmentType() != SegmentType::ChordRest) {
             continue;
         }
-        ChordRest* cr = static_cast<ChordRest*>(seg->element(track));
+        ChordRest* cr = toChordRest(seg->element(track));
         if (cr) {
-            if ((graceNumber > 0) && (cr->type() == ElementType::CHORD)) {       // the spanner is ending on a grace note
-                Chord* chord = static_cast<Chord*>(cr);
-                foreach (Chord* cc, chord->graceNotes()) {
+            if ((graceNumber > 0) && cr->isChord()) {       // the spanner is ending on a grace note
+                Chord* chord = toChord(cr);
+                for (Chord* cc : chord->graceNotes()) {
                     --graceNumber;
                     if ((graceNumber == 0) && (!cr2)) {
-                        cr2 = static_cast<ChordRest*>(cc);             // found 2nd ChordRest
+                        cr2 = toChordRest(cc);             // found 2nd ChordRest
                     }
                 }
             }
@@ -669,7 +666,7 @@ static Fraction readCapVoice(Score* score, CapVoice* cvoice, int staffIdx, const
                     Fraction nn = (ticks * tupletCount) / f;
                     tuplet->setTicks(nn);
                 }
-                LOGD("Tuplet at %d: count: %d  tri: %d  prolonging: %d  ticks %d objects %d",
+                LOGD("Tuplet at %d: count: %d  tri: %d  prolonging: %d  ticks %d objects %lld",
                      tick.ticks(), o->count, o->tripartite, o->isProlonging, ticks.ticks(),
                      o->objects.size());
             }
@@ -745,9 +742,11 @@ static Fraction readCapVoice(Score* score, CapVoice* cvoice, int staffIdx, const
                 break;
             case ClefType::C4:     off = -7;
                 break;
+            case ClefType::C4_8VB: off = -14;
+                break;
             case ClefType::C5:     off = -7;
                 break;
-            case ClefType::G_1:     off = 0;
+            case ClefType::G_1:    off = 0;
                 break;
             case ClefType::F_8VA:  off = -7;
                 break;
@@ -866,8 +865,20 @@ static Fraction readCapVoice(Score* score, CapVoice* cvoice, int staffIdx, const
             LOGD("   <Key>");
             CapKey* o = static_cast<CapKey*>(no);
             KeySigEvent key = score->staff(staffIdx)->keySigEvent(tick);
-            KeySigEvent okey;
-            okey.setKey(Key(o->signature));
+            KeySigEvent okey = key;
+            Key tKey = Key(o->signature);
+            Key cKey = tKey;
+            Interval v = score->staff(staffIdx)->part()->instrument(tick)->transpose();
+            if (!v.isZero() && !score->style().styleB(mu::engraving::Sid::concertPitch)) {
+                cKey = transposeKey(tKey, v);
+                // if there are more than 6 accidentals in transposing key, it cannot be PreferSharpFlat::AUTO
+                Part* part = score->staff(staffIdx)->part();
+                if ((tKey > 6 || tKey < -6) && part->preferSharpFlat() == PreferSharpFlat::AUTO) {
+                    part->setPreferSharpFlat(PreferSharpFlat::NONE);
+                }
+            }
+            okey.setConcertKey(cKey);
+            okey.setKey(tKey);
             if (!(key == okey)) {
                 score->staff(staffIdx)->setKey(tick, okey);
                 Measure* m = score->getCreateMeasure(tick);
@@ -1099,7 +1110,6 @@ static Fraction readCapVoice(Score* score, CapVoice* cvoice, int staffIdx, const
                         hp->setTrack2(track);
                         hp->setAnchor(Spanner::Anchor::SEGMENT);
                         score->addSpanner(hp);
-                        score->updateHairpin(hp);
                     }
                 }
             }
@@ -1165,7 +1175,7 @@ void convertCapella(Score* score, Capella* cap, bool capxMode)
     }
 
     score->style().set(Sid::measureSpacing, 1.0);
-    score->setSpatium(cap->normalLineDist * DPMM);
+    score->style().setSpatium(cap->normalLineDist * DPMM);
     score->style().set(Sid::smallStaffMag, cap->smallLineDist / cap->normalLineDist);
     score->style().set(Sid::minSystemDistance, Spatium(8));
     score->style().set(Sid::maxSystemDistance, Spatium(12));
@@ -1193,7 +1203,7 @@ void convertCapella(Score* score, Capella* cap, bool capxMode)
     // associated with a CapStaffLayout
     //
     if (staves != cap->staffLayouts().size()) {
-        LOGD("Capella: max number of staves != number of staff layouts (%d, %d)",
+        LOGD("Capella: max number of staves != number of staff layouts (%d, %lld)",
              staves, cap->staffLayouts().size());
         staves = qMax(staves, cap->staffLayouts().size());
     }
@@ -1260,7 +1270,7 @@ void convertCapella(Score* score, Capella* cap, bool capxMode)
 
     foreach (CapBracket cb, cap->brackets) {
         LOGD("Bracket %d-%d curly %d", cb.from, cb.to, cb.curly);
-        Staff* staff = mu::value(score->staves(), cb.from);
+        Staff* staff = muse::value(score->staves(), cb.from);
         if (staff == 0) {
             LOGD("bad bracket 'from' value");
             continue;
@@ -1276,7 +1286,7 @@ void convertCapella(Score* score, Capella* cap, bool capxMode)
             SimpleTextObj* to = static_cast<SimpleTextObj*>(o);
             TextStyleType tid;
             switch (to->textalign()) {
-            case 0:   tid = TextStyleType::POET;
+            case 0:   tid = TextStyleType::LYRICIST;
                 break;
             case 1:   tid = TextStyleType::TITLE;
                 break;
@@ -1358,7 +1368,7 @@ void convertCapella(Score* score, Capella* cap, bool capxMode)
         if (m && !m->lineBreak()) {
             LayoutBreak* lb = Factory::createLayoutBreak(m);
             lb->setLayoutBreakType(LayoutBreakType::LINE);
-            lb->setTrack(mu::nidx);             // this are system elements
+            lb->setTrack(muse::nidx);             // this are system elements
             m->add(lb);
         }
         systemTick = mtick;
@@ -1405,7 +1415,6 @@ void convertCapella(Score* score, Capella* cap, bool capxMode)
     score->setUpTempoMap();
     score->setPlaylistDirty();
     score->setLayoutAll();
-    score->addLayoutFlags(LayoutFlag::FIX_PITCH_VELO);
 }
 
 //---------------------------------------------------------
@@ -1533,7 +1542,7 @@ void TransposableObj::read()
     }
     variants = cap->readDrawObjectArray();
     if (variants.size() != b) {
-        LOGD("variants.size %d, expected %d", variants.size(), b);
+        LOGD("variants.size %lld, expected %d", variants.size(), b);
     }
     Q_ASSERT(variants.size() == b);
     /*int nRefNote =*/ cap->readInt();
@@ -2230,7 +2239,7 @@ QFont Capella::readFont()
     }
     index -= 1;
     if (index >= fonts.size()) {
-        LOGD("illegal font index %d (max %d)", index, fonts.size() - 1);
+        LOGD("illegal font index %d (max %lld)", index, fonts.size() - 1);
     }
     return fonts[index];
 }
@@ -2409,6 +2418,7 @@ ClefType CapClef::clefType(Form form, ClefLine line, Oct oct)
     case int(Form::C) + (int(ClefLine::L2) << 3) + (int(Oct::OCT_NULL) << 5):  return ClefType::C2;
     case int(Form::C) + (int(ClefLine::L3) << 3) + (int(Oct::OCT_NULL) << 5):  return ClefType::C3;
     case int(Form::C) + (int(ClefLine::L4) << 3) + (int(Oct::OCT_NULL) << 5):  return ClefType::C4;
+    case int(Form::C) + (int(ClefLine::L4) << 3) + (int(Oct::OCT_BASSA) << 5): return ClefType::C4_8VB;
     case int(Form::C) + (int(ClefLine::L5) << 3) + (int(Oct::OCT_NULL) << 5):  return ClefType::C5;
 
     case int(Form::F) + (int(ClefLine::L4) << 3) + (int(Oct::OCT_NULL) << 5):  return ClefType::F;
@@ -2810,8 +2820,8 @@ Err importCapella(MasterScore* score, const QString& name)
     }
     catch (Capella::Error errNo) {
         if (!MScore::noGui) {
-            MessageBox::warning(mu::trc("iex_capella", "Import Capella"),
-                                mu::qtrc("iex_capella", "Import failed: %1").arg(cf.error(errNo)).toStdString(),
+            MessageBox::warning(muse::trc("iex_capella", "Import Capella"),
+                                muse::qtrc("iex_capella", "Import failed: %1").arg(cf.error(errNo)).toStdString(),
                                 { MessageBox::Ok });
         }
         fp.close();

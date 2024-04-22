@@ -20,8 +20,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_AUDIO_SIMDTYPES_NEON_H
-#define MU_AUDIO_SIMDTYPES_NEON_H
+#ifndef MUSE_AUDIO_SIMDTYPES_NEON_H
+#define MUSE_AUDIO_SIMDTYPES_NEON_H
 
 #if _MSC_VER
 #include <arm64_neon.h>
@@ -37,7 +37,7 @@
   Neon version of SIMD types.
  */
 
-namespace mu::audio::fx::simd {
+namespace muse::audio::fx::simd {
 struct float_x4
 {
     float32x4_t s;
@@ -65,12 +65,15 @@ struct float_x4
         s.n128_f32[1] = v1;
         s.n128_f32[2] = v2;
         s.n128_f32[3] = v3;
+#elif defined(__GNUC__) // gcc (12.2.0) doesn't seem to allow initializer list.
+        const float init[4] = { v0, v1, v2, v3 };
+        s = vld1q_f32(init);
 #else
         s = { v0, v1, v2, v3 };
 #endif
     }
 
-#if __clang__
+#if defined(__clang__) || defined(__GNUC__)
 private:
     // this helper class allows writing to the single registers for clang
     // __mm128 is a built-in type -> we can't return a float& reference.
@@ -102,7 +105,7 @@ public:
         return raw;
     }
 
-    __finl const float operator[](int n) const
+    __finl float operator[](int n) const
     {
         return s[n];
     }
@@ -136,6 +139,6 @@ __finl float_x4 __vecc operator*(float_x4 a, float_x4 b)
 {
     return vmulq_f32(a.s, b.s);
 }
-} // namespace mu::audio::fx
+} // namespace muse::audio::fx
 
-#endif // MU_AUDIO_SIMDTYPES_NEON_H
+#endif // MUSE_AUDIO_SIMDTYPES_NEON_H

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,9 +22,9 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 
-import MuseScore.Ui 1.0
+import Muse.Ui 1.0
 import MuseScore.Inspector 1.0
-import MuseScore.UiComponents 1.0
+import Muse.UiComponents 1.0
 
 import "../../../common"
 
@@ -82,7 +82,7 @@ FocusableItem {
                 step: 1
                 decimals: 0
                 maxValue: 12
-                minValue: 4
+                minValue: 1
 
                 navigationName: "Strings"
                 navigationPanel: root.navigationPanel
@@ -105,8 +105,8 @@ FocusableItem {
 
                 step: 1
                 decimals: 0
-                maxValue: 6
-                minValue: 3
+                maxValue: 24
+                minValue: 1
 
                 navigationName: "VisibleFrets"
                 navigationPanel: root.navigationPanel
@@ -124,7 +124,7 @@ FocusableItem {
 
                 step: 1
                 decimals: 0
-                maxValue: 12
+                maxValue: 24
                 minValue: 1
 
                 navigationName: "FretNumber"
@@ -133,7 +133,7 @@ FocusableItem {
             }
         }
 
-        CheckBoxPropertyView {
+        PropertyCheckBox {
             id: multipleDotsCheckbox
             anchors.left: parent.left
             anchors.right: parent.horizontalCenter

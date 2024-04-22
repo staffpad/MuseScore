@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2023 MuseScore BVBA and others
+ * Copyright (C) 2023 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -24,31 +24,26 @@
 
 #include "models/abstractinspectormodel.h"
 #include "models/notation/beams/beammodesmodel.h"
-#include "types/beamtypes.h"
 
 namespace mu::inspector {
 class RestBeamSettingsModel : public AbstractInspectorModel
 {
     Q_OBJECT
 
-    Q_PROPERTY(QObject * beamModesModel READ beamModesModel NOTIFY beamModesModelChanged)
+    Q_PROPERTY(QObject * beamModesModel READ beamModesModel CONSTANT)
 
 public:
     explicit RestBeamSettingsModel(QObject* parent, IElementRepositoryService* repository);
 
     QObject* beamModesModel() const;
 
-public slots:
-    void setBeamModesModel(BeamModesModel* beamModesModel);
-
-signals:
-    void beamModesModelChanged(QObject* beamModesModel);
-
 private:
     void createProperties() override {}
     void requestElements() override;
     void loadProperties() override {}
     void resetProperties() override {}
+
+    void onCurrentNotationChanged() override;
 
     BeamModesModel* m_beamModesModel = nullptr;
 };

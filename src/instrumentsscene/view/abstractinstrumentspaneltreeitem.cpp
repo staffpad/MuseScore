@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,6 +25,7 @@
 
 using namespace mu::instrumentsscene;
 using namespace mu::notation;
+using namespace muse;
 
 AbstractInstrumentsPanelTreeItem::AbstractInstrumentsPanelTreeItem(const InstrumentsTreeItemType::ItemType& type,
                                                                    IMasterNotationPtr masterNotation,
@@ -42,7 +43,7 @@ AbstractInstrumentsPanelTreeItem::~AbstractInstrumentsPanelTreeItem()
     }
 }
 
-mu::ID AbstractInstrumentsPanelTreeItem::id() const
+muse::ID AbstractInstrumentsPanelTreeItem::id() const
 {
     return m_id;
 }
@@ -106,9 +107,15 @@ void AbstractInstrumentsPanelTreeItem::appendNewItem()
 {
 }
 
+MoveParams AbstractInstrumentsPanelTreeItem::buildMoveParams(int, int, AbstractInstrumentsPanelTreeItem*, int) const
+{
+    UNREACHABLE;
+    return MoveParams();
+}
+
 void AbstractInstrumentsPanelTreeItem::moveChildren(int sourceRow, int count,
                                                     AbstractInstrumentsPanelTreeItem* destinationParent,
-                                                    int destinationRow)
+                                                    int destinationRow, bool)
 {
     QList<AbstractInstrumentsPanelTreeItem*> childrenToMove;
     for (int i = sourceRow; i < sourceRow + count; ++i) {

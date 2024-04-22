@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -30,13 +30,13 @@
 #include "translation.h"
 
 #include "engraving/types/typesconv.h"
-#include "engraving/libmscore/chord.h"
-#include "engraving/libmscore/engravingitem.h"
-#include "engraving/libmscore/note.h"
-#include "engraving/libmscore/score.h"
-#include "engraving/libmscore/segment.h"
-#include "engraving/libmscore/select.h"
-#include "engraving/libmscore/system.h"
+#include "engraving/dom/chord.h"
+#include "engraving/dom/engravingitem.h"
+#include "engraving/dom/note.h"
+#include "engraving/dom/score.h"
+#include "engraving/dom/segment.h"
+#include "engraving/dom/select.h"
+#include "engraving/dom/system.h"
 
 #include "ui/view/widgetstatestore.h"
 
@@ -44,7 +44,7 @@
 
 using namespace mu::notation;
 using namespace mu::engraving;
-using namespace mu::ui;
+using namespace muse::ui;
 
 //---------------------------------------------------------
 //   SelectDialog
@@ -79,7 +79,7 @@ SelectNoteDialog::SelectNoteDialog(QWidget* parent)
     //: "quarter note" and "quarter" (for example), or if the translations for the
     //: durations as separate strings are not suitable to be used as adjectives here,
     //: translate this string with "%1", so that just the duration will be shown.
-    durationType->setText(qtrc("notation", "%1 note").arg(TConv::translatedUserName(m_note->chord()->durationType().type())));
+    durationType->setText(muse::qtrc("notation", "%1 note").arg(TConv::translatedUserName(m_note->chord()->durationType().type())));
     sameDurationType->setAccessibleName(sameDurationType->text() + durationType->text());
 
     durationTicks->setText(m_note->chord()->durationUserName());
@@ -88,7 +88,9 @@ SelectNoteDialog::SelectNoteDialog(QWidget* parent)
     name->setText(tpc2name(m_note->tpc(), mu::engraving::NoteSpellingType::STANDARD, mu::engraving::NoteCaseType::AUTO, false));
     sameName->setAccessibleName(sameName->text() + name->text());
 
-    inSelection->setEnabled(!m_note->score()->selection().isSingle());
+    const auto isSingleSelection = m_note->score()->selection().isSingle();
+    inSelection->setCheckState(isSingleSelection ? Qt::CheckState::Unchecked : Qt::CheckState::Checked);
+    inSelection->setEnabled(!isSingleSelection);
 
     connect(buttonBox, &QDialogButtonBox::clicked, this, &SelectNoteDialog::buttonClicked);
 
@@ -98,15 +100,13 @@ SelectNoteDialog::SelectNoteDialog(QWidget* parent)
     setFocus();
 }
 
+#ifdef MU_QT5_COMPAT
 SelectNoteDialog::SelectNoteDialog(const SelectNoteDialog& other)
     : QDialog(other.parentWidget())
 {
 }
 
-int SelectNoteDialog::metaTypeId()
-{
-    return QMetaType::type("SelectNoteDialog");
-}
+#endif
 
 FilterNotesOptions SelectNoteDialog::noteOptions() const
 {
@@ -135,6 +135,18 @@ FilterNotesOptions SelectNoteDialog::noteOptions() const
         options.durationTicks = m_note->chord()->actualTicks();
     } else {
         options.durationTicks = mu::engraving::Fraction(-1, 1);
+    }
+
+    if (sameBeat->isChecked()) {
+        options.beat = m_note->beat();
+    } else {
+        options.beat = mu::engraving::Fraction(0, 0);
+    }
+
+    if (sameMeasure->isChecked()) {
+        options.measure = m_note->findMeasure();
+    } else {
+        options.measure = nullptr;
     }
 
     if (sameStaff->isChecked()) {

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,8 +23,8 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.Project 1.0
 import MuseScore.InstrumentsScene 1.0
 
@@ -72,14 +72,7 @@ Item {
     }
 
     function focusOnSelected() {
-        switch (bar.currentIndex) {
-        case 0:
-            chooseInstrumentsBtn.navigation.requestActive()
-            break
-        case 1:
-            createFromTemplateBtn.navigation.requestActive()
-            break
-        }
+        pageLoader.item.navigation.requestActive()
     }
 
     StyledTabBar {
@@ -93,6 +86,7 @@ Item {
         onCurrentItemChanged: {
             if (currentItem && currentItem.navigation) {
                 currentItemNavigationIndex = [currentItem.navigation.row, currentItem.navigation.column]
+                root.focusOnSelected()
             }
         }
 
@@ -174,8 +168,6 @@ Item {
 
         ChooseInstrumentsPage {
             navigationSection: root.navigationSection
-
-            Component.onCompleted: focusOnFirst()
         }
     }
 

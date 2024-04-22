@@ -20,8 +20,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_AUDIO_WASAPIAUDIOCLIENT_H
-#define MU_AUDIO_WASAPIAUDIOCLIENT_H
+#ifndef MUSE_AUDIO_WASAPIAUDIOCLIENT_H
+#define MUSE_AUDIO_WASAPIAUDIOCLIENT_H
 
 #include "wasapitypes.h"
 
@@ -44,8 +44,7 @@ public:
     unsigned int sampleRate() const;
     unsigned int channelCount() const;
 
-    Windows::Devices::Enumeration::DeviceInformationCollection availableDevices() const;
-    hstring defaultDeviceId() const;
+    void setFallbackDevice(const hstring& deviceId);
 
     void asyncInitializeAudioDevice(const hstring& deviceId, bool useClosestSupportedFormat = false) noexcept;
     void startPlayback() noexcept;
@@ -72,6 +71,7 @@ private:
     void setStateAndNotify(const DeviceState newState, hresult resultCode);
 
     hstring m_deviceIdString;
+    hstring m_fallbackDeviceIdString;
     uint32_t m_bufferFrames = 0;
 
     // Event for sample ready or user stop
@@ -106,4 +106,4 @@ private:
 };
 }
 
-#endif // MU_AUDIO_WASAPIAUDIOCLIENT_H
+#endif // MUSE_AUDIO_WASAPIAUDIOCLIENT_H

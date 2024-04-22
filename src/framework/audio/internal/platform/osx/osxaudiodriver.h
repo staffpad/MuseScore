@@ -19,15 +19,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_AUDIO_OSXAUDIODRIVER_H
-#define MU_AUDIO_OSXAUDIODRIVER_H
+#ifndef MUSE_AUDIO_OSXAUDIODRIVER_H
+#define MUSE_AUDIO_OSXAUDIODRIVER_H
 
-#include <memory>
 #include <map>
+#include <memory>
+#include <mutex>
 
 #include <MacTypes.h>
 
-#include "modularity/ioc.h"
+#include "global/modularity/ioc.h"
 #include "iaudioconfiguration.h"
 
 #include "iaudiodriver.h"
@@ -36,7 +37,7 @@ struct AudioTimeStamp;
 struct AudioQueueBuffer;
 struct OpaqueAudioQueue;
 
-namespace mu::audio {
+namespace muse::audio {
 class OSXAudioDriver : public IAudioDriver
 {
     INJECT(IAudioConfiguration, configuration)
@@ -83,6 +84,7 @@ private:
 
     std::shared_ptr<Data> m_data = nullptr;
     std::map<unsigned int, std::string> m_outputDevices = {}, m_inputDevices = {};
+    mutable std::mutex m_devicesMutex;
     async::Notification m_outputDeviceChanged;
     async::Notification m_availableOutputDevicesChanged;
     AudioDeviceID m_deviceId;
@@ -91,4 +93,4 @@ private:
     async::Notification m_sampleRateChanged;
 };
 }
-#endif // MU_AUDIO_OSXAUDIODRIVER_H
+#endif // MUSE_AUDIO_OSXAUDIODRIVER_H

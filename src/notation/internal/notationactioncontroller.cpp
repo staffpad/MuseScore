@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,17 +25,18 @@
 
 #include "notationtypes.h"
 
-#include "libmscore/note.h"
-#include "libmscore/text.h"
+#include "engraving/dom/note.h"
+#include "engraving/dom/text.h"
 
 #include "translation.h"
 #include "log.h"
 
-using namespace mu::io;
+using namespace mu;
+using namespace muse;
+using namespace muse::io;
 using namespace mu::notation;
-using namespace mu::actions;
+using namespace muse::actions;
 using namespace mu::context;
-using namespace mu::framework;
 
 static constexpr qreal STRETCH_STEP = 0.1;
 static constexpr bool NEAR_NOTE_OR_REST = true;
@@ -158,10 +159,6 @@ void NotationActionController::init()
     registerAction("sharp2", [this]() { toggleAccidental(AccidentalType::SHARP2); });
 
     registerAction("rest", &Interaction::putRestToSelection);
-    registerAction("rest-1", &Interaction::putRest, Duration(DurationType::V_WHOLE));
-    registerAction("rest-2", &Interaction::putRest, Duration(DurationType::V_HALF));
-    registerAction("rest-4", &Interaction::putRest, Duration(DurationType::V_QUARTER));
-    registerAction("rest-8", &Interaction::putRest, Duration(DurationType::V_EIGHTH));
 
     registerAction("add-marcato", [this]() { addArticulation(SymbolId::articMarcatoAbove); });
     registerAction("add-sforzato", [this]() { addArticulation(SymbolId::articAccentAbove); });
@@ -286,6 +283,7 @@ void NotationActionController::init()
     registerAction("edit-style", &Controller::openEditStyleDialog);
     registerAction("page-settings", &Controller::openPageSettingsDialog);
     registerAction("staff-properties", &Controller::openStaffProperties);
+    registerAction("edit-strings", &Controller::openEditStringsDialog);
     registerAction("add-remove-breaks", &Controller::openBreaksDialog);
     registerAction("transpose", &Controller::openTransposeDialog);
     registerAction("parts", &Controller::openPartsDialog);
@@ -317,7 +315,7 @@ void NotationActionController::init()
     registerAction("title-text", [this]() { addText(TextStyleType::TITLE); });
     registerAction("subtitle-text", [this]() { addText(TextStyleType::SUBTITLE); });
     registerAction("composer-text", [this]() { addText(TextStyleType::COMPOSER); });
-    registerAction("poet-text", [this]() { addText(TextStyleType::POET); });
+    registerAction("poet-text", [this]() { addText(TextStyleType::LYRICIST); });
     registerAction("part-text", [this]() { addText(TextStyleType::INSTRUMENT_EXCERPT); });
     registerAction("frame-text", [this]() { addText(TextStyleType::FRAME); });
 
@@ -343,11 +341,13 @@ void NotationActionController::init()
     registerAction("reset-text-style-overrides", &Interaction::resetTextStyleOverrides);
     registerAction("reset-beammode", &Controller::resetBeamMode);
     registerAction("reset", &Interaction::resetShapesAndPosition, &Controller::hasSelection);
+    registerAction("reset-to-default-layout", &Interaction::resetToDefaultLayout);
 
     registerAction("show-invisible", [this]() { toggleScoreConfig(ScoreConfigType::ShowInvisibleElements); });
     registerAction("show-unprintable", [this]() { toggleScoreConfig(ScoreConfigType::ShowUnprintableElements); });
     registerAction("show-frames", [this]() { toggleScoreConfig(ScoreConfigType::ShowFrames); });
     registerAction("show-pageborders", [this]() { toggleScoreConfig(ScoreConfigType::ShowPageMargins); });
+    registerAction("show-soundflags", [this]() { toggleScoreConfig(ScoreConfigType::ShowSoundFlags); });
     registerAction("show-irregular", [this]() { toggleScoreConfig(ScoreConfigType::MarkIrregularMeasures); });
 
     registerAction("concert-pitch", &Controller::toggleConcertPitch);
@@ -377,8 +377,8 @@ void NotationActionController::init()
     registerAction("beam-auto", &Interaction::addBeamToSelectedChordRests, BeamMode::AUTO);
     registerAction("beam-none", &Interaction::addBeamToSelectedChordRests, BeamMode::NONE);
     registerAction("beam-break-left", &Interaction::addBeamToSelectedChordRests, BeamMode::BEGIN);
-    registerAction("beam-break-inner-8th", &Interaction::addBeamToSelectedChordRests, BeamMode::BEGIN32);
-    registerAction("beam-break-inner-16th", &Interaction::addBeamToSelectedChordRests, BeamMode::BEGIN64);
+    registerAction("beam-break-inner-8th", &Interaction::addBeamToSelectedChordRests, BeamMode::BEGIN16);
+    registerAction("beam-break-inner-16th", &Interaction::addBeamToSelectedChordRests, BeamMode::BEGIN32);
     registerAction("beam-join", &Interaction::addBeamToSelectedChordRests, BeamMode::MID);
 
     registerAction("add-brackets", &Interaction::addBracketsToSelection, BracketsType::Brackets);
@@ -395,6 +395,8 @@ void NotationActionController::init()
     registerAction("text-i", &Interaction::toggleItalic, &Controller::isEditingText);
     registerAction("text-u", &Interaction::toggleUnderline, &Controller::isEditingText);
     registerAction("text-s", &Interaction::toggleStrike, &Controller::isEditingText);
+    registerAction("text-sub", &Interaction::toggleSubScript, &Controller::isEditingText);
+    registerAction("text-sup", &Interaction::toggleSuperScript, &Controller::isEditingText);
 
     registerAction("select-next-measure", &Interaction::addToSelection, MoveDirection::Right, MoveSelectionType::Measure, PlayMode::NoPlay,
                    &Controller::isNotNoteInputMode);
@@ -424,15 +426,17 @@ void NotationActionController::init()
     registerAction("add-down-bow", &Interaction::toggleArticulation, mu::engraving::SymId::stringsDownBow);
     registerAction("transpose-up", &Interaction::transposeSemitone, 1, PlayMode::PlayNote);
     registerAction("transpose-down", &Interaction::transposeSemitone, -1, PlayMode::PlayNote);
-    //registerAction("toggle-insert-mode", );
+    registerAction("toggle-insert-mode", [this]() { toggleNoteInputInsert(); }, &NotationActionController::isNotEditingElement);
 
     registerAction("get-location", &Interaction::getLocation, &Controller::isNotationPage);
     registerAction("toggle-mmrest", &Interaction::execute, &mu::engraving::Score::cmdToggleMmrest);
     registerAction("toggle-hide-empty", &Interaction::execute, &mu::engraving::Score::cmdToggleHideEmpty);
 
     registerAction("mirror-note", &Interaction::execute, &mu::engraving::Score::cmdMirrorNoteHead);
-    registerAction("clef-violin", &Interaction::insertClef, mu::engraving::ClefType::G);
-    registerAction("clef-bass", &Interaction::insertClef, mu::engraving::ClefType::F);
+
+    registerAction("clef-violin", [this]() { insertClef(mu::engraving::ClefType::G); });
+    registerAction("clef-bass", [this]() { insertClef(mu::engraving::ClefType::F); });
+
     registerAction("sharp2-post", &Interaction::changeAccidental, mu::engraving::AccidentalType::SHARP2, PlayMode::PlayNote);
     registerAction("sharp-post", &Interaction::changeAccidental, mu::engraving::AccidentalType::SHARP, PlayMode::PlayNote);
     registerAction("nat-post", &Interaction::changeAccidental, mu::engraving::AccidentalType::NATURAL, PlayMode::PlayNote);
@@ -472,6 +476,14 @@ void NotationActionController::init()
     registerTabPadNoteAction("pad-note-256-TAB", Pad::NOTE256);
     registerTabPadNoteAction("pad-note-512-TAB", Pad::NOTE512);
     registerTabPadNoteAction("pad-note-1024-TAB", Pad::NOTE1024);
+    registerAction("rest-TAB", &Interaction::putRestToSelection);
+
+    registerAction("edit-strings", &Interaction::changeEnharmonicSpelling, true);
+
+    registerAction("standard-bend", [this]() { addGuitarBend(GuitarBendType::BEND); });
+    registerAction("pre-bend",  [this]() { addGuitarBend(GuitarBendType::PRE_BEND); });
+    registerAction("grace-note-bend",  [this]() { addGuitarBend(GuitarBendType::GRACE_NOTE_BEND); });
+    registerAction("slight-bend",  [this]() { addGuitarBend(GuitarBendType::SLIGHT_BEND); });
 
     for (int i = 0; i < MAX_FRET; ++i) {
         registerAction("fret-" + std::to_string(i), [i, this]() { addFret(i); }, &Controller::isTablatureStaff);
@@ -498,7 +510,7 @@ void NotationActionController::init()
     }
 }
 
-bool NotationActionController::canReceiveAction(const actions::ActionCode& code) const
+bool NotationActionController::canReceiveAction(const ActionCode& code) const
 {
     TRACEFUNC;
 
@@ -546,7 +558,7 @@ INotationElementsPtr NotationActionController::currentNotationElements() const
     return currentNotation() ? currentNotation()->elements() : nullptr;
 }
 
-mu::async::Notification NotationActionController::currentNotationChanged() const
+muse::async::Notification NotationActionController::currentNotationChanged() const
 {
     return globalContext()->currentNotationChanged();
 }
@@ -561,7 +573,7 @@ INotationNoteInputPtr NotationActionController::currentNotationNoteInput() const
     return interaction->noteInput();
 }
 
-mu::async::Notification NotationActionController::currentNotationNoteInputChanged() const
+muse::async::Notification NotationActionController::currentNotationNoteInputChanged() const
 {
     return m_currentNotationNoteInputChanged;
 }
@@ -596,9 +608,9 @@ INotationStylePtr NotationActionController::currentNotationStyle() const
     return notation->style();
 }
 
-mu::async::Notification NotationActionController::currentNotationStyleChanged() const
+muse::async::Notification NotationActionController::currentNotationStyleChanged() const
 {
-    return currentNotationStyle() ? currentNotationStyle()->styleChanged() : async::Notification();
+    return currentNotationStyle() ? currentNotationStyle()->styleChanged() : muse::async::Notification();
 }
 
 INotationAccessibilityPtr NotationActionController::currentNotationAccessibility() const
@@ -658,14 +670,9 @@ void NotationActionController::toggleNoteInput()
         noteInput->startNoteInput();
     }
 
-    auto notationAccessibility = currentNotationAccessibility();
-    if (!notationAccessibility) {
-        return;
-    }
-
-    ui::UiActionState state = actionRegister()->actionState("note-input");
-    std::string stateTitle = state.checked ? trc("notation", "Note input mode") : trc("notation", "Normal mode");
-    notationAccessibility->setTriggeredCommand(stateTitle);
+    muse::ui::UiActionState state = actionRegister()->actionState("note-input");
+    std::string stateTitle = state.checked ? muse::trc("notation", "Note input mode") : muse::trc("notation", "Normal mode");
+    notifyAccessibilityAboutVoiceInfo(stateTitle);
 }
 
 void NotationActionController::toggleNoteInputMethod(NoteInputMethod method)
@@ -684,6 +691,15 @@ void NotationActionController::toggleNoteInputMethod(NoteInputMethod method)
     }
 
     noteInput->toggleNoteInputMethod(method);
+}
+
+void NotationActionController::toggleNoteInputInsert()
+{
+    if (currentNotationNoteInput()->state().method != NoteInputMethod::TIMEWISE) {
+        toggleNoteInputMethod(NoteInputMethod::TIMEWISE);
+    } else {
+        toggleNoteInputMethod(NoteInputMethod::STEPTIME);
+    }
 }
 
 void NotationActionController::addNote(NoteName note, NoteAddingMode addingMode)
@@ -719,7 +735,7 @@ void NotationActionController::padNote(const Pad& pad)
     }
 }
 
-void NotationActionController::putNote(const actions::ActionData& args)
+void NotationActionController::putNote(const ActionData& args)
 {
     TRACEFUNC;
 
@@ -742,7 +758,7 @@ void NotationActionController::putNote(const actions::ActionData& args)
     }
 }
 
-void NotationActionController::removeNote(const actions::ActionData& args)
+void NotationActionController::removeNote(const ActionData& args)
 {
     TRACEFUNC;
 
@@ -829,7 +845,7 @@ void NotationActionController::putTuplet(const TupletOptions& options)
     }
 
     if (!interaction->canAddTupletToSelectedChordRests()) {
-        interactive()->error(trc("notation", "Cannot create tuplet"), trc("notation", "Note value is too short"));
+        interactive()->error(muse::trc("notation", "Cannot create tuplet"), muse::trc("notation", "Note value is too short"));
         return;
     }
 
@@ -943,6 +959,9 @@ void NotationActionController::move(MoveDirection direction, bool quickly)
             interaction->nudge(direction, quickly);
         } else if (interaction->noteInput()->isNoteInputMode()
                    && interaction->noteInput()->state().staffGroup == mu::engraving::StaffGroup::TAB) {
+            if (quickly) {
+                interaction->movePitch(direction, PitchMode::OCTAVE);
+            }
             interaction->moveSelection(direction, MoveSelectionType::String);
             return;
         } else if (interaction->selection()->isNone()) {
@@ -1160,6 +1179,16 @@ void NotationActionController::addFret(int num)
     playSelectedElement(currentNotationElements()->msScore()->playChord());
 }
 
+void NotationActionController::insertClef(mu::engraving::ClefType type)
+{
+    INotationInteractionPtr interaction = currentNotationInteraction();
+    if (!interaction || !interaction->canInsertClef(type)) {
+        return;
+    }
+
+    interaction->insertClef(type);
+}
+
 IInteractive::Result NotationActionController::showErrorMessage(const std::string& message) const
 {
     return interactive()->info(message,
@@ -1212,12 +1241,15 @@ void NotationActionController::addImage()
         return;
     }
 
-    std::vector<std::string> filter = { trc("notation", "All Supported Files") + " (*.svg *.jpg *.jpeg *.png)",
-                                        trc("notation", "Scalable Vector Graphics") + " (*.svg)",
-                                        trc("notation", "JPEG") + " (*.jpg *.jpeg)",
-                                        trc("notation", "PNG Bitmap Graphic") + " (*.png)" };
+    std::vector<std::string> filter = { muse::trc("notation", "All Supported Files") + " (*.svg *.jpg *.jpeg *.png *.bmp *.tif *.tiff)",
+                                        muse::trc("notation", "Scalable Vector Graphics") + " (*.svg)",
+                                        muse::trc("notation", "JPEG") + " (*.jpg *.jpeg)",
+                                        muse::trc("notation", "PNG Bitmap Graphic") + " (*.png)",
+                                        muse::trc("notation", "Bitmap") + " (*.bmp)",
+                                        muse::trc("notation", "TIFF") + " (*.tif *.tiff)",
+                                        muse::trc("notation", "All") + " (*)" };
 
-    io::path_t path = interactive()->selectOpeningFile(qtrc("notation", "Insert Image"), "", filter);
+    muse::io::path_t path = interactive()->selectOpeningFile(muse::qtrc("notation", "Insert Image"), "", filter);
     interaction->addImageToItem(path, item);
 }
 
@@ -1243,6 +1275,29 @@ void NotationActionController::addFiguredBass()
     }
 
     interaction->addFiguredBass();
+}
+
+void NotationActionController::addGuitarBend(GuitarBendType bendType)
+{
+    TRACEFUNC;
+
+    auto interaction = currentNotationInteraction();
+    if (!interaction) {
+        return;
+    }
+
+    Ret ret = interaction->canAddGuitarBend();
+    if (!ret) {
+        if (configuration()->needToShowAddGuitarBendErrorMessage()) {
+            IInteractive::Result result = showErrorMessage(ret.text());
+            if (!result.showAgain()) {
+                configuration()->setNeedToShowAddGuitarBendErrorMessage(false);
+            }
+        }
+        return;
+    }
+
+    interaction->addGuitarBend(bendType);
 }
 
 void NotationActionController::selectAllSimilarElements()
@@ -1400,7 +1455,7 @@ void NotationActionController::startEditSelectedText(const ActionData& args)
     }
 }
 
-void NotationActionController::addMeasures(const actions::ActionData& actionData, AddBoxesTarget target)
+void NotationActionController::addMeasures(const ActionData& actionData, AddBoxesTarget target)
 {
     TRACEFUNC;
     int count = 1;
@@ -1520,6 +1575,11 @@ void NotationActionController::openStaffProperties()
     interactive()->open("musescore://notation/staffproperties");
 }
 
+void NotationActionController::openEditStringsDialog()
+{
+    interactive()->open("musescore://notation/editstrings");
+}
+
 void NotationActionController::openBreaksDialog()
 {
     interactive()->open("musescore://notation/breaks");
@@ -1535,16 +1595,16 @@ void NotationActionController::openPartsDialog()
     interactive()->open("musescore://notation/parts");
 }
 
-mu::io::path_t NotationActionController::selectStyleFile(bool forLoad)
+muse::io::path_t NotationActionController::selectStyleFile(bool forLoad)
 {
-    mu::io::path_t dir = configuration()->userStylesPath();
+    muse::io::path_t dir = configuration()->userStylesPath();
     std::string filterName = forLoad
-                             ? trc("notation", "MuseScore style files")
-                             : trc("notation", "MuseScore style file");
+                             ? muse::trc("notation", "MuseScore style files")
+                             : muse::trc("notation", "MuseScore style file");
     std::vector<std::string> filter = { filterName + " (*.mss)" };
     return forLoad
-           ? interactive()->selectOpeningFile(qtrc("notation", "Load style"), dir, filter)
-           : interactive()->selectSavingFile(qtrc("notation", "Save style"), dir, filter);
+           ? interactive()->selectOpeningFile(muse::qtrc("notation", "Load style"), dir, filter)
+           : interactive()->selectSavingFile(muse::qtrc("notation", "Save style"), dir, filter);
 }
 
 void NotationActionController::loadStyle()
@@ -1554,14 +1614,14 @@ void NotationActionController::loadStyle()
     if (!path.empty()) {
         File f(path.toQString());
         if (!f.open(IODevice::ReadOnly) || !mu::engraving::MStyle::isValid(&f)) {
-            interactive()->error(trc("notation", "The style file could not be loaded."),
+            interactive()->error(muse::trc("notation", "The style file could not be loaded."),
                                  f.errorString());
             return;
         }
         if (!currentNotationStyle()->loadStyle(path.toQString(), false) && interactive()->warning(
-                trc("notation",
-                    "Since this style file is from a different version of MuseScore, your score is not guaranteed to display correctly."),
-                trc("notation", "Click OK to load anyway."), { IInteractive::Button::Ok, IInteractive::Button::Cancel },
+                muse::trc("notation",
+                          "Since this style file is from a different version of MuseScore Studio, your score is not guaranteed to display correctly."),
+                muse::trc("notation", "Click OK to load anyway."), { IInteractive::Button::Ok, IInteractive::Button::Cancel },
                 IInteractive::Button::Ok).standardButton()
             == IInteractive::Button::Ok) {
             currentNotationStyle()->loadStyle(path.toQString(), true);
@@ -1575,8 +1635,8 @@ void NotationActionController::saveStyle()
     auto path = selectStyleFile(false);
     if (!path.empty()) {
         if (!currentNotationStyle()->saveStyle(path)) {
-            interactive()->error(trc("notation", "The style file could not be saved."),
-                                 trc("notation", "An error occurred."));
+            interactive()->error(muse::trc("notation", "The style file could not be saved."),
+                                 muse::trc("notation", "An error occurred."));
         }
     }
 }
@@ -1786,27 +1846,27 @@ bool NotationActionController::isNotNoteInputMode() const
 
 void NotationActionController::openTupletOtherDialog()
 {
-    interactive()->open("musescore://notation/othertupletdialog");
+    interactive()->open("musescore://notation/othertupletdialog?sync=false");
 }
 
 void NotationActionController::openStaffTextPropertiesDialog()
 {
-    interactive()->open("musescore://notation/stafftextproperties");
+    interactive()->open("musescore://notation/stafftextproperties?sync=false");
 }
 
 void NotationActionController::openMeasurePropertiesDialog()
 {
-    interactive()->open("musescore://notation/measureproperties");
+    interactive()->open("musescore://notation/measureproperties?sync=false");
 }
 
 void NotationActionController::openEditGridSizeDialog()
 {
-    interactive()->open("musescore://notation/editgridsize");
+    interactive()->open("musescore://notation/editgridsize?sync=false");
 }
 
 void NotationActionController::openRealizeChordSymbolsDialog()
 {
-    interactive()->open("musescore://notation/realizechordsymbols");
+    interactive()->open("musescore://notation/realizechordsymbols?sync=false");
 }
 
 void NotationActionController::toggleScoreConfig(ScoreConfigType configType)
@@ -1831,6 +1891,9 @@ void NotationActionController::toggleScoreConfig(ScoreConfigType configType)
         break;
     case ScoreConfigType::ShowPageMargins:
         config.isShowPageMargins = !config.isShowPageMargins;
+        break;
+    case ScoreConfigType::ShowSoundFlags:
+        config.isShowSoundFlags = !config.isShowSoundFlags;
         break;
     case ScoreConfigType::MarkIrregularMeasures:
         config.isMarkIrregularMeasures = !config.isMarkIrregularMeasures;
@@ -1997,30 +2060,30 @@ bool NotationActionController::isToggleVisibleAllowed() const
     return false;
 }
 
-void NotationActionController::registerAction(const mu::actions::ActionCode& code,
+void NotationActionController::registerAction(const ActionCode& code,
                                               std::function<void()> handler, bool (NotationActionController::* isEnabled)() const)
 {
     m_isEnabledMap[code] = std::bind(isEnabled, this);
     dispatcher()->reg(this, code, handler);
 }
 
-void NotationActionController::registerAction(const mu::actions::ActionCode& code,
-                                              std::function<void(const actions::ActionData&)> handler,
+void NotationActionController::registerAction(const ActionCode& code,
+                                              std::function<void(const ActionData&)> handler,
                                               bool (NotationActionController::* isEnabled)() const)
 {
     m_isEnabledMap[code] = std::bind(isEnabled, this);
     dispatcher()->reg(this, code, handler);
 }
 
-void NotationActionController::registerAction(const mu::actions::ActionCode& code,
-                                              void (NotationActionController::* handler)(const actions::ActionData& data),
+void NotationActionController::registerAction(const ActionCode& code,
+                                              void (NotationActionController::* handler)(const ActionData& data),
                                               bool (NotationActionController::* isEnabled)() const)
 {
     m_isEnabledMap[code] = std::bind(isEnabled, this);
     dispatcher()->reg(this, code, this, handler);
 }
 
-void NotationActionController::registerAction(const mu::actions::ActionCode& code,
+void NotationActionController::registerAction(const ActionCode& code,
                                               void (NotationActionController::* handler)(),
                                               bool (NotationActionController::* isEnabled)() const)
 {
@@ -2028,27 +2091,35 @@ void NotationActionController::registerAction(const mu::actions::ActionCode& cod
     dispatcher()->reg(this, code, this, handler);
 }
 
-void NotationActionController::registerNoteInputAction(const mu::actions::ActionCode& code, NoteInputMethod inputMethod)
+void NotationActionController::registerNoteInputAction(const ActionCode& code, NoteInputMethod inputMethod)
 {
     registerAction(code, [this, inputMethod]() { toggleNoteInputMethod(inputMethod); }, &NotationActionController::isNotEditingElement);
 }
 
-void NotationActionController::registerNoteAction(const mu::actions::ActionCode& code, NoteName noteName, NoteAddingMode addingMode)
+void NotationActionController::registerNoteAction(const ActionCode& code, NoteName noteName, NoteAddingMode addingMode)
 {
     registerAction(code, [this, noteName, addingMode]() { addNote(noteName, addingMode); }, &NotationActionController::isStandardStaff);
 }
 
-void NotationActionController::registerPadNoteAction(const mu::actions::ActionCode& code, Pad padding)
+void NotationActionController::registerPadNoteAction(const ActionCode& code, Pad padding)
 {
-    registerAction(code, [this, padding]() { padNote(padding); });
+    registerAction(code, [this, padding, code]()
+    {
+        padNote(padding);
+        notifyAccessibilityAboutActionTriggered(code);
+    });
 }
 
-void NotationActionController::registerTabPadNoteAction(const mu::actions::ActionCode& code, Pad padding)
+void NotationActionController::registerTabPadNoteAction(const ActionCode& code, Pad padding)
 {
-    registerAction(code, [this, padding]() { padNote(padding); }, &NotationActionController::isTablatureStaff);
+    registerAction(code, [this, padding, code]()
+    {
+        padNote(padding);
+        notifyAccessibilityAboutActionTriggered(code);
+    }, &NotationActionController::isTablatureStaff);
 }
 
-void NotationActionController::registerMoveSelectionAction(const mu::actions::ActionCode& code, MoveSelectionType type,
+void NotationActionController::registerMoveSelectionAction(const ActionCode& code, MoveSelectionType type,
                                                            MoveDirection direction, PlayMode playMode)
 {
     auto moveSelectionFunc = [this, type, direction, playMode]() {
@@ -2067,7 +2138,7 @@ void NotationActionController::registerMoveSelectionAction(const mu::actions::Ac
     dispatcher()->reg(this, code, moveSelectionFunc);
 }
 
-void NotationActionController::registerAction(const mu::actions::ActionCode& code,
+void NotationActionController::registerAction(const ActionCode& code,
                                               void (INotationInteraction::* handler)(), PlayMode playMode,
                                               bool (NotationActionController::* enabler)() const)
 {
@@ -2083,7 +2154,7 @@ void NotationActionController::registerAction(const mu::actions::ActionCode& cod
     }, enabler);
 }
 
-void NotationActionController::registerAction(const mu::actions::ActionCode& code,
+void NotationActionController::registerAction(const ActionCode& code,
                                               void (NotationActionController::* handler)(MoveDirection,
                                                                                          bool), MoveDirection direction, bool quickly,
                                               bool (NotationActionController::* enabler)() const)
@@ -2091,14 +2162,14 @@ void NotationActionController::registerAction(const mu::actions::ActionCode& cod
     registerAction(code, [this, handler, direction, quickly]() { (this->*handler)(direction, quickly); }, enabler);
 }
 
-void NotationActionController::registerAction(const mu::actions::ActionCode& code,
+void NotationActionController::registerAction(const ActionCode& code,
                                               void (INotationInteraction::* handler)(), bool (NotationActionController::* enabler)() const)
 {
     registerAction(code, handler, PlayMode::NoPlay, enabler);
 }
 
 template<class P1>
-void NotationActionController::registerAction(const mu::actions::ActionCode& code, void (INotationInteraction::* handler)(P1),
+void NotationActionController::registerAction(const ActionCode& code, void (INotationInteraction::* handler)(P1),
                                               P1 param1, PlayMode playMode, bool (NotationActionController::* enabler)() const)
 {
     registerAction(code, [this, handler, param1, playMode]()
@@ -2114,7 +2185,7 @@ void NotationActionController::registerAction(const mu::actions::ActionCode& cod
 }
 
 template<class P1>
-void NotationActionController::registerAction(const mu::actions::ActionCode& code,
+void NotationActionController::registerAction(const ActionCode& code,
                                               void (INotationInteraction::* handler)(
                                                   P1), P1 param1, bool (NotationActionController::* enabler)() const)
 {
@@ -2122,7 +2193,7 @@ void NotationActionController::registerAction(const mu::actions::ActionCode& cod
 }
 
 template<typename P1, typename P2>
-void NotationActionController::registerAction(const mu::actions::ActionCode& code, void (INotationInteraction::* handler)(P1, P2),
+void NotationActionController::registerAction(const ActionCode& code, void (INotationInteraction::* handler)(P1, P2),
                                               P1 param1, P2 param2, PlayMode playMode, bool (NotationActionController::* enabler)() const)
 {
     registerAction(code, [this, handler, param1, param2, playMode]()
@@ -2135,4 +2206,20 @@ void NotationActionController::registerAction(const mu::actions::ActionCode& cod
             }
         }
     }, enabler);
+}
+
+void NotationActionController::notifyAccessibilityAboutActionTriggered(const ActionCode& ActionCode)
+{
+    const muse::ui::UiAction action = actionRegister()->action(ActionCode);
+    std::string titleStr  = action.title.qTranslatedWithoutMnemonic().toStdString();
+
+    notifyAccessibilityAboutVoiceInfo(titleStr);
+}
+
+void NotationActionController::notifyAccessibilityAboutVoiceInfo(const std::string& info)
+{
+    auto notationAccessibility = currentNotationAccessibility();
+    if (notationAccessibility) {
+        notationAccessibility->setTriggeredCommand(info);
+    }
 }

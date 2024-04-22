@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# MuseScore-CLA-applies
+# MuseScore-Studio-CLA-applies
 #
-# MuseScore
+# MuseScore Studio
 # Music Composition & Notation
 #
-# Copyright (C) 2021 MuseScore BVBA and others
+# Copyright (C) 2021 MuseScore Limited
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -63,6 +63,8 @@ set(MODULE_TEST_SRC
     ${CMAKE_CURRENT_LIST_DIR}/pitchwheelrender_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/playbackeventsrendering_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/playbackmodel_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/playbackcontext_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/bendsrenderer_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/readwriteundoreset_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/remove_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/repeat_tests.cpp
@@ -73,6 +75,7 @@ set(MODULE_TEST_SRC
     ${CMAKE_CURRENT_LIST_DIR}/spanners_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/split_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/splitstaff_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/staffmove_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/tempomap_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/textbase_tests.cpp
     #${CMAKE_CURRENT_LIST_DIR}/textedit_tests.cpp doesn't compile and needs actualization
@@ -83,16 +86,21 @@ set(MODULE_TEST_SRC
     ${CMAKE_CURRENT_LIST_DIR}/unrollrepeats_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/changevisibility_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/midirenderer_tests.cpp
-   
+    ${CMAKE_CURRENT_LIST_DIR}/scoreutils_tests.cpp
 
     ${CMAKE_CURRENT_LIST_DIR}/mocks/engravingconfigurationmock.h
 )
 
+if (MUE_BUILD_ENGRAVING_DEVTOOLS)
+set(MODULE_TEST_SRC ${MODULE_TEST_SRC}
+    ${CMAKE_CURRENT_LIST_DIR}/drawdata_tests.cpp
+)
+endif()
+
 set(MODULE_TEST_LINK
     engraving
-    fonts
 )
 
 set(MODULE_TEST_DATA_ROOT ${CMAKE_CURRENT_LIST_DIR})
 
-include(${PROJECT_SOURCE_DIR}/src/framework/testing/gtest.cmake)
+include(SetupGTest)

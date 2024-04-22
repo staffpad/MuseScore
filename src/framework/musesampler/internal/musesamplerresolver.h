@@ -20,8 +20,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_MUSESAMPLER_MUSESAMPLERRESOLVER_H
-#define MU_MUSESAMPLER_MUSESAMPLERRESOLVER_H
+#ifndef MUSE_MUSESAMPLER_MUSESAMPLERRESOLVER_H
+#define MUSE_MUSESAMPLER_MUSESAMPLERRESOLVER_H
 
 #include "audio/isynthresolver.h"
 #include "modularity/ioc.h"
@@ -30,26 +30,35 @@
 #include "imusesamplerconfiguration.h"
 #include "imusesamplerinfo.h"
 
-namespace mu::musesampler {
-class MuseSamplerResolver : public audio::synth::ISynthResolver::IResolver, public IMuseSamplerInfo
+namespace muse::musesampler {
+class MuseSamplerResolver : public muse::audio::synth::ISynthResolver::IResolver, public IMuseSamplerInfo
 {
     INJECT(IMuseSamplerConfiguration, configuration)
 
 public:
     void init();
 
-    audio::synth::ISynthesizerPtr resolveSynth(const audio::TrackId trackId, const audio::AudioInputParams& params) const override;
-    bool hasCompatibleResources(const audio::PlaybackSetupData& setup) const override;
-    audio::AudioResourceMetaList resolveResources() const override;
+    muse::audio::synth::ISynthesizerPtr resolveSynth(const muse::audio::TrackId trackId,
+                                                     const muse::audio::AudioInputParams& params) const override;
+    bool hasCompatibleResources(const muse::audio::PlaybackSetupData& setup) const override;
+    muse::audio::AudioResourceMetaList resolveResources() const override;
+    muse::audio::SoundPresetList resolveSoundPresets(const muse::audio::AudioResourceMeta& resourceMeta) const override;
     void refresh() override;
     void clearSources() override;
 
     std::string version() const override;
     bool isInstalled() const override;
 
+    float defaultReverbLevel(const String& instrumentSoundId) const override;
+
+    ByteArray drumMapping(int instrumentId) const override;
+    std::vector<Instrument> instruments() const override;
+
 private:
     bool checkLibrary() const;
     bool isVersionSupported() const;
+
+    void loadSoundPresetAttributes(muse::audio::SoundPresetAttributes& attributes, int instrumentId, const char* presetCode) const;
 
     String buildMuseInstrumentId(const String& category, const String& name, int uniqueId) const;
 
@@ -57,4 +66,4 @@ private:
 };
 }
 
-#endif // MU_MUSESAMPLER_MUSESAMPLERRESOLVER_H
+#endif // MUSE_MUSESAMPLER_MUSESAMPLERRESOLVER_H

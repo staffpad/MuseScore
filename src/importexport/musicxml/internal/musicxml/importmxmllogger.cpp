@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,20 +22,24 @@
 
 #include "importmxmllogger.h"
 
-#include <QXmlStreamReader>
+#include "global/serialization/xmlstreamreader.h"
 
 #include "log.h"
+
+using namespace muse;
 
 namespace mu::engraving {
 //---------------------------------------------------------
 //   xmlLocation
 //---------------------------------------------------------
 
-static QString xmlLocation(const QXmlStreamReader* const xmlreader)
+static String xmlLocation(const muse::XmlStreamReader* xmlreader)
 {
-    QString loc;
+    String loc;
     if (xmlreader) {
-        loc = QString(" at line %1 col %2").arg(xmlreader->lineNumber()).arg(xmlreader->columnNumber());
+        loc = String(u" at line %1 col %2")
+              .arg(size_t(xmlreader->lineNumber()))
+              .arg(size_t(xmlreader->columnNumber()));
     }
     return loc;
 }
@@ -43,25 +47,25 @@ static QString xmlLocation(const QXmlStreamReader* const xmlreader)
 //---------------------------------------------------------
 //   logDebugTrace
 //---------------------------------------------------------
-static void to_xml_log(MxmlLogger::Level level, const QString& text, const QXmlStreamReader* const xmlreader)
+static void to_xml_log(MxmlLogger::Level level, const String& text, const XmlStreamReader* xmlreader)
 {
-    QString str;
+    String str;
     switch (level) {
-    case MxmlLogger::Level::MXML_TRACE: str = "Trace";
+    case MxmlLogger::Level::MXML_TRACE: str = u"Trace";
         break;
-    case MxmlLogger::Level::MXML_INFO: str = "Info";
+    case MxmlLogger::Level::MXML_INFO: str = u"Info";
         break;
-    case MxmlLogger::Level::MXML_ERROR: str = "Error";
+    case MxmlLogger::Level::MXML_ERROR: str = u"Error";
         break;
-    default: str = "Unknown";
+    default: str = u"Unknown";
         break;
     }
 
     str += xmlLocation(xmlreader);
-    str += ": ";
+    str += u": ";
     str += text;
 
-    LOGD("%s", qPrintable(str));
+    LOGD() << str;
 }
 
 //---------------------------------------------------------
@@ -72,9 +76,9 @@ static void to_xml_log(MxmlLogger::Level level, const QString& text, const QXmlS
  Log debug (function) trace.
  */
 
-void MxmlLogger::logDebugTrace(const QString& trace, const QXmlStreamReader* const xmlreader)
+void MxmlLogger::logDebugTrace(const String& trace, const muse::XmlStreamReader* xmlreader)
 {
-    if (_level <= Level::MXML_TRACE) {
+    if (m_level <= Level::MXML_TRACE) {
         to_xml_log(Level::MXML_TRACE, trace, xmlreader);
     }
 }
@@ -87,9 +91,9 @@ void MxmlLogger::logDebugTrace(const QString& trace, const QXmlStreamReader* con
  Log debug \a info (non-fatal events relevant for debugging).
  */
 
-void MxmlLogger::logDebugInfo(const QString& info, const QXmlStreamReader* const xmlreader)
+void MxmlLogger::logDebugInfo(const String& info, const XmlStreamReader* xmlreader)
 {
-    if (_level <= Level::MXML_INFO) {
+    if (m_level <= Level::MXML_INFO) {
         to_xml_log(Level::MXML_INFO, info, xmlreader);
     }
 }
@@ -102,9 +106,9 @@ void MxmlLogger::logDebugInfo(const QString& info, const QXmlStreamReader* const
  Log \a error (possibly non-fatal but to be reported to the user anyway).
  */
 
-void MxmlLogger::logError(const QString& error, const QXmlStreamReader* const xmlreader)
+void MxmlLogger::logError(const String& error, const XmlStreamReader* xmlreader)
 {
-    if (_level <= Level::MXML_ERROR) {
+    if (m_level <= Level::MXML_ERROR) {
         to_xml_log(Level::MXML_ERROR, error, xmlreader);
     }
 }

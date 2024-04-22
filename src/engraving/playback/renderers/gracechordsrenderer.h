@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -29,40 +29,60 @@
 
 namespace mu::engraving {
 class Chord;
+class Note;
 
 class GraceChordsRenderer : public RenderBase<GraceChordsRenderer>
 {
 public:
-    static const mpe::ArticulationTypeSet& supportedTypes();
+    static const muse::mpe::ArticulationTypeSet& supportedTypes();
 
-    static void doRender(const EngravingItem* item, const mpe::ArticulationType type, const RenderingContext& context,
-                         mpe::PlaybackEventList& result);
+    static void doRender(const EngravingItem* item, const muse::mpe::ArticulationType type, const RenderingContext& ctx,
+                         muse::mpe::PlaybackEventList& result);
+
+    static void renderGraceNote(const Note* graceNote, const Note* principalNote, const muse::mpe::ArticulationType graceNoteType,
+                                const RenderingContext& ctx, muse::mpe::PlaybackEventList& result);
+
 private:
-    static bool isPlacedBeforePrincipalNote(const mpe::ArticulationType type);
+    struct GraceNotesContext {
+        muse::mpe::ArticulationType type = muse::mpe::ArticulationType::Undefined;
+        double durationFactor = 0;
+        muse::mpe::timestamp_t graceNotesTimestampFrom = 0;
+        muse::mpe::timestamp_t principalNotesTimestampFrom = 0;
+        muse::mpe::duration_t totalPrincipalNotesDuration = 0;
+    };
 
-    static void renderPrependedGraceNotes(const Chord* chord, const RenderingContext& context, const mpe::ArticulationType type,
-                                          mpe::PlaybackEventList& result);
-    static void renderAppendedGraceNotes(const Chord* chord, const RenderingContext& context, const mpe::ArticulationType type,
-                                         mpe::PlaybackEventList& result);
+    using GraceNoteAccepted = std::function<bool (const Note*, const RenderingContext&)>;
 
-    static mpe::duration_t graceNotesTotalDuration(const std::vector<Chord*>& graceChords, const RenderingContext& context);
+    static bool isPlacedBeforePrincipalNote(const muse::mpe::ArticulationType type);
 
-    static void buildGraceNoteEvents(const std::vector<Chord*>& graceChords, const RenderingContext& context,
-                                     const mpe::ArticulationType type, const mpe::timestamp_t timestampFrom, double durationFactor,
-                                     mpe::PlaybackEventList& result);
+    static void renderGraceNoteEvents(const std::vector<Chord*>& graceChords, GraceNoteAccepted graceNoteAccepted,
+                                      const RenderingContext& ctx, const GraceNotesContext& graceCtx, muse::mpe::PlaybackEventList& result);
 
-    static void buildPrincipalNoteEvents(const Chord* chord, const RenderingContext& ctx, const mpe::ArticulationType type,
-                                         const mpe::timestamp_t timestamp, const mpe::duration_t duration, mpe::PlaybackEventList& result);
+    static void renderPrincipalChord(const Chord* chord, const RenderingContext& ctx, const GraceNotesContext& graceCtx,
+                                     muse::mpe::PlaybackEventList& result);
 
-    static mpe::duration_t graceNotesMaxAvailableDuration(const mpe::ArticulationType type, const RenderingContext& ctx,
-                                                          const size_t graceNotesCount);
-    static mpe::timestamp_t graceNotesStartTimestamp(const mpe::ArticulationType type, const mpe::duration_t availableDuration,
-                                                     const mpe::timestamp_t& nominalTimestamp);
+    static void renderPrincipalNote(const Note* note, const RenderingContext& ctx, const GraceNotesContext& graceCtx,
+                                    muse::mpe::PlaybackEventList& result);
 
-    static mpe::timestamp_t principalNotesStartTimestamp(const mpe::ArticulationType type, const mpe::duration_t graceNotesDuration,
-                                                         const mpe::timestamp_t& nominalTimestamp);
+    static GraceNotesContext buildGraceNotesContext(const std::vector<Chord*>& graceChords, const RenderingContext& ctx,
+                                                    const muse::mpe::ArticulationType type);
 
-    static mpe::timestamp_t principalNotesDuration(const mpe::duration_t graceNotesDuration, const mpe::duration_t& nominalDuration);
+    static RenderingContext buildPrincipalNoteCtx(const Score* score, const RenderingContext& ctx, const GraceNotesContext& graceCtx);
+
+    static muse::mpe::duration_t graceNotesTotalDuration(const std::vector<Chord*>& graceChords, const RenderingContext& context);
+
+    static muse::mpe::duration_t graceNotesMaxAvailableDuration(const muse::mpe::ArticulationType type, const RenderingContext& ctx,
+                                                                const size_t graceNotesCount);
+    static muse::mpe::timestamp_t graceNotesStartTimestamp(const muse::mpe::ArticulationType type,
+                                                           const muse::mpe::duration_t availableDuration,
+                                                           const muse::mpe::timestamp_t& nominalTimestamp);
+
+    static muse::mpe::timestamp_t principalNotesStartTimestamp(const muse::mpe::ArticulationType type,
+                                                               const muse::mpe::duration_t graceNotesDuration,
+                                                               const muse::mpe::timestamp_t& nominalTimestamp);
+
+    static muse::mpe::timestamp_t principalNotesDuration(const muse::mpe::duration_t graceNotesDuration,
+                                                         const muse::mpe::duration_t& nominalDuration);
 };
 }
 

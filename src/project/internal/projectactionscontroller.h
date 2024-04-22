@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -32,55 +32,69 @@
 #include "actions/actionable.h"
 #include "actions/iactionsdispatcher.h"
 #include "multiinstances/imultiinstancesprovider.h"
+#include "multiinstances/iprojectprovider.h"
 #include "cloud/musescorecom/imusescorecomservice.h"
 #include "cloud/audiocom/iaudiocomservice.h"
+#include "cloud/cloudqmltypes.h"
 #include "playback/iplaybackcontroller.h"
 #include "print/iprintprovider.h"
 #include "inotationreadersregister.h"
-#include "isaveprojectscenario.h"
+#include "iopensaveprojectscenario.h"
+#include "imscmetareader.h"
 #include "io/ifilesystem.h"
 #include "internal/iexportprojectscenario.h"
 #include "notation/inotationconfiguration.h"
+#include "update/imusesoundscheckupdatescenario.h"
 
 #include "async/asyncable.h"
 
 #include "iprojectconfiguration.h"
 #include "iprojectcreator.h"
-#include "iplatformrecentfilescontroller.h"
+#include "irecentfilescontroller.h"
 #include "iprojectautosaver.h"
 
 namespace mu::project {
-class ProjectActionsController : public IProjectFilesController, public QObject, public actions::Actionable, public async::Asyncable
+class ProjectActionsController : public IProjectFilesController, public muse::mi::IProjectProvider, public muse::actions::Actionable,
+    public muse::async::Asyncable
 {
     INJECT(IProjectConfiguration, configuration)
     INJECT(INotationReadersRegister, readers)
     INJECT(IProjectCreator, projectCreator)
-    INJECT(IPlatformRecentFilesController, platformRecentFilesController)
+    INJECT(IRecentFilesController, recentFilesController)
     INJECT(IProjectAutoSaver, projectAutoSaver)
-    INJECT(ISaveProjectScenario, saveProjectScenario)
+    INJECT(IOpenSaveProjectScenario, openSaveProjectScenario)
     INJECT(IExportProjectScenario, exportProjectScenario)
-    INJECT(actions::IActionsDispatcher, dispatcher)
-    INJECT(framework::IInteractive, interactive)
+    INJECT(IMscMetaReader, mscMetaReader)
+    INJECT(muse::actions::IActionsDispatcher, dispatcher)
+    INJECT(muse::IInteractive, interactive)
     INJECT(context::IGlobalContext, globalContext)
-    INJECT(mi::IMultiInstancesProvider, multiInstancesProvider)
-    INJECT(cloud::IMuseScoreComService, museScoreComService)
-    INJECT(cloud::IAudioComService, audioComService)
+    INJECT(muse::mi::IMultiInstancesProvider, multiInstancesProvider)
+    INJECT(muse::cloud::IMuseScoreComService, museScoreComService)
+    INJECT(muse::cloud::IAudioComService, audioComService)
     INJECT(notation::INotationConfiguration, notationConfiguration)
     INJECT(playback::IPlaybackController, playbackController)
     INJECT(print::IPrintProvider, printProvider)
-    INJECT(io::IFileSystem, fileSystem)
+    INJECT(muse::io::IFileSystem, fileSystem)
+    INJECT(muse::update::IMuseSoundsCheckUpdateScenario, museSoundsCheckUpdateScenario)
 
 public:
     void init();
 
-    bool canReceiveAction(const actions::ActionCode& code) const override;
+    bool canReceiveAction(const muse::actions::ActionCode& code) const override;
 
-    bool isFileSupported(const io::path_t& path) const override;
-    Ret openProject(const io::path_t& projectPath) override;
+    bool isUrlSupported(const QUrl& url) const override;
+    bool isFileSupported(const muse::io::path_t& path) const override;
+    muse::Ret openProject(const ProjectFile& file) override;
     bool closeOpenedProject(bool quitApp = false) override;
-    bool isProjectOpened(const io::path_t& scorePath) const override;
+    bool saveProject(const muse::io::path_t& path = muse::io::path_t()) override;
+    bool saveProjectLocally(const muse::io::path_t& path = muse::io::path_t(), SaveMode saveMode = SaveMode::Save) override;
+
+    // mi::IProjectProvider
+    bool isProjectOpened(const muse::io::path_t& scorePath) const override;
     bool isAnyProjectOpened() const override;
-    bool saveProject(const io::path_t& path = io::path_t()) override;
+
+    const ProjectBeingDownloaded& projectBeingDownloaded() const override;
+    muse::async::Notification projectBeingDownloadedChanged() const override;
 
 private:
     void setupConnections();
@@ -91,25 +105,25 @@ private:
     notation::INotationInteractionPtr currentInteraction() const;
     notation::INotationSelectionPtr currentNotationSelection() const;
 
-    void openProject(const actions::ActionData& args);
     void newProject();
 
-    bool checkCanIgnoreError(const Ret& ret, const String& projectName);
+    void openProject(const muse::actions::ActionData& args);
+    muse::Ret openProject(const muse::io::path_t& path, const QString& displayNameOverride = QString());
+    void downloadAndOpenCloudProject(int scoreId, const QString& hash = QString(), const QString& secret = QString(), bool isOwner = true);
+    muse::Ret openMuseScoreUrl(const QUrl& url);
+    muse::Ret openScoreFromMuseScoreCom(const QUrl& url);
+
+    bool checkCanIgnoreError(const muse::Ret& ret, const muse::io::path_t& filepath);
     bool askIfUserAgreesToOpenProjectWithIncompatibleVersion(const std::string& errorText);
-    bool askIfUserAgreesToOpenCorruptedProject(const String& projectName, const std::string& errorText);
-    void warnProjectCannotBeOpened(const String& projectName, const std::string& errorText);
+    void warnFileTooNew(const muse::io::path_t& filepath);
+    bool askIfUserAgreesToOpenCorruptedProject(const muse::String& projectName, const std::string& errorText);
+    void warnProjectCriticallyCorrupted(const muse::String& projectName, const std::string& errorText);
+    void warnProjectCannotBeOpened(const muse::Ret& ret, const muse::io::path_t& filepath);
 
-    framework::IInteractive::Button askAboutSavingScore(INotationProjectPtr project);
+    muse::IInteractive::Button askAboutSavingScore(INotationProjectPtr project);
 
-    Ret canSaveProject() const;
+    muse::Ret canSaveProject() const;
     bool saveProject(SaveMode saveMode, SaveLocationType saveLocationType = SaveLocationType::Undefined, bool force = false);
-
-    void publish();
-    void shareAudio();
-
-    bool saveProjectAt(const SaveLocation& saveLocation, SaveMode saveMode = SaveMode::Save, bool force = false);
-    bool saveProjectLocally(const io::path_t& path = io::path_t(), SaveMode saveMode = SaveMode::Save);
-    bool saveProjectToCloud(CloudProjectInfo info, SaveMode saveMode = SaveMode::Save);
 
     struct AudioFile {
         QString format;
@@ -123,25 +137,35 @@ private:
         }
     };
 
-    Ret askAudioGenerationSettings() const;
-    RetVal<bool> needGenerateAudio(bool isPublic) const;
+    void publish();
+    void shareAudio(const AudioFile& existingAudio);
+    void shareAudio() { shareAudio(AudioFile()); }
+
+    bool saveProjectAt(const SaveLocation& saveLocation, SaveMode saveMode = SaveMode::Save, bool force = false);
+    bool saveProjectToCloud(CloudProjectInfo info, SaveMode saveMode = SaveMode::Save);
+
+    void alsoShareAudioCom(const AudioFile& audio);
+
+    muse::Ret askAudioGenerationSettings() const;
+    muse::RetVal<bool> needGenerateAudio(bool isPublic) const;
     AudioFile exportMp3(const notation::INotationPtr notation) const;
 
     void showUploadProgressDialog();
     void closeUploadProgressDialog();
 
-    void uploadProject(const CloudProjectInfo& info, const AudioFile& audio, bool openEditUrl, bool publishMode);
-    void uploadAudio(const AudioFile& audio, const QUrl& sourceUrl, const QUrl& urlToOpen, bool isFirstSave);
+    muse::Ret uploadProject(const CloudProjectInfo& info, const AudioFile& audio, bool openEditUrl, bool publishMode);
+    void uploadAudio(const AudioFile& audio, const QUrl& sourceUrl, const QUrl& urlToOpen, bool isFirstSave, bool publishMode);
 
     void onProjectSuccessfullyUploaded(const QUrl& urlToOpen = QUrl(), bool isFirstSave = true);
-    void onProjectUploadFailed(const Ret& ret, const CloudProjectInfo& info, const AudioFile& audio, bool openEditUrl, bool publishMode);
+    muse::Ret onProjectUploadFailed(const muse::Ret& ret, const CloudProjectInfo& info, const AudioFile& audio, bool openEditUrl,
+                                    bool publishMode);
 
     void onAudioSuccessfullyUploaded(const QUrl& urlToOpen);
-    void onAudioUploadFailed(const Ret& ret);
+    void onAudioUploadFailed(const muse::Ret& ret);
 
     void warnCloudIsNotAvailable();
 
-    bool askIfUserAgreesToSaveProjectWithErrors(const Ret& ret, const SaveLocation& location);
+    bool askIfUserAgreesToSaveProjectWithErrors(const muse::Ret& ret, const SaveLocation& location);
     void warnScoreWithoutPartsCannotBeSaved();
     bool askIfUserAgreesToSaveCorruptedScore(const SaveLocation& location, const std::string& errorText, bool newlyCreated);
     void warnCorruptedScoreCannotBeSavedOnCloud(const std::string& errorText, bool canRevert);
@@ -149,7 +173,14 @@ private:
     bool askIfUserAgreesToSaveCorruptedScoreUponOpenning(const SaveLocation& location, const std::string& errorText);
     void showErrCorruptedScoreCannotBeSaved(const SaveLocation& location, const std::string& errorText);
 
+    void warnScoreCouldnotBeSaved(const muse::Ret& ret);
+    void warnScoreCouldnotBeSaved(const std::string& errorText);
+
     void revertCorruptedScoreToLastSaved();
+
+    RecentFile makeRecentFile(INotationProjectPtr project);
+
+    void moveProject(INotationProjectPtr project, const muse::io::path_t& newPath, bool replace);
 
     void importPdf();
 
@@ -159,18 +190,19 @@ private:
 
     void openProjectProperties();
 
-    io::path_t selectScoreOpeningFile();
-    io::path_t selectScoreSavingFile(const io::path_t& defaultFilePath, const QString& saveTitle);
+    muse::io::path_t selectScoreOpeningFile();
+    muse::io::path_t selectScoreSavingFile(const muse::io::path_t& defaultFilePath, const QString& saveTitle);
 
-    Ret doOpenProject(const io::path_t& filePath);
+    muse::RetVal<INotationProjectPtr> loadProject(const muse::io::path_t& filePath);
+    muse::Ret doOpenProject(const muse::io::path_t& filePath);
+    muse::Ret doOpenCloudProject(const muse::io::path_t& filePath, const CloudProjectInfo& info, bool isOwner = true);
+    muse::Ret doOpenCloudProjectOffline(const muse::io::path_t& filePath, const QString& displayNameOverride);
 
-    Ret openPageIfNeed(Uri pageUri);
+    muse::Ret doFinishOpenProject();
+    muse::Ret openPageIfNeed(muse::Uri pageUri);
 
     void exportScore();
     void printScore();
-
-    void prependToRecentScoreList(const io::path_t& filePath);
-    void removeFromRecentScoreList(const io::path_t& filePath);
 
     bool hasSelection() const;
 
@@ -182,11 +214,15 @@ private:
     bool m_isProjectPublishing = false;
     bool m_isProjectUploading = false;
     bool m_isAudioSharing = false;
+    bool m_isProjectDownloading = false;
 
-    framework::ProgressPtr m_uploadingProjectProgress = nullptr;
-    framework::ProgressPtr m_uploadingAudioProgress = nullptr;
+    muse::ProgressPtr m_uploadingProjectProgress = nullptr;
+    muse::ProgressPtr m_uploadingAudioProgress = nullptr;
 
     int m_numberOfSavesToCloud = 0;
+
+    ProjectBeingDownloaded m_projectBeingDownloaded;
+    muse::async::Notification m_projectBeingDownloadedChanged;
 };
 }
 

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,8 +22,8 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.Inspector 1.0
 
 import "../common"
@@ -60,6 +60,8 @@ import "lyrics"
 import "rests"
 import "dynamics"
 import "expressions"
+import "stringtunings"
+import "symbols"
 
 Loader {
     id: root
@@ -91,6 +93,8 @@ Loader {
             case Inspector.TYPE_SLUR:
             case Inspector.TYPE_TIE: return slurAndTieComp
             case Inspector.TYPE_TEMPO: return tempoComp
+            case Inspector.TYPE_A_TEMPO: return aTempoComp
+            case Inspector.TYPE_TEMPO_PRIMO: return tempoPrimoComp
             case Inspector.TYPE_BARLINE: return barlineComp
             case Inspector.TYPE_SECTIONBREAK: return sectionBreakComp
             case Inspector.TYPE_MARKER: return markerComp
@@ -98,9 +102,9 @@ Loader {
             case Inspector.TYPE_KEYSIGNATURE: return keySignatureComp
             case Inspector.TYPE_ACCIDENTAL: return accidentalComp
             case Inspector.TYPE_FRET_DIAGRAM: return fretDiagramComp
-            case Inspector.TYPE_PEDAL: return pedalComp
             case Inspector.TYPE_SPACER: return spacerComp
             case Inspector.TYPE_CLEF: return clefComp
+            case Inspector.TYPE_PEDAL:
             case Inspector.TYPE_HAIRPIN:
             case Inspector.TYPE_CRESCENDO:
             case Inspector.TYPE_DIMINUENDO:
@@ -133,6 +137,8 @@ Loader {
             case Inspector.TYPE_REST_BEAM: return restComp
             case Inspector.TYPE_DYNAMIC: return dynamicComp
             case Inspector.TYPE_EXPRESSION: return expressionComp
+            case Inspector.TYPE_STRING_TUNINGS: return stringTuningsComp
+            case Inspector.TYPE_SYMBOL: return symbolComp
             }
 
             return null
@@ -178,6 +184,16 @@ Loader {
     }
 
     Component {
+        id: aTempoComp
+        TempoRestorePreviousSettings { }
+    }
+
+    Component {
+        id: tempoPrimoComp
+        TempoRestorePreviousSettings { }
+    }
+
+    Component {
         id: barlineComp
         BarlineSettings { }
     }
@@ -210,11 +226,6 @@ Loader {
     Component {
         id: fretDiagramComp
         FretDiagramSettings { }
-    }
-
-    Component {
-        id: pedalComp
-        PedalSettings { }
     }
 
     Component {
@@ -340,5 +351,15 @@ Loader {
     Component {
         id: expressionComp
         ExpressionsSettings {}
+    }
+
+    Component {
+        id: stringTuningsComp
+        StringTuningsSettings {}
+    }
+
+    Component {
+        id: symbolComp
+        SymbolSettings {}
     }
 }

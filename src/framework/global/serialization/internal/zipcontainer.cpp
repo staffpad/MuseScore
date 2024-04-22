@@ -25,7 +25,7 @@
 #include <cstring>
 #include <zlib.h>
 
-#include "io/dir.h"
+#include "global/io/dir.h"
 
 #include "log.h"
 
@@ -39,13 +39,13 @@
 #define ZDEBUG if (0) LOGD
 #endif
 
-using namespace mu::io;
+using namespace muse::io;
 
 typedef unsigned long int ulong;
 typedef unsigned short int ushort;
 typedef unsigned int uint;
 
-namespace mu {
+namespace muse {
 static inline uint readUInt(const uint8_t* data)
 {
     return (data[0]) + (data[1] << 8) + (data[2] << 16) + (data[3] << 24);
@@ -385,12 +385,14 @@ struct ZipContainer::Impl {
     };
 
     void addEntry(EntryType type, const std::string& fileName, const ByteArray& contents);
+    bool writeToDevice(const uint8_t* data, size_t len);
+    bool writeToDevice(const ByteArray& data);
 
     Impl(IODevice* d)
         : device(d) {}
 
     void scanFiles();
-    ZipContainer::FileInfo fillFileInfo(int index) const;
+    ZipContainer::FileInfo fillFileInfo(size_t index) const;
 };
 
 void ZipContainer::Impl::scanFiles()
@@ -484,7 +486,7 @@ void ZipContainer::Impl::scanFiles()
     }
 }
 
-ZipContainer::FileInfo ZipContainer::Impl::fillFileInfo(int index) const
+ZipContainer::FileInfo ZipContainer::Impl::fillFileInfo(size_t index) const
 {
     ZipContainer::FileInfo fileInfo;
     FileHeader header = fileHeaders.at(index);
@@ -522,7 +524,7 @@ ZipContainer::FileInfo ZipContainer::Impl::fillFileInfo(int index) const
 
         break;
     default:
-        LOGW("Zip: Zip entry format at %d is not supported.", index);
+        LOGW("Zip: Zip entry format at %zu is not supported.", index);
         return fileInfo; // we don't support anything else
     }
 
@@ -536,12 +538,24 @@ ZipContainer::FileInfo ZipContainer::Impl::fillFileInfo(int index) const
 
     // fix the file path, if broken (convert separators, eat leading and trailing ones)
     fileInfo.filePath = Dir::fromNativeSeparators(fileInfo.filePath).toStdString();
-    while (!fileInfo.filePath.empty() && (fileInfo.filePath.front() == '.' || fileInfo.filePath.front() == '/')) {
-        fileInfo.filePath = fileInfo.filePath.substr(1);
+    {
+        bool frontOk = false;
+        while (!fileInfo.filePath.empty() && !frontOk) {
+            if (fileInfo.filePath.front() == '/') {
+                fileInfo.filePath = fileInfo.filePath.substr(1);
+            } else if (fileInfo.filePath.rfind("./", 0) == 0) {
+                fileInfo.filePath = fileInfo.filePath.substr(2);
+            } else if (fileInfo.filePath.rfind("../", 0) == 0) {
+                fileInfo.filePath = fileInfo.filePath.substr(3);
+            } else {
+                frontOk = true;
+            }
+        }
     }
     while (!fileInfo.filePath.empty() && fileInfo.filePath.back() == '/') {
         fileInfo.filePath = fileInfo.filePath.substr(0, fileInfo.filePath.size() - 1);
     }
+
     return fileInfo;
 }
 
@@ -571,8 +585,13 @@ void ZipContainer::Impl::addEntry(EntryType type, const std::string& fileName, c
     writeUInt(header.h.uncompressed_size, (uint)contents.size());
 
     std::time_t t = std::time(0);   // get time now
-    std::tm* now = std::localtime(&t);
-    writeMSDosDate(header.h.last_mod_file, *now);
+    std::tm now;
+#ifdef WIN32
+    localtime_s(&now, &t);
+#else
+    localtime_r(&t, &now);
+#endif
+    writeMSDosDate(header.h.last_mod_file, now);
     ByteArray data = contents;
     if (compression == ZipContainer::AlwaysCompress) {
         writeUShort(header.h.compression_method, CompressionMethodDeflated);
@@ -649,12 +668,29 @@ void ZipContainer::Impl::addEntry(EntryType type, const std::string& fileName, c
 
     fileHeaders.push_back(header);
 
+    bool ok = true;
+
     LocalFileHeader h = header.h.toLocalHeader();
-    device->write((const uint8_t*)&h, sizeof(LocalFileHeader));
-    device->write(header.file_name);
-    device->write(data);
+    ok &= writeToDevice((const uint8_t*)&h, sizeof(LocalFileHeader));
+    ok &= writeToDevice(header.file_name);
+    ok &= writeToDevice(data);
+
     start_of_directory = (uint)device->pos();
     dirtyFileTree = true;
+
+    if (!ok) {
+        status = ZipContainer::FileWriteError;
+    }
+}
+
+bool ZipContainer::Impl::writeToDevice(const uint8_t* data, size_t len)
+{
+    return device->write(data, len) == len;
+}
+
+bool ZipContainer::Impl::writeToDevice(const ByteArray& data)
+{
+    return device->write(data) == data.size();
 }
 
 ZipContainer::ZipContainer(IODevice* device)
@@ -673,9 +709,9 @@ std::vector<ZipContainer::FileInfo> ZipContainer::fileInfoList() const
 {
     p->scanFiles();
     std::vector<FileInfo> files;
-    const int numFileHeaders = (int)p->fileHeaders.size();
+    const size_t numFileHeaders = p->fileHeaders.size();
     files.reserve(numFileHeaders);
-    for (int i = 0; i < numFileHeaders; ++i) {
+    for (size_t i = 0; i < numFileHeaders; ++i) {
         files.push_back(p->fillFileInfo(i));
     }
     return files;
@@ -720,7 +756,7 @@ ByteArray ZipContainer::fileData(const std::string& fileName) const
 
     ushort version_needed = readUShort(header.h.version_needed);
     if (version_needed > ZIP_VERSION) {
-        LOGW("Zip: .ZIP specification version %d implementationis needed to extract the data.", version_needed);
+        LOGW("Zip: .ZIP specification version %d implementation is needed to extract the data.", version_needed);
         return ByteArray();
     }
 
@@ -820,15 +856,17 @@ void ZipContainer::close()
         return;
     }
 
+    bool ok = true;
+
     //qDebug("Zip::close writing directory, %d entries", p->fileHeaders.size());
     p->device->seek(p->start_of_directory);
     // write new directory
     for (size_t i = 0; i < p->fileHeaders.size(); ++i) {
         const FileHeader& header = p->fileHeaders.at(i);
-        p->device->write((const uint8_t*)&header.h, sizeof(CentralFileHeader));
-        p->device->write(header.file_name);
-        p->device->write(header.extra_field);
-        p->device->write(header.file_comment);
+        ok &= p->writeToDevice((const uint8_t*)&header.h, sizeof(CentralFileHeader));
+        ok &= p->writeToDevice(header.file_name);
+        ok &= p->writeToDevice(header.extra_field);
+        ok &= p->writeToDevice(header.file_comment);
     }
     int dir_size = (int)p->device->pos() - (int)p->start_of_directory;
     // write end of directory
@@ -843,8 +881,12 @@ void ZipContainer::close()
     writeUInt(eod.dir_start_offset, p->start_of_directory);
     writeUShort(eod.comment_length, (ushort)p->comment.size());
 
-    p->device->write((const uint8_t*)&eod, sizeof(EndOfDirectory));
-    p->device->write(p->comment);
+    ok &= p->writeToDevice((const uint8_t*)&eod, sizeof(EndOfDirectory));
+    ok &= p->writeToDevice(p->comment);
     p->device->close();
+
+    if (!ok) {
+        p->status = ZipContainer::FileWriteError;
+    }
 }
 }

@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# MuseScore-CLA-applies
+# MuseScore-Studio-CLA-applies
 #
-# MuseScore
+# MuseScore Studio
 # Music Composition & Notation
 #
-# Copyright (C) 2021 MuseScore BVBA and others
+# Copyright (C) 2023 MuseScore Limited
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -17,14 +17,20 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-set(MODULE project)
+declare_module(project)
+
+set(MODULE_QRC project.qrc)
+
+set(MODULE_QML_IMPORT ${CMAKE_CURRENT_LIST_DIR}/qml)
 
 set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/projectstubmodule.cpp
     ${CMAKE_CURRENT_LIST_DIR}/projectstubmodule.h
     ${CMAKE_CURRENT_LIST_DIR}/projectconfigurationstub.cpp
     ${CMAKE_CURRENT_LIST_DIR}/projectconfigurationstub.h
+    ${CMAKE_CURRENT_LIST_DIR}/recentfilescontrollerstub.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/recentfilescontrollerstub.h
     )
 
 set(MODULE_IS_STUB ON)
-include(SetupModule)
+setup_module()

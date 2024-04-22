@@ -1,0 +1,7 @@
+{
+    "uri": "musescore://extensions/dev/example_2",
+    "type": "macros",
+    "title": "Example 2 (default)",
+
+    "main": "main.js"
+}

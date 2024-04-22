@@ -26,6 +26,7 @@
 #include "global/stringutils.h"
 #include "global/runtime.h"
 #include "environment.h"
+#include "log.h"
 
 GTEST_API_ int main(int argc, char** argv)
 {
@@ -42,9 +43,9 @@ GTEST_API_ int main(int argc, char** argv)
     args.reserve(argc);
     for (int i = 0; i < argc; ++i) {
         std::string arg = argv[i];
-        if (mu::strings::startsWith(arg, "--gtest_filter=")) {
+        if (muse::strings::startsWith(arg, "--gtest_filter=")) {
             std::vector<std::string> filter;
-            mu::strings::split(arg, filter, "=");
+            muse::strings::split(arg, filter, "=");
             if (filter.size() > 1) {
                 std::string val = filter.at(1);
                 if (val.at(0) == '"') {
@@ -64,14 +65,20 @@ GTEST_API_ int main(int argc, char** argv)
     argsc.push_back(NULL);
     argv = argsc.data();
 
-    mu::runtime::mainThreadId(); //! NOTE Needs only call
-    mu::runtime::setThreadName("main");
+    muse::runtime::mainThreadId(); //! NOTE Needs only call
+    muse::runtime::setThreadName("main");
 
-    mu::testing::Environment::setup();
+    muse::testing::Environment::setup();
 
     testing::InitGoogleMock(&argc, argv);
 
     GTEST_FLAG_SET(death_test_style, "threadsafe");
 
-    return RUN_ALL_TESTS();
+    PROFILER_CLEAR;
+
+    int code = RUN_ALL_TESTS();
+
+    PROFILER_PRINT;
+
+    return code;
 }

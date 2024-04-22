@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -28,6 +28,7 @@
 #include "iappshellconfiguration.h"
 #include "update/iupdateconfiguration.h"
 #include "global/iglobalconfiguration.h"
+#include "global/iapplication.h"
 
 class QUrl;
 
@@ -36,9 +37,10 @@ class AboutModel : public QObject
 {
     Q_OBJECT
 
-    INJECT(IAppShellConfiguration, configuration)
-    INJECT(update::IUpdateConfiguration, updateConfiguration)
-    INJECT(framework::IGlobalConfiguration, globalConfiguration)
+    Inject<IAppShellConfiguration> configuration;
+    Inject<muse::update::IUpdateConfiguration> updateConfiguration;
+    Inject<muse::IGlobalConfiguration> globalConfiguration;
+    Inject<muse::IApplication> application;
 
 public:
     explicit AboutModel(QObject* parent = nullptr);

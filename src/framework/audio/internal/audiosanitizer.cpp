@@ -23,9 +23,9 @@
 
 #include <thread>
 
-#include "concurrency/taskscheduler.h"
+#include "global/concurrency/taskscheduler.h"
 
-using namespace mu::audio;
+using namespace muse::audio;
 
 static std::thread::id s_as_mainThreadID;
 static std::thread::id s_as_workerThreadID;

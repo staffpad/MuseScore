@@ -27,14 +27,14 @@
 #include "log.h"
 #include "async/async.h"
 
-using namespace mu;
-using namespace mu::vst;
-using namespace mu::async;
+using namespace muse;
+using namespace muse::vst;
+using namespace muse::async;
 
 static const std::string_view COMPONENT_STATE_KEY = "componentState";
 static const std::string_view CONTROLLER_STATE_KEY = "controllerState";
 
-VstPlugin::VstPlugin(const audio::AudioResourceId& resourceId)
+VstPlugin::VstPlugin(const muse::audio::AudioResourceId& resourceId)
     : m_resourceId(resourceId), m_componentHandlerPtr(new VstComponentHandler())
 {
     ONLY_AUDIO_THREAD(threadSecurer);
@@ -46,7 +46,7 @@ VstPlugin::VstPlugin(const audio::AudioResourceId& resourceId)
 
 VstPlugin::~VstPlugin()
 {
-    audio::AudioResourceId resourceId = m_resourceId;
+    muse::audio::AudioResourceId resourceId = m_resourceId;
     std::shared_ptr<VstPluginProvider> provider = std::move(m_pluginProvider);
     PluginModulePtr module = std::move(m_module);
 
@@ -61,7 +61,7 @@ VstPlugin::~VstPlugin()
     }, threadSecurer()->mainThreadId());
 }
 
-const audio::AudioResourceId& VstPlugin::resourceId() const
+const muse::audio::AudioResourceId& VstPlugin::resourceId() const
 {
     ONLY_AUDIO_OR_MAIN_THREAD(threadSecurer);
 
@@ -98,6 +98,7 @@ void VstPlugin::load()
         }
 
         if (!m_module) {
+            LOGE() << "Unable to find vst plugin module, resourceId: " << m_resourceId;
             return;
         }
 
@@ -108,10 +109,6 @@ void VstPlugin::load()
                 continue;
             }
 
-            if (classInfo.name() != m_resourceId) {
-                continue;
-            }
-
             m_pluginProvider = std::make_unique<VstPluginProvider>(factory, classInfo);
             m_classInfo = classInfo;
             break;
@@ -119,6 +116,11 @@ void VstPlugin::load()
 
         if (!m_pluginProvider) {
             LOGE() << "Unable to load vst plugin provider";
+            return;
+        }
+
+        if (!m_pluginProvider->init()) {
+            LOGE() << "Unable to initialize vst plugin provider";
             return;
         }
 
@@ -157,7 +159,7 @@ void VstPlugin::rescanParams()
     m_componentStateBuffer.setSize(0);
     m_controllerStateBuffer.setSize(0);
 
-    audio::AudioUnitConfig updatedConfig;
+    muse::audio::AudioUnitConfig updatedConfig;
 
     component->getState(&m_componentStateBuffer);
     updatedConfig.emplace(COMPONENT_STATE_KEY, std::string(m_componentStateBuffer.getData(), m_componentStateBuffer.getSize()));
@@ -174,10 +176,8 @@ void VstPlugin::stateBufferFromString(VstMemoryStream& buffer, char* strData, co
         return;
     }
 
-    static Steinberg::int32 numBytesRead = 0;
-
-    buffer.write(strData, strSize, &numBytesRead);
-    buffer.seek(0, static_cast<size_t>(Steinberg::IBStream::kIBSeekSet), nullptr);
+    buffer.write(strData, static_cast<Steinberg::int32>(strSize), nullptr);
+    buffer.seek(0, Steinberg::IBStream::kIBSeekSet, nullptr);
 }
 
 PluginViewPtr VstPlugin::createView() const
@@ -254,7 +254,7 @@ bool VstPlugin::isAbleForInput() const
     return search != m_classInfo.subCategories().cend();
 }
 
-void VstPlugin::updatePluginConfig(const audio::AudioUnitConfig& config)
+void VstPlugin::updatePluginConfig(const muse::audio::AudioUnitConfig& config)
 {
     ONLY_AUDIO_THREAD(threadSecurer);
 
@@ -334,7 +334,7 @@ Notification VstPlugin::loadingCompleted() const
     return m_loadingCompleted;
 }
 
-async::Channel<audio::AudioUnitConfig> VstPlugin::pluginSettingsChanged() const
+async::Channel<muse::audio::AudioUnitConfig> VstPlugin::pluginSettingsChanged() const
 {
     ONLY_AUDIO_THREAD(threadSecurer);
 

@@ -19,33 +19,38 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_UICOMPONENTS_TEXTINPUTFIELDMODEL_H
-#define MU_UICOMPONENTS_TEXTINPUTFIELDMODEL_H
+#ifndef MUSE_UICOMPONENTS_TEXTINPUTFIELDMODEL_H
+#define MUSE_UICOMPONENTS_TEXTINPUTFIELDMODEL_H
 
 #include <QObject>
 
-#include "modularity/ioc.h"
-#include "shortcuts/ishortcutsregister.h"
 #include "async/asyncable.h"
 
-namespace mu::uicomponents {
+#include "modularity/ioc.h"
+#include "shortcuts/ishortcutsregister.h"
+#include "actions/iactionsdispatcher.h"
+
+namespace muse::uicomponents {
 class TextInputFieldModel : public QObject, public async::Asyncable
 {
     Q_OBJECT
 
     INJECT(shortcuts::IShortcutsRegister, shortcutsRegister)
+    INJECT(actions::IActionsDispatcher, dispatcher)
 
 public:
     explicit TextInputFieldModel(QObject* parent = nullptr);
 
     Q_INVOKABLE void init();
-    Q_INVOKABLE bool isShortcutAllowedOverride(int key, Qt::KeyboardModifiers modifiers) const;
+    Q_INVOKABLE bool isShortcutAllowedOverride(Qt::Key key, Qt::KeyboardModifiers modifiers) const;
+    Q_INVOKABLE bool handleShortcut(Qt::Key key, Qt::KeyboardModifiers modifiers);
 
 private:
     void loadShortcuts();
+    shortcuts::Shortcut shortcut(Qt::Key key, Qt::KeyboardModifiers modifiers) const;
 
     shortcuts::ShortcutList m_notAllowedForOverrideShortcuts;
 };
 }
 
-#endif // MU_UICOMPONENTS_TEXTINPUTFIELDMODEL_H
+#endif // MUSE_UICOMPONENTS_TEXTINPUTFIELDMODEL_H

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -24,19 +24,20 @@
 #include "serialization/zipreader.h"
 
 #include "gtp/gp7dombuilder.h"
-#include "libmscore/factory.h"
-#include "libmscore/bracketItem.h"
-#include "libmscore/instrtemplate.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/part.h"
-#include "libmscore/staff.h"
+#include "engraving/dom/factory.h"
+#include "engraving/dom/bracketItem.h"
+#include "engraving/dom/instrtemplate.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/part.h"
+#include "engraving/dom/staff.h"
 
 #include "log.h"
 
-using namespace mu::io;
+using namespace muse;
+using namespace muse::io;
 using namespace mu::engraving;
 
-namespace mu::engraving {
+namespace mu::iex::guitarpro {
 //---------------------------------------------------------
 //   read
 //---------------------------------------------------------
@@ -90,4 +91,4 @@ std::unique_ptr<IGPDomBuilder> GuitarPro7::createGPDomBuilder() const
 {
     return std::make_unique<GP7DomBuilder>();
 }
-}
+} // namespace mu::iex::guitarpro

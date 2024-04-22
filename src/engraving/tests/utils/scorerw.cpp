@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -27,16 +27,17 @@
 
 #include "engraving/compat/scoreaccess.h"
 #include "engraving/compat/mscxcompat.h"
-#include "engraving/compat/writescorehook.h"
 #include "engraving/infrastructure/localfileinfoprovider.h"
-#include "engraving/rw/400/tread.h"
-#include "engraving/rw/400/twrite.h"
-#include "engraving/libmscore/factory.h"
+#include "engraving/rw/read400/tread.h"
+#include "engraving/rw/write/twrite.h"
+#include "engraving/rw/rwregister.h"
+#include "engraving/dom/factory.h"
+#include "engraving/rw/rwregister.h"
 
 #include "log.h"
 
 using namespace mu;
-using namespace mu::io;
+using namespace muse::io;
 using namespace mu::engraving;
 
 String ScoreRW::m_rootPath;
@@ -53,10 +54,10 @@ String ScoreRW::rootPath()
 
 MasterScore* ScoreRW::readScore(const String& name, bool isAbsolutePath, ImportFunc importFunc)
 {
-    io::path_t path = isAbsolutePath ? name : (rootPath() + u"/" + name);
+    muse::io::path_t path = isAbsolutePath ? name : (rootPath() + u"/" + name);
     MasterScore* score = compat::ScoreAccess::createMasterScoreWithBaseStyle();
     score->setFileInfoProvider(std::make_shared<LocalFileInfoProvider>(path));
-    std::string suffix = io::suffix(path);
+    std::string suffix = muse::io::suffix(path);
 
     ScoreLoad sl;
     Err rv;
@@ -100,8 +101,30 @@ bool ScoreRW::saveScore(Score* score, const String& name)
     if (!file.open(IODevice::ReadWrite)) {
         return false;
     }
-    compat::WriteScoreHook hook;
-    return score->writeScore(&file, false, false, hook);
+
+    return rw::RWRegister::writer()->writeScore(score, &file, false);
+}
+
+bool ScoreRW::saveScore(Score* score, const String& name, ExportFunc exportFunc)
+{
+    File file(name);
+    if (file.exists()) {
+        file.remove();
+    }
+
+    if (!file.open(IODevice::ReadWrite)) {
+        return false;
+    }
+
+    muse::io::path_t path =  name;
+    Err rv = exportFunc(score, path);
+
+    if (rv != Err::NoError) {
+        LOGE() << "can't load score, path: " << path;
+        return false;
+    } else {
+        return true;
+    }
 }
 
 EngravingItem* ScoreRW::writeReadElement(EngravingItem* element)
@@ -113,7 +136,7 @@ EngravingItem* ScoreRW::writeReadElement(EngravingItem* element)
     buffer.open(IODevice::WriteOnly);
     XmlWriter xml(&buffer);
     xml.startDocument();
-    rw400::TWrite::writeItem(element, xml, *xml.context());
+    rw::RWRegister::writer()->writeItem(element, xml);
     xml.flush();
     buffer.close();
 
@@ -121,15 +144,14 @@ EngravingItem* ScoreRW::writeReadElement(EngravingItem* element)
     // read element
     //
 
-    ReadContext ctx;
     XmlReader e(buffer.data());
     e.readNextStartElement();
     element = Factory::createItemByName(e.name(), element->score()->dummy());
-    rw400::TRead::readItem(element, e, ctx);
+    rw::RWRegister::reader()->readItem(element, e);
     return element;
 }
 
-bool ScoreRW::saveMimeData(ByteArray mimeData, const String& saveName)
+bool ScoreRW::saveMimeData(muse::ByteArray mimeData, const String& saveName)
 {
     File f(saveName);
     if (!f.open(IODevice::WriteOnly)) {

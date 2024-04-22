@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -26,6 +26,7 @@
 #include "modularity/ioc.h"
 #include "notation/inotationconfiguration.h"
 #include "engraving/iengravingconfiguration.h"
+#include "engraving/rendering/iscorerenderer.h"
 
 #include "draw/types/geometry.h"
 #include "notation/inotation.h"
@@ -34,7 +35,7 @@ namespace mu::engraving {
 class Score;
 }
 
-namespace mu::draw {
+namespace muse::draw {
 class Painter;
 }
 
@@ -43,6 +44,7 @@ class ContinuousPanel
 {
     INJECT(INotationConfiguration, notationConfiguration)
     INJECT(engraving::IEngravingConfiguration, engravingConfiguration)
+    INJECT(engraving::rendering::IScoreRenderer, scoreRender)
 
 public:
     void setNotation(INotationPtr notation);
@@ -51,10 +53,10 @@ public:
         qreal xOffset = 0.;
         qreal yOffset = 0.;
         qreal scaling = 0.;
-        std::function<PointF(const PointF&)> fromLogical;
+        std::function<muse::PointF(const muse::PointF&)> fromLogical;
     };
 
-    void paint(draw::Painter& painter, const NotationViewContext& ctx);
+    void paint(muse::draw::Painter& painter, const NotationViewContext& ctx);
 
 private:
     qreal styleMM(const mu::engraving::Sid styleId) const;
@@ -62,7 +64,7 @@ private:
 
     INotationPtr m_notation;
     qreal m_width = 0;
-    RectF m_rect;
+    muse::RectF m_rect;
 };
 }
 

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -42,7 +42,7 @@ namespace Bww {
 Lexer::Lexer(QIODevice* inDevice)
     : in(inDevice),
     lineNumber(-1),
-    value(NONE)
+    value(QChar(NONE))
 {
     LOGD() << "Lexer::Lexer() begin";
 
@@ -332,6 +332,13 @@ Lexer::Lexer(QIODevice* inDevice)
     graceMap["te"]  = "HA E";
     graceMap["tf"]  = "HA F";
     graceMap["thg"] = "HA HG";
+
+    // piobraich
+    graceMap["endari"] = "E LA F LA";
+    graceMap["embari"] = "E LG F LG";
+    graceMap["dare"]   = "F E HG E";
+    graceMap["crunl"]  = "LG D LG E LA F LA";
+    graceMap["crunlb"] = "LG B LG E LA F LA";
 
     getSym();
 

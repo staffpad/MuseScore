@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,13 +22,15 @@
 #ifndef MU_INSPECTOR_ABSTRACTINSPECTORMODEL_H
 #define MU_INSPECTOR_ABSTRACTINSPECTORMODEL_H
 
-#include <QList>
 #include <functional>
+#include <set>
+
+#include <QList>
 
 #include "async/asyncable.h"
 
-#include "libmscore/engravingitem.h"
-#include "libmscore/property.h"
+#include "engraving/dom/engravingitem.h"
+#include "engraving/dom/property.h"
 
 #include "internal/interfaces/ielementrepositoryservice.h"
 #include "notation/inotation.h"
@@ -41,12 +43,12 @@
 #include "types/commontypes.h"
 
 namespace mu::inspector {
-class AbstractInspectorModel : public QObject, public async::Asyncable
+class AbstractInspectorModel : public QObject, public muse::async::Asyncable
 {
     Q_OBJECT
 
     INJECT(context::IGlobalContext, context)
-    INJECT(actions::IActionsDispatcher, dispatcher)
+    INJECT(muse::actions::IActionsDispatcher, dispatcher)
 
     Q_PROPERTY(QString title READ title NOTIFY titleChanged)
     Q_PROPERTY(int icon READ icon CONSTANT)
@@ -62,7 +64,8 @@ public:
         SECTION_NOTATION,
         SECTION_TEXT,
         SECTION_SCORE_DISPLAY,
-        SECTION_SCORE_APPEARANCE
+        SECTION_SCORE_APPEARANCE,
+        SECTION_PARTS,
     };
     Q_ENUM(InspectorSectionType)
 
@@ -76,6 +79,8 @@ public:
         TYPE_HOOK,
         TYPE_FERMATA,
         TYPE_TEMPO,
+        TYPE_A_TEMPO,
+        TYPE_TEMPO_PRIMO,
         TYPE_GLISSANDO,
         TYPE_BARLINE,
         TYPE_BREATH,
@@ -125,11 +130,15 @@ public:
         TYPE_LYRICS,
         TYPE_REST,
         TYPE_REST_BEAM,
+        TYPE_STRING_TUNINGS,
+        TYPE_SYMBOL,
     };
     Q_ENUM(InspectorModelType)
 
     explicit AbstractInspectorModel(QObject* parent, IElementRepositoryService* repository = nullptr,
                                     mu::engraving::ElementType elementType = mu::engraving::ElementType::INVALID);
+
+    void init();
 
     Q_INVOKABLE virtual void requestResetToDefaults();
 
@@ -138,10 +147,12 @@ public:
     InspectorSectionType sectionType() const;
     InspectorModelType modelType() const;
 
+    static ElementKey makeKey(const mu::engraving::EngravingItem* item);
     static InspectorModelType modelTypeByElementKey(const ElementKey& elementKey);
-    static QSet<InspectorModelType> modelTypesByElementKeys(const ElementKeySet& elementKeySet);
-    static QSet<InspectorSectionType> sectionTypesByElementKeys(const ElementKeySet& elementKeySet, bool isRange,
-                                                                const QList<mu::engraving::EngravingItem*>& selectedElementList = {});
+    static std::set<InspectorModelType> modelTypesByElementKeys(const ElementKeySet& elementKeySet);
+    static std::set<InspectorSectionType> sectionTypesByElementKeys(const ElementKeySet& elementKeySet, bool isRange,
+                                                                    const QList<mu::engraving::EngravingItem*>& selectedElementList = {});
+    static bool showPartsSection(const QList<mu::engraving::EngravingItem*>& selectedElementList);
 
     virtual bool isEmpty() const;
 
@@ -151,9 +162,11 @@ public:
 
     virtual void requestElements();
 
+    virtual void onCurrentNotationChanged();
+
 public slots:
     void setTitle(QString title);
-    void setIcon(ui::IconCode::Code icon);
+    void setIcon(muse::ui::IconCode::Code icon);
     void setSectionType(InspectorSectionType sectionType);
     void setModelType(InspectorModelType modelType);
 
@@ -196,12 +209,11 @@ protected:
 
     void updateNotation();
     notation::INotationPtr currentNotation() const;
-    async::Notification currentNotationChanged() const;
+    muse::async::Notification currentNotationChanged() const;
     bool isMasterNotation() const;
 
     notation::INotationSelectionPtr selection() const;
 
-    virtual void onCurrentNotationChanged();
     virtual void onNotationChanged(const mu::engraving::PropertyIdSet& changedPropertyIdSet,
                                    const mu::engraving::StyleIdSet& changedStyleIdSet);
 
@@ -215,8 +227,6 @@ protected slots:
     void updateProperties();
 
 private:
-    void setupCurrentNotationChangedConnection();
-
     void initPropertyItem(PropertyItem* propertyItem, std::function<void(const mu::engraving::Pid propertyId,
                                                                          const QVariant& newValue)> onPropertyChangedCallBack = nullptr,
                           std::function<void(const mu::engraving::Sid styleId,
@@ -226,27 +236,25 @@ private:
     mu::engraving::PropertyIdSet propertyIdSetFromStyleIdSet(const mu::engraving::StyleIdSet& styleIdSet) const;
 
     QString m_title;
-    ui::IconCode::Code m_icon = ui::IconCode::Code::NONE;
+    muse::ui::IconCode::Code m_icon = muse::ui::IconCode::Code::NONE;
     InspectorSectionType m_sectionType = InspectorSectionType::SECTION_UNDEFINED;
     InspectorModelType m_modelType = InspectorModelType::TYPE_UNDEFINED;
     mu::engraving::ElementType m_elementType = mu::engraving::ElementType::INVALID;
     bool m_updatePropertiesAllowed = false;
 };
 
+#ifdef MU_QT5_COMPAT
+inline uint qHash(AbstractInspectorModel::InspectorModelType t)
+{
+    return ::qHash(int(t));
+}
+
+#endif
+
 using InspectorModelType = AbstractInspectorModel::InspectorModelType;
 using InspectorSectionType = AbstractInspectorModel::InspectorSectionType;
-using InspectorModelTypeSet = QSet<InspectorModelType>;
-using InspectorSectionTypeSet = QSet<InspectorSectionType>;
-
-inline uint qHash(InspectorSectionType key)
-{
-    return ::qHash(QString::number(static_cast<int>(key)));
-}
-
-inline uint qHash(InspectorModelType key)
-{
-    return ::qHash(QString::number(static_cast<int>(key)));
-}
+using InspectorModelTypeSet = std::set<InspectorModelType>;
+using InspectorSectionTypeSet = std::set<InspectorSectionType>;
 }
 
 #endif // MU_INSPECTOR_ABSTRACTINSPECTORMODEL_H

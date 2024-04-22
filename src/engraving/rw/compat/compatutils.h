@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,10 +23,12 @@
 #define MU_ENGRAVING_COMPATUTILS_H
 
 #include <vector>
+#include <set>
 
-#include "libmscore/articulation.h"
+#include "dom/articulation.h"
 
 namespace mu::engraving {
+enum class SymId;
 class Score;
 class MasterScore;
 class Excerpt;
@@ -38,14 +40,24 @@ namespace mu::engraving::compat {
 class CompatUtils
 {
 public:
-    static void doCompatibilityConversions(MasterScore* masterScore);
-    static void replaceStaffTextWithPlayTechniqueAnnotation(MasterScore* score);
     static void assignInitialPartToExcerpts(const std::vector<Excerpt*>& excerpts);
+    static void doCompatibilityConversions(MasterScore* masterScore);
+    static ArticulationAnchor translateToNewArticulationAnchor(int anchor);
+    static const std::set<SymId> ORNAMENT_IDS;
+
+private:
+    static void replaceStaffTextWithPlayTechniqueAnnotation(MasterScore* score);
     static void replaceOldWithNewOrnaments(MasterScore* score);
     static void replaceOldWithNewExpressions(MasterScore* score);
     static void reconstructTypeOfCustomDynamics(MasterScore* score);
+    static void splitArticulations(MasterScore* score);
     static DynamicType reconstructDynamicTypeFromString(Dynamic* dynamic);
-    static ArticulationAnchor translateToNewArticulationAnchor(int anchor);
+    static void resetRestVerticalOffset(MasterScore* masterScore);
+    static void resetArticulationOffsets(MasterScore* masterScore);
+    static void resetStemLengthsForTwoNoteTrems(MasterScore* masterScore);
+    static void replaceStaffTextWithCapo(MasterScore* masterScore);
+    static void addMissingInitKeyForTransposingInstrument(MasterScore* score);
+    static void resetFramesExclusionFromParts(MasterScore* masterScore);
 };
 }
 #endif // MU_ENGRAVING_COMPATUTILS_H

@@ -23,7 +23,8 @@
 
 #include "log.h"
 
-using namespace mu::audio;
+using namespace muse;
+using namespace muse::audio;
 
 AudioDevicesListener::AudioDevicesListener()
 {
@@ -68,12 +69,12 @@ AudioDevicesListener::~AudioDevicesListener()
     }
 }
 
-mu::async::Notification AudioDevicesListener::devicesChanged() const
+async::Notification AudioDevicesListener::devicesChanged() const
 {
     return m_devicesChanged;
 }
 
-mu::async::Notification AudioDevicesListener::defaultDeviceChanged() const
+async::Notification AudioDevicesListener::defaultDeviceChanged() const
 {
     return m_defaultDeviceChanged;
 }
@@ -118,11 +119,13 @@ HRESULT AudioDevicesListener::OnDefaultDeviceChanged(EDataFlow flow, ERole role,
         return S_OK;
     }
 
-    if (m_previousIdString == new_default_device_id) {
+    winrt::hstring newDefaultDeviceIdString = new_default_device_id ? new_default_device_id : winrt::hstring();
+
+    if (m_previousDefaultDeviceId == newDefaultDeviceIdString) {
         return S_OK;
     }
 
-    m_previousIdString = new_default_device_id;
+    m_previousDefaultDeviceId = newDefaultDeviceIdString;
 
     m_defaultDeviceChanged.notify();
     m_devicesChanged.notify();

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -30,8 +30,8 @@
 #include "log.h"
 
 using namespace mu::appshell;
-using namespace mu::ui;
-using namespace mu::uicomponents;
+using namespace muse::ui;
+using namespace muse::uicomponents;
 
 QSet<int> possibleKeys(QKeyEvent* keyEvent)
 {
@@ -79,6 +79,7 @@ void NavigableAppMenuModel::load()
 void NavigableAppMenuModel::handleMenuItem(const QString& itemId)
 {
     resetNavigation();
+    restoreMUNavigationSystemState();
 
     AppMenuModel::handleMenuItem(itemId);
 }
@@ -463,18 +464,31 @@ void NavigableAppMenuModel::saveMUNavigationSystemState()
     bool muNavigationIsHighlight = navigationController()->isHighlight();
     m_needActivateLastMUNavigationControl = muNavigationIsHighlight;
 
-    ui::INavigationControl* activeControl = navigationController()->activeControl();
-    if (activeControl) {
-        m_lastActiveMUNavigationControl = activeControl;
-        activeControl->setActive(false);
+    INavigationSection* section = navigationController()->activeSection();
+    INavigationPanel* panel = navigationController()->activePanel();
+    INavigationControl* control = navigationController()->activeControl();
+    m_lastActiveMUNavigationState = {
+        section ? section->name().toStdString() : "",
+        panel ? panel->name().toStdString() : "",
+        control ? control->name().toStdString() : ""
+    };
+
+    if (control) {
+        control->setActive(false);
     }
 }
 
 void NavigableAppMenuModel::restoreMUNavigationSystemState()
 {
-    if (m_lastActiveMUNavigationControl) {
-        m_lastActiveMUNavigationControl->requestActive();
-        m_lastActiveMUNavigationControl = nullptr;
+    if (m_lastActiveMUNavigationState.has_value()) {
+        MUNavigationSystemState state = m_lastActiveMUNavigationState.value();
+
+        bool ok = navigationController()->requestActivateByName(state.sectionName, state.panelName, state.controlName);
+        if (!ok) {
+            navigationController()->resetNavigation();
+        }
+
+        m_lastActiveMUNavigationState.reset();
     }
 
     navigationController()->setIsHighlight(m_needActivateLastMUNavigationControl);

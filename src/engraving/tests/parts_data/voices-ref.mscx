@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<museScore version="4.00">
+<museScore version="4.40">
   <Score>
-    <LayerTag id="0" tag="default"></LayerTag>
-    <currentLayer>0</currentLayer>
     <Division>480</Division>
     <Style>
       <lastSystemFillLimit>0</lastSystemFillLimit>
@@ -18,7 +16,6 @@
     <metaTag name="lyricist"></metaTag>
     <metaTag name="movementNumber"></metaTag>
     <metaTag name="movementTitle"></metaTag>
-    <metaTag name="poet"></metaTag>
     <metaTag name="source"></metaTag>
     <metaTag name="translator"></metaTag>
     <metaTag name="workNumber"></metaTag>
@@ -157,7 +154,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>-4</accidental>
+            <concertKey>-4</concertKey>
             </KeySig>
           <TimeSig>
             <linkedMain/>
@@ -270,6 +267,7 @@
             </Rest>
           <location>
             <fractions>-3/4</fractions>
+            <timeTick>1</timeTick>
             </location>
           <Spanner type="HairPin">
             <prev>
@@ -511,7 +509,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>1</accidental>
+            <concertKey>1</concertKey>
             </KeySig>
           <Rest>
             <linkedMain/>
@@ -564,7 +562,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>-3</accidental>
+            <concertKey>-3</concertKey>
             </KeySig>
           <TimeSig>
             <linkedMain/>
@@ -684,7 +682,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>1</accidental>
+            <concertKey>1</concertKey>
             </KeySig>
           <Rest>
             <linkedMain/>
@@ -697,7 +695,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>-3</accidental>
+            <concertKey>-3</concertKey>
             </KeySig>
           <TimeSig>
             <linkedMain/>
@@ -976,7 +974,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>1</accidental>
+            <concertKey>1</concertKey>
             </KeySig>
           <Rest>
             <linkedMain/>
@@ -1028,7 +1026,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>-3</accidental>
+            <concertKey>-3</concertKey>
             </KeySig>
           <TimeSig>
             <linkedMain/>
@@ -1065,8 +1063,7 @@
         </Measure>
       </Staff>
     <Score>
-      <LayerTag id="0" tag="default"></LayerTag>
-      <currentLayer>0</currentLayer>
+      <name>Piano</name>
       <Division>480</Division>
       <Style>
         <Spatium>1.74978</Spatium>
@@ -1160,7 +1157,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>-4</accidental>
+              <concertKey>-4</concertKey>
               </KeySig>
             <TimeSig>
               <linked>
@@ -1293,6 +1290,7 @@
               </Rest>
             <location>
               <fractions>-3/4</fractions>
+              <timeTick>1</timeTick>
               </location>
             <Spanner type="HairPin">
               <prev>
@@ -1575,7 +1573,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>1</accidental>
+              <concertKey>1</concertKey>
               </KeySig>
             <Rest>
               <linked>
@@ -1635,7 +1633,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>-3</accidental>
+              <concertKey>-3</concertKey>
               </KeySig>
             <TimeSig>
               <linked>
@@ -1775,7 +1773,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>1</accidental>
+              <concertKey>1</concertKey>
               </KeySig>
             <Rest>
               <linked>
@@ -1790,7 +1788,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>-3</accidental>
+              <concertKey>-3</concertKey>
               </KeySig>
             <TimeSig>
               <linked>
@@ -1807,11 +1805,9 @@
             </voice>
           </Measure>
         </Staff>
-      <name>Piano</name>
       </Score>
     <Score>
-      <LayerTag id="0" tag="default"></LayerTag>
-      <currentLayer>0</currentLayer>
+      <name>Trombone</name>
       <Division>480</Division>
       <Style>
         <Spatium>1.74978</Spatium>
@@ -2206,7 +2202,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>1</accidental>
+              <concertKey>1</concertKey>
               </KeySig>
             <Rest>
               <linked>
@@ -2265,7 +2261,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>-3</accidental>
+              <concertKey>-3</concertKey>
               </KeySig>
             <TimeSig>
               <linked>
@@ -2307,11 +2303,9 @@
             </voice>
           </Measure>
         </Staff>
-      <name>Trombone</name>
       </Score>
     <Score>
-      <LayerTag id="0" tag="default"></LayerTag>
-      <currentLayer>0</currentLayer>
+      <name>Trombone</name>
       <Division>480</Division>
       <Style>
         <Spatium>1.74978</Spatium>
@@ -2706,7 +2700,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>1</accidental>
+              <concertKey>1</concertKey>
               </KeySig>
             <Rest>
               <linked>
@@ -2765,7 +2759,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>-3</accidental>
+              <concertKey>-3</concertKey>
               </KeySig>
             <TimeSig>
               <linked>
@@ -2807,7 +2801,6 @@
             </voice>
           </Measure>
         </Staff>
-      <name>Trombone</name>
       </Score>
     </Score>
   </museScore>

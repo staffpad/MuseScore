@@ -19,15 +19,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_GLOBAL_JSON_H
-#define MU_GLOBAL_JSON_H
+#ifndef MUSE_GLOBAL_JSON_H
+#define MUSE_GLOBAL_JSON_H
 
 #include <memory>
 
-#include "types/bytearray.h"
-#include "types/string.h"
+#include "../types/bytearray.h"
+#include "../types/string.h"
 
-namespace mu {
+namespace muse {
 struct JsonData;
 class JsonArray;
 class JsonObject;
@@ -139,9 +139,9 @@ public:
     JsonValueRef operator [](size_t i);
 
 private:
-
     friend class JsonValue;
     friend class JsonObject;
+    friend class JsonDocument;
 
     void detach();
     std::shared_ptr<JsonData> m_data;
@@ -158,7 +158,7 @@ public:
     size_t size() const;
     std::vector<std::string> keys() const;
     bool contains(const std::string& key) const;
-    JsonValue value(const std::string& key) const;
+    JsonValue value(const std::string& key, JsonValue def = JsonValue()) const;
 
     JsonObject& set(const std::string& key, bool v);
     JsonObject& set(const std::string& key, int v);
@@ -187,6 +187,7 @@ class JsonDocument
 public:
     JsonDocument(std::shared_ptr<JsonData> d = nullptr);
     JsonDocument(JsonObject o);
+    JsonDocument(JsonArray a);
 
     enum class Format {
         Indented,
@@ -206,4 +207,4 @@ private:
 };
 }
 
-#endif // MU_GLOBAL_JSON_H
+#endif // MUSE_GLOBAL_JSON_H

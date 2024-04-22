@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<museScore version="4.00">
-  <programVersion>4.1.0</programVersion>
+<museScore version="4.10">
+  <programVersion>4.2.0</programVersion>
   <programRevision></programRevision>
   <Score>
-    <LayerTag id="0" tag="default"></LayerTag>
-    <currentLayer>0</currentLayer>
     <Division>480</Division>
     <showInvisible>1</showInvisible>
     <showUnprintable>1</showUnprintable>
@@ -20,20 +18,13 @@
     <metaTag name="movementTitle"></metaTag>
     <metaTag name="originalFormat">gp</metaTag>
     <metaTag name="platform">Apple Macintosh</metaTag>
-    <metaTag name="poet"></metaTag>
     <metaTag name="source"></metaTag>
+    <metaTag name="sourceRevisionId"></metaTag>
     <metaTag name="translator"></metaTag>
     <metaTag name="workNumber"></metaTag>
     <metaTag name="workTitle"></metaTag>
     <Part id="1">
       <Staff id="1">
-        <linkedTo>2</linkedTo>
-        <StaffType group="pitched">
-          <name>stdNormal</name>
-          </StaffType>
-        </Staff>
-      <Staff id="2">
-        <linkedTo>1</linkedTo>
         <StaffType group="tablature">
           <name>tab6StrSimple</name>
           <lines>6</lines>
@@ -115,8 +106,7 @@
       <Measure>
         <voice>
           <KeySig>
-            <linkedMain/>
-            <accidental>0</accidental>
+            <concertKey>0</concertKey>
             </KeySig>
           <TimeSig>
             <sigN>4</sigN>
@@ -131,10 +121,8 @@
             <text><sym>metNoteQuarterUp</sym> = 120</text>
             </Tempo>
           <Chord>
-            <linkedMain/>
             <durationType>quarter</durationType>
             <Note>
-              <linkedMain/>
               <pitch>60</pitch>
               <tpc>14</tpc>
               <fret>1</fret>
@@ -142,78 +130,23 @@
               </Note>
             </Chord>
           <Chord>
-            <linkedMain/>
             <durationType>quarter</durationType>
             <Note>
-              <linkedMain/>
-              <pitch>60</pitch>
-              <tpc>14</tpc>
-              <fret>1</fret>
+              <pitch>63</pitch>
+              <tpc>23</tpc>
+              <fret>4</fret>
               <string>1</string>
               <ChordLine>
                 <subtype>4</subtype>
                 <straight>1</straight>
-                <linkedMain/>
                 </ChordLine>
               </Note>
             </Chord>
           <Rest>
-            <linkedMain/>
             <durationType>half</durationType>
             </Rest>
           <BarLine>
             <subtype>end</subtype>
-            <linkedMain/>
-            </BarLine>
-          </voice>
-        </Measure>
-      </Staff>
-    <Staff id="2">
-      <Measure>
-        <voice>
-          <Chord>
-            <linked>
-              <indexDiff>1</indexDiff>
-              </linked>
-            <durationType>quarter</durationType>
-            <Note>
-              <linked>
-                <indexDiff>1</indexDiff>
-                </linked>
-              <pitch>60</pitch>
-              <tpc>14</tpc>
-              <fret>1</fret>
-              <string>1</string>
-              </Note>
-            </Chord>
-          <Chord>
-            <linked>
-              </linked>
-            <durationType>quarter</durationType>
-            <Note>
-              <linked>
-                </linked>
-              <pitch>60</pitch>
-              <tpc>14</tpc>
-              <fret>1</fret>
-              <string>1</string>
-              <ChordLine>
-                <subtype>4</subtype>
-                <straight>1</straight>
-                <linked>
-                  </linked>
-                </ChordLine>
-              </Note>
-            </Chord>
-          <Rest>
-            <linked>
-              </linked>
-            <durationType>half</durationType>
-            </Rest>
-          <BarLine>
-            <subtype>end</subtype>
-            <linked>
-              </linked>
             </BarLine>
           </voice>
         </Measure>

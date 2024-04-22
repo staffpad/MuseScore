@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -19,18 +19,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_PROJECT_STUBRECENTFILESCONTROLLER_H
-#define MU_PROJECT_STUBRECENTFILESCONTROLLER_H
+#ifndef MU_PROJECT_WINDOWSRECENTFILESCONTROLLER_H
+#define MU_PROJECT_WINDOWSRECENTFILESCONTROLLER_H
 
-#include "internal/iplatformrecentfilescontroller.h"
+#include "internal/recentfilescontroller.h"
 
 namespace mu::project {
-class WindowsRecentFilesController : public IPlatformRecentFilesController
+class WindowsRecentFilesController : public RecentFilesController
 {
 public:
-    void addRecentFile(const io::path_t& path) override;
-    void clearRecentFiles() override;
+    void prependPlatformRecentFile(const muse::io::path_t& path) override;
 };
 }
 
-#endif // MU_PROJECT_STUBRECENTFILESCONTROLLER_H
+#endif // MU_PROJECT_WINDOWSRECENTFILESCONTROLLER_H

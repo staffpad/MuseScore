@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -26,7 +26,7 @@
 #include <QDialog>
 
 #include "ui_editstaff.h"
-#include "libmscore/stafftype.h"
+#include "engraving/dom/stafftype.h"
 
 #include "modularity/ioc.h"
 #include "context/iglobalcontext.h"
@@ -41,14 +41,14 @@ class EditStaff : public QDialog, private Ui::EditStaffBase
     Q_OBJECT
 
     INJECT(context::IGlobalContext, globalContext)
-    INJECT(framework::IInteractive, interactive)
+    INJECT(muse::IInteractive, interactive)
     INJECT(ISelectInstrumentsScenario, selectInstrumentsScenario)
 
 public:
     EditStaff(QWidget* parent = nullptr);
+#ifdef MU_QT5_COMPAT
     EditStaff(const EditStaff&);
-
-    static int metaTypeId();
+#endif
 
 private:
     void hideEvent(QHideEvent*) override;
@@ -111,7 +111,5 @@ private:
     EditStaffType* editStaffTypeDialog = nullptr;
 };
 }
-
-Q_DECLARE_METATYPE(mu::notation::EditStaff)
 
 #endif

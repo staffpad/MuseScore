@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -27,7 +27,8 @@
 #include <list>
 #include <unordered_map>
 #include <functional>
-#include "types/types.h"
+
+#include "../../types/types.h"
 
 #include "event.h"
 
@@ -45,7 +46,9 @@ public:
 
     void addPitchWheelFunction(const PitchWheelFunction& function, uint32_t channel, staff_idx_t staffIdx, MidiInstrumentEffect effect);
 
-    EventMap renderPitchWheel() const noexcept;
+    EventsHolder renderPitchWheel() const noexcept;
+
+    static void generateRanges(const std::list<PitchWheelFunction>& functions, std::map<int, int, std::greater<> >& ranges);
 
 private:
 
@@ -56,7 +59,7 @@ private:
         std::list<PitchWheelFunction> functions;
     };
 
-    void renderChannelPitchWheel(EventMap& pitchWheelEvents, const PitchWheelFunctions& functions, uint32_t channel) const noexcept;
+    void renderChannelPitchWheel(EventsHolder& pitchWheelEvents, const PitchWheelFunctions& functions, uint32_t channel) const noexcept;
 
     int32_t findNextStartTick(const std::list<PitchWheelFunction>& functions) const noexcept;
 

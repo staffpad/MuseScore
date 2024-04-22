@@ -3,8 +3,6 @@
   <programVersion>4.0.0</programVersion>
   <programRevision></programRevision>
   <Score>
-    <LayerTag id="0" tag="default"></LayerTag>
-    <currentLayer>0</currentLayer>
     <Division>480</Division>
     <Style>
       <enableVerticalSpread>1</enableVerticalSpread>
@@ -81,7 +79,7 @@
       <rehearsalMarkFrameWidth>0.16</rehearsalMarkFrameWidth>
       <rehearsalMarkFrameRound>0</rehearsalMarkFrameRound>
       <repeatLeftFontFace>Edwin</repeatLeftFontFace>
-      <repeatLeftFontSize>18</repeatLeftFontSize>
+      <repeatLeftFontSize>11</repeatLeftFontSize>
       <repeatRightFontFace>Edwin</repeatRightFontFace>
       <repeatRightFontSize>11</repeatRightFontSize>
       <frameFontFace>Edwin</frameFontFace>
@@ -103,7 +101,6 @@
     <metaTag name="mscVersion">4.00</metaTag>
     <metaTag name="originalFormat">mscx</metaTag>
     <metaTag name="platform">Linux</metaTag>
-    <metaTag name="poet"></metaTag>
     <metaTag name="source"></metaTag>
     <metaTag name="translator"></metaTag>
     <metaTag name="workNumber"></metaTag>

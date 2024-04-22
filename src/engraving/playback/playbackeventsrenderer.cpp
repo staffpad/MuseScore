@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -24,36 +24,38 @@
 
 #include "log.h"
 
-#include "libmscore/chord.h"
-#include "libmscore/harmony.h"
-#include "libmscore/note.h"
-#include "libmscore/rest.h"
-#include "libmscore/sig.h"
-#include "libmscore/tempo.h"
-#include "libmscore/staff.h"
+#include "dom/chord.h"
+#include "dom/harmony.h"
+#include "dom/note.h"
+#include "dom/rest.h"
+#include "dom/sig.h"
+#include "dom/tempo.h"
+#include "dom/staff.h"
 
 #include "utils/arrangementutils.h"
 #include "metaparsers/chordarticulationsparser.h"
+#include "metaparsers/notearticulationsparser.h"
 
+#include "renderers/bendsrenderer.h"
 #include "renderers/gracechordsrenderer.h"
 #include "renderers/chordarticulationsrenderer.h"
 #include "filters/chordfilter.h"
 
 using namespace mu::engraving;
-using namespace mu::mpe;
+using namespace muse;
+using namespace muse::mpe;
 
-static ArticulationMap makeArticulations(ArticulationType persistentArticulationApplied, ArticulationsProfilePtr profile,
-                                         timestamp_t timestamp, duration_t duration)
+static ArticulationMap makeStandardArticulationMap(const ArticulationsProfilePtr profile, timestamp_t timestamp, duration_t duration)
 {
-    ArticulationMeta meta(persistentArticulationApplied,
-                          profile->pattern(persistentArticulationApplied),
+    ArticulationMeta meta(ArticulationType::Standard,
+                          profile->pattern(ArticulationType::Standard),
                           timestamp,
                           duration,
                           0,
                           0);
 
     ArticulationMap articulations;
-    articulations.emplace(persistentArticulationApplied, mu::mpe::ArticulationAppliedData(std::move(meta), 0, mu::mpe::HUNDRED_PERCENT));
+    articulations.emplace(ArticulationType::Standard, mpe::ArticulationAppliedData(std::move(meta), 0, mpe::HUNDRED_PERCENT));
     articulations.preCalculateAverageData();
 
     return articulations;
@@ -92,17 +94,20 @@ void PlaybackEventsRenderer::render(const EngravingItem* item, const mpe::timest
         return;
     }
 
-    if (item->type() == ElementType::CHORD) {
+    ElementType type = item->type();
+
+    if (type == ElementType::CHORD) {
         const Chord* chord = toChord(item);
+        mpe::PlaybackEventList& events = result[actualTimestamp];
 
         for (const Note* note : chord->notes()) {
             renderFixedNoteEvent(note, actualTimestamp, actualDuration,
-                                 actualDynamicLevel, persistentArticulationApplied, profile, result[actualTimestamp]);
+                                 actualDynamicLevel, persistentArticulationApplied, profile, events);
         }
-    } else if (item->type() == ElementType::NOTE) {
+    } else if (type == ElementType::NOTE) {
         renderFixedNoteEvent(toNote(item), actualTimestamp, actualDuration,
                              actualDynamicLevel, persistentArticulationApplied, profile, result[actualTimestamp]);
-    } else if (item->type() == ElementType::REST) {
+    } else if (type == ElementType::REST) {
         renderRestEvents(toRest(item), 0, result);
     }
 }
@@ -126,13 +131,15 @@ void PlaybackEventsRenderer::renderChordSymbol(const Harmony* chordSymbol,
     PlaybackEventList& events = result[eventTimestamp];
 
     int durationTicks = realized.getActualDuration(positionTick + ticksPositionOffset).ticks();
-    BeatsPerSecond bps = score->tempomap()->tempo(positionTick);
-    duration_t duration = durationFromTicks(bps.val, durationTicks);
+    duration_t duration = timestampFromTicks(score, positionTick + ticksPositionOffset + durationTicks) - eventTimestamp;
 
     voice_layer_idx_t voiceIdx = static_cast<voice_layer_idx_t>(chordSymbol->voice());
+    staff_layer_idx_t staffIdx = static_cast<staff_layer_idx_t>(chordSymbol->staffIdx());
     Key key = chordSymbol->staff()->key(chordSymbol->tick());
 
-    ArticulationMap articulations = makeArticulations(mpe::ArticulationType::Standard, profile, eventTimestamp, duration);
+    ArticulationMap articulations = makeStandardArticulationMap(profile, eventTimestamp, duration);
+
+    double bps = score->tempomap()->tempo(positionTick).val;
 
     for (auto it = notes.cbegin(); it != notes.cend(); ++it) {
         int pitch = it->first;
@@ -143,10 +150,11 @@ void PlaybackEventsRenderer::renderChordSymbol(const Harmony* chordSymbol,
         events.emplace_back(mpe::NoteEvent(eventTimestamp,
                                            duration,
                                            voiceIdx,
+                                           staffIdx,
                                            pitchLevel,
                                            dynamicLevelFromType(mpe::DynamicType::Natural),
                                            articulations,
-                                           bps.val));
+                                           bps));
     }
 }
 
@@ -164,9 +172,11 @@ void PlaybackEventsRenderer::renderChordSymbol(const Harmony* chordSymbol, const
     PlaybackEventList& events = result[actualTimestamp];
 
     voice_layer_idx_t voiceIdx = static_cast<voice_layer_idx_t>(chordSymbol->voice());
+    staff_layer_idx_t staffIdx = static_cast<staff_layer_idx_t>(chordSymbol->staffIdx());
+
     Key key = chordSymbol->staff()->key(chordSymbol->tick());
 
-    ArticulationMap articulations = makeArticulations(mpe::ArticulationType::Standard, profile, actualTimestamp, actualDuration);
+    ArticulationMap articulations = makeStandardArticulationMap(profile, actualTimestamp, actualDuration);
 
     for (auto it = notes.cbegin(); it != notes.cend(); ++it) {
         int pitch = it->first;
@@ -177,10 +187,11 @@ void PlaybackEventsRenderer::renderChordSymbol(const Harmony* chordSymbol, const
         events.emplace_back(mpe::NoteEvent(actualTimestamp,
                                            actualDuration,
                                            voiceIdx,
+                                           staffIdx,
                                            pitchLevel,
                                            dynamicLevelFromType(mpe::DynamicType::Natural),
                                            articulations,
-                                           2.0));
+                                           Constants::DEFAULT_TEMPO.val));
     }
 }
 
@@ -211,19 +222,23 @@ void PlaybackEventsRenderer::renderMetronome(const Score* score, const int tick,
         return;
     }
 
-    BeatsPerSecond bps = score->tempomap()->tempo(tick);
     TimeSigFrac timeSignatureFraction = score->sigmap()->timesig(tick).timesig();
     int ticksPerBeat = timeSignatureFraction.ticks() / timeSignatureFraction.numerator();
-    static ArticulationMap emptyArticulations;
+
+    duration_t duration = timestampFromTicks(score, tick + ticksPerBeat) - actualTimestamp;
 
     BeatType beatType = score->tick2beatType(Fraction::fromTicks(tick));
-    pitch_level_t eventPitchLevel = pitchLevel(PitchClass::A, 4);
-    if (beatType == BeatType::DOWNBEAT && tick == 0) {
-        eventPitchLevel = pitchLevel(PitchClass::B, 4);
-    }
+    pitch_level_t eventPitchLevel = beatType == BeatType::DOWNBEAT
+                                    ? pitchLevel(PitchClass::E, 5) // high wood block
+                                    : pitchLevel(PitchClass::F, 5); // low wood block
+
+    static const ArticulationMap emptyArticulations;
+
+    BeatsPerSecond bps = score->tempomap()->tempo(tick);
 
     result[actualTimestamp].emplace_back(mpe::NoteEvent(actualTimestamp,
-                                                        durationFromTicks(bps.val, ticksPerBeat, ticksPerBeat),
+                                                        duration,
+                                                        0,
                                                         0,
                                                         eventPitchLevel,
                                                         dynamicLevelFromType(mpe::DynamicType::Natural),
@@ -245,13 +260,15 @@ void PlaybackEventsRenderer::renderNoteEvents(const Chord* chord, const int tick
 
     const Score* score = chord->score();
 
+    auto chordTnD = timestampAndDurationFromStartAndDurationTicks(score, chordPosTick, chordDurationTicks, tickPositionOffset);
+
     BeatsPerSecond bps = score->tempomap()->tempo(chordPosTick);
     TimeSigFrac timeSignatureFraction = score->sigmap()->timesig(chordPosTick).timesig();
 
     static ArticulationMap articulations;
 
-    RenderingContext ctx(timestampFromTicks(chord->score(), chordPosTick + tickPositionOffset),
-                         durationFromTicks(bps.val, chordDurationTicks),
+    RenderingContext ctx(chordTnD.timestamp,
+                         chordTnD.duration,
                          nominalDynamicLevel,
                          chord->tick().ticks(),
                          tickPositionOffset,
@@ -277,9 +294,24 @@ void PlaybackEventsRenderer::renderFixedNoteEvent(const Note* note, const mpe::t
                                                   const mpe::ArticulationType persistentArticulationApplied,
                                                   const mpe::ArticulationsProfilePtr profile, mpe::PlaybackEventList& result) const
 {
-    ArticulationMap articulations = makeArticulations(persistentArticulationApplied, profile, actualDuration, actualTimestamp);
+    static const ArticulationMap articulations;
 
-    result.emplace_back(buildFixedNoteEvent(note, actualTimestamp, actualDuration, actualDynamicLevel, articulations));
+    RenderingContext ctx(actualTimestamp,
+                         actualDuration,
+                         actualDynamicLevel,
+                         0,
+                         0,
+                         ticksFromTempoAndDuration(Constants::DEFAULT_TEMPO.val, actualDuration),
+                         Constants::DEFAULT_TEMPO,
+                         TimeSigMap::DEFAULT_TIME_SIGNATURE,
+                         persistentArticulationApplied,
+                         articulations,
+                         profile);
+
+    NoteArticulationsParser::buildNoteArticulationMap(note, ctx, ctx.commonArticulations);
+    NominalNoteCtx noteCtx(note, ctx);
+
+    result.emplace_back(buildNoteEvent(std::move(noteCtx)));
 }
 
 void PlaybackEventsRenderer::renderRestEvents(const Rest* rest, const int tickPositionOffset, mpe::PlaybackEventsMap& result) const
@@ -290,16 +322,21 @@ void PlaybackEventsRenderer::renderRestEvents(const Rest* rest, const int tickPo
 
     int positionTick = rest->tick().ticks();
     int durationTicks = rest->ticks().ticks();
-    double beatsPerSecond = rest->score()->tempomap()->tempo(positionTick).val;
 
-    timestamp_t nominalTimestamp = timestampFromTicks(rest->score(), positionTick + tickPositionOffset);
-    duration_t nominalDuration = durationFromTicks(beatsPerSecond, durationTicks);
+    auto nominalTnD
+        = timestampAndDurationFromStartAndDurationTicks(rest->score(), positionTick, durationTicks, tickPositionOffset);
 
-    result[nominalTimestamp].emplace_back(mpe::RestEvent(nominalTimestamp, nominalDuration, static_cast<voice_layer_idx_t>(rest->voice())));
+    result[nominalTnD.timestamp].emplace_back(mpe::RestEvent(nominalTnD.timestamp, nominalTnD.duration,
+                                                             static_cast<voice_layer_idx_t>(rest->voice())));
 }
 
 void PlaybackEventsRenderer::renderArticulations(const Chord* chord, const RenderingContext& ctx, mpe::PlaybackEventList& result) const
 {
+    if (ctx.commonArticulations.contains(mpe::ArticulationType::Multibend)) {
+        BendsRenderer::render(chord, mpe::ArticulationType::Last, ctx, result);
+        return;
+    }
+
     for (const auto& type : ctx.commonArticulations) {
         if (GraceChordsRenderer::isAbleToRender(type.first)) {
             GraceChordsRenderer::render(chord, type.first, ctx, result);

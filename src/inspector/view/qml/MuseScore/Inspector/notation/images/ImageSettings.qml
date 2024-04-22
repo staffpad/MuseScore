@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,8 +21,8 @@
  */
 import QtQuick 2.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.Inspector 1.0
 
 import "../../common"
@@ -68,10 +68,11 @@ Column {
             id: lockButton
 
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.verticalCenter: heightControl.verticalCenter
 
             height: 20
             width: 20
+
+            y: heightControl.spinBox.y + (heightControl.spinBox.height - height) / 2
 
             icon: checked ? IconCode.LOCK_CLOSED : IconCode.LOCK_OPEN
 
@@ -106,7 +107,7 @@ Column {
 
     SeparatorLine { anchors.margins: -12 }
 
-    CheckBoxPropertyView {
+    PropertyCheckBox {
         text: qsTrc("inspector", "Scale to frame size")
         propertyItem: root.model ? root.model.shouldScaleToFrameSize : null
 
@@ -115,7 +116,7 @@ Column {
         navigation.row: imageWidthSection.navigationRowEnd + 1
     }
 
-    CheckBoxPropertyView {
+    PropertyCheckBox {
         id: staffSpaceUnitsCheckbox
         text: qsTrc("inspector", "Use staff space units")
         propertyItem: root.model ? root.model.isSizeInSpatiums : null

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -20,6 +20,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <QApplication>
+
 #include "preferencesmodel.h"
 
 #include "log.h"
@@ -27,7 +28,7 @@
 #include "ui/view/iconcodes.h"
 
 using namespace mu::appshell;
-using namespace mu::ui;
+using namespace muse::ui;
 
 PreferencesModel::PreferencesModel(QObject* parent)
     : QAbstractItemModel(parent)
@@ -146,26 +147,18 @@ void PreferencesModel::load(const QString& currentPageId)
 
     m_rootItem = new PreferencePageItem();
 
-    QList<PreferencePageItem*> generalItems {
-        makeItem("general-start", QT_TRANSLATE_NOOP("appshell/preferences", "Program start"), IconCode::Code::NONE,
-                 "Preferences/ProgrammeStartPreferencesPage.qml"),
-
-        makeItem("general-folders", QT_TRANSLATE_NOOP("appshell/preferences", "Folders"), IconCode::Code::NONE,
-                 "Preferences/FoldersPreferencesPage.qml")
-    };
-
     QList<PreferencePageItem*> items {
         makeItem("general", QT_TRANSLATE_NOOP("appshell/preferences", "General"), IconCode::Code::SETTINGS_COG,
-                 "Preferences/GeneralPreferencesPage.qml", generalItems),
+                 "Preferences/GeneralPreferencesPage.qml"),
 
-        makeItem("appearance", QT_TRANSLATE_NOOP("appshell/preferences", "Appearance"), IconCode::Code::VISIBILITY_ON,
+        makeItem("appearance", QT_TRANSLATE_NOOP("appshell/preferences", "Appearance"), IconCode::Code::EYE_OPEN,
                  "Preferences/AppearancePreferencesPage.qml"),
 
         makeItem("canvas", QT_TRANSLATE_NOOP("appshell/preferences", "Canvas"), IconCode::Code::NEW_FILE,
                  "Preferences/CanvasPreferencesPage.qml"),
 
-        makeItem("cloud", QT_TRANSLATE_NOOP("appshell/preferences", "Cloud"), IconCode::Code::CLOUD_FILE,
-                 "Preferences/CloudPreferencesPage.qml"),
+        makeItem("cloud", QT_TRANSLATE_NOOP("appshell/preferences", "Save & publish"), IconCode::Code::CLOUD_FILE,
+                 "Preferences/SaveAndPublishPreferencesPage.qml"),
 
         makeItem("note-input", QT_TRANSLATE_NOOP("appshell/preferences", "Note input"), IconCode::Code::EDIT,
                  "Preferences/NoteInputPreferencesPage.qml"),
@@ -176,8 +169,8 @@ void PreferencesModel::load(const QString& currentPageId)
         makeItem("score", QT_TRANSLATE_NOOP("appshell/preferences", "Score"), IconCode::Code::SCORE,
                  "Preferences/ScorePreferencesPage.qml"),
 
-        makeItem("io", QT_TRANSLATE_NOOP("appshell/preferences", "I/O"), IconCode::Code::AUDIO,
-                 "Preferences/IOPreferencesPage.qml"),
+        makeItem("playback", QT_TRANSLATE_NOOP("appshell/preferences", "Playback"), IconCode::Code::AUDIO,
+                 "Preferences/PlaybackPreferencesPage.qml"),
 
         makeItem("import", QT_TRANSLATE_NOOP("appshell/preferences", "Import"), IconCode::Code::IMPORT,
                  "Preferences/ImportPreferencesPage.qml"),
@@ -188,8 +181,14 @@ void PreferencesModel::load(const QString& currentPageId)
         makeItem("update", QT_TRANSLATE_NOOP("appshell/preferences", "Update"), IconCode::Code::UPDATE,
                  "Preferences/UpdatePreferencesPage.qml"),
 
+        makeItem("general-folders", QT_TRANSLATE_NOOP("appshell/preferences", "Folders"), IconCode::Code::OPEN_FILE,
+                 "Preferences/FoldersPreferencesPage.qml"),
+
         makeItem("advanced", QT_TRANSLATE_NOOP("appshell/preferences", "Advanced"), IconCode::Code::CONFIGURE,
-                 "Preferences/AdvancedPreferencesPage.qml")
+                 "Preferences/AdvancedPreferencesPage.qml"),
+
+        makeItem("braille", QT_TRANSLATE_NOOP("appshell/preferences", "Braille"), IconCode::Code::BRAILLE,
+                 "Preferences/BraillePreferencesPage.qml")
     };
 
     for (PreferencePageItem* item: items) {
@@ -278,7 +277,7 @@ void PreferencesModel::setCurrentPageId(QString currentPageId)
     emit currentPageIdChanged(m_currentPageId);
 }
 
-PreferencePageItem* PreferencesModel::makeItem(const QString& id, const QString& title, mu::ui::IconCode::Code icon,
+PreferencePageItem* PreferencesModel::makeItem(const QString& id, const QString& title, muse::ui::IconCode::Code icon,
                                                const QString& path,
                                                const QList<PreferencePageItem*>& children) const
 {

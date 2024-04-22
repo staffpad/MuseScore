@@ -19,16 +19,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_FRAMEWORK_URI_H
-#define MU_FRAMEWORK_URI_H
+#ifndef MUSE_GLOBAL_URI_H
+#define MUSE_GLOBAL_URI_H
 
 #include <string>
 #include <vector>
 #include <map>
 
-#include "types/val.h"
+#include "val.h"
 
-namespace mu {
+namespace muse {
 class Uri
 {
 public:
@@ -47,6 +47,13 @@ public:
 
     inline bool operator==(const Uri& uri) const { return m_path == uri.m_path && m_scheme == uri.m_scheme; }
     inline bool operator!=(const Uri& uri) const { return !(*this == uri); }
+    inline bool operator <(const Uri& uri) const
+    {
+        if (m_scheme != uri.m_scheme) {
+            return m_scheme < uri.m_scheme;
+        }
+        return m_path < uri.m_path;
+    }
 
     std::string toString() const;
 
@@ -90,4 +97,4 @@ private:
 };
 }
 
-#endif // MU_FRAMEWORK_URI_H
+#endif // MUSE_GLOBAL_URI_H

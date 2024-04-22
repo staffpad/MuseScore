@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -26,9 +26,10 @@
 #include <array>
 #include <vector>
 
-#include "types/string.h"
-#include "types/propertyvalue.h"
-#include "libmscore/property.h"
+#include "global/types/string.h"
+
+#include "../types/propertyvalue.h"
+#include "../dom/property.h"
 
 namespace mu::engraving {
 // Needs to be duplicated here and in symid.h since moc doesn't handle macros from #include'd files
@@ -226,6 +227,7 @@ enum class Sid {
     beamMinLen,
     beamNoSlope,
     snapCustomBeamsToGrid,
+    frenchStyleBeams,
 
     dotMag,
     dotNoteDistance,
@@ -288,6 +290,7 @@ enum class Sid {
     pedalFontSize,
     pedalLineSpacing,
     pedalFontSpatiumDependent,
+    pedalMusicalSymbolsScale,
     pedalFontStyle,
     pedalColor,
     pedalTextAlign,
@@ -297,6 +300,12 @@ enum class Sid {
     pedalFrameRound,
     pedalFrameFgColor,
     pedalFrameBgColor,
+    pedalText,
+    pedalHookText,
+    pedalContinueText,
+    pedalContinueHookText,
+    pedalEndText,
+    pedalRosetteEndText,
 
     trillPlacement,
     trillPosAbove,
@@ -420,10 +429,14 @@ enum class Sid {
     smallStaffMag,
     smallClefMag,
     genClef,
+    hideTabClefAfterFirst,
     genKeysig,
     genCourtesyTimesig,
     genCourtesyKeysig,
     genCourtesyClef,
+
+    keySigCourtesyBarlineMode,
+    timeSigCourtesyBarlineMode,
 
     swingRatio,
     swingUnit,
@@ -480,9 +493,20 @@ enum class Sid {
     SlurEndWidth,
     SlurMidWidth,
     SlurDottedWidth,
+    TieEndWidth,
+    TieMidWidth,
+    TieDottedWidth,
     MinTieLength,
+    MinStraightGlissandoLength,
+    MinWigglyGlissandoLength,
     SlurMinDistance,
+    TieMinDistance,
     HeaderToLineStartDistance, // determines start point of "dangling" lines (ties, gliss, lyrics...) at start of system
+
+    tiePlacementSingleNote,
+    tiePlacementChord,
+    tieMinShoulderHeight,
+    tieMaxShoulderHeight,
 
     SectionPause,
     MusicalSymbolFont,
@@ -575,6 +599,7 @@ enum class Sid {
     ottavaFontSize,
     ottavaLineSpacing,
     ottavaFontSpatiumDependent,
+    ottavaMusicalSymbolsScale,
     ottavaFontStyle,
     ottavaColor,
     ottavaTextAlignAbove,
@@ -618,9 +643,11 @@ enum class Sid {
     tupletFontSize,
     tupletLineSpacing,
     tupletFontSpatiumDependent,
+    tupletMusicalSymbolsScale,
     tupletFontStyle,
     tupletColor,
     tupletAlign,
+    tupletUseSymbols,
     tupletBracketHookHeight,
     tupletOffset,
     tupletFrameType,
@@ -817,11 +844,15 @@ enum class Sid {
     stringNumberFrameFgColor,
     stringNumberFrameBgColor,
     stringNumberOffset,
+    preferSameStringForTranspose,
+
+    stringTuningsFontSize,
 
     harpPedalDiagramFontFace,
     harpPedalDiagramFontSize,
     harpPedalDiagramLineSpacing,
     harpPedalDiagramFontSpatiumDependent,
+    harpPedalDiagramMusicalSymbolsScale,
     harpPedalDiagramFontStyle,
     harpPedalDiagramColor,
     harpPedalDiagramAlign,
@@ -924,6 +955,8 @@ enum class Sid {
     expressionAlign,
     expressionPlacement,
     expressionOffset,
+    expressionPosAbove,
+    expressionPosBelow,
     expressionFrameType,
     expressionFramePadding,
     expressionFrameWidth,
@@ -1116,6 +1149,8 @@ enum class Sid {
     repeatLeftFrameFgColor,
     repeatLeftFrameBgColor,
 
+    repeatsMusicalSymbolsScale,
+
     repeatRightFontFace,
     repeatRightFontSize,
     repeatRightLineSpacing,
@@ -1179,6 +1214,8 @@ enum class Sid {
     glissandoFrameBgColor,
     glissandoLineWidth,
     glissandoText,
+    glissandoStyle,
+    glissandoStyleHarp,
 
     bendFontFace,
     bendFontSize,
@@ -1196,6 +1233,15 @@ enum class Sid {
     bendFrameBgColor,
     bendLineWidth,
     bendArrowWidth,
+
+    guitarBendLineWidth,
+    guitarBendLineWidthTab,
+    guitarBendHeightAboveTABStaff,
+    guitarBendPartialBendHeight,
+    guitarBendUseFull,
+    guitarBendArrowWidth,
+    guitarBendArrowHeight,
+    useCueSizeFretForGraceBends,
 
     headerFontFace,
     headerFontSize,
@@ -1577,7 +1623,13 @@ enum class Sid {
     golpeShowTabSimple,
     golpeShowTabCommon,
 
+    tabShowTiedFret,
+    tabParenthesizeTiedFret,
+    parenthesizeTiedFretIfArticulation,
+
     chordlineThickness,
+
+    dummyMusicalSymbolsScale,
 
     autoplaceEnabled,
     defaultsVersion,
@@ -1620,13 +1672,13 @@ private:
 
     struct StyleValue {
         Sid _idx;
-        AsciiStringView _name;         // xml name for read()/write()
+        muse::AsciiStringView _name;         // xml name for read()/write()
         PropertyValue _defaultValue;
 
     public:
         Sid  styleIdx() const { return _idx; }
         int idx() const { return int(_idx); }
-        const AsciiStringView& name() const { return _name; }
+        const muse::AsciiStringView& name() const { return _name; }
         P_TYPE valueType() const { return _defaultValue.type(); }
         const PropertyValue& defaultValue() const { return _defaultValue; }
     };

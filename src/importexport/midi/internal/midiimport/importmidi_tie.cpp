@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,16 +22,16 @@
 
 #include "importmidi_tie.h"
 
-#include "libmscore/engravingitem.h"
-#include "libmscore/segment.h"
-#include "libmscore/chordrest.h"
-#include "libmscore/chord.h"
-#include "libmscore/note.h"
+#include "engraving/dom/engravingitem.h"
+#include "engraving/dom/segment.h"
+#include "engraving/dom/chordrest.h"
+#include "engraving/dom/chord.h"
+#include "engraving/dom/note.h"
 
 #ifdef QT_DEBUG
-#include "libmscore/staff.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/measure.h"
+#include "engraving/dom/staff.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/measure.h"
 #endif
 
 #include "log.h"

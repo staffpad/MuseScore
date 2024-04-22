@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,13 +21,15 @@
  */
 #include "commandlineparser.h"
 
+#include <QDir>
+
 #include "global/io/dir.h"
-#include "global/muversion.h"
+#include "global/internal/application.h"
 
 #include "log.h"
 
+using namespace muse;
 using namespace mu::app;
-using namespace mu::framework;
 
 static QStringList prepareArguments(int argc, char** argv)
 {
@@ -46,6 +48,14 @@ static QStringList prepareArguments(int argc, char** argv)
     }
 
     return args;
+}
+
+template<typename ... Args>
+QCommandLineOption internalCommandLineOption(Args&& ... args)
+{
+    QCommandLineOption option(std::forward<Args>(args)...);
+    option.setFlags(QCommandLineOption::HiddenFromHelp);
+    return option;
 }
 
 void CommandLineParser::init()
@@ -96,6 +106,16 @@ void CommandLineParser::init()
 
     m_parser.addOption(QCommandLineOption({ "S", "style" }, "Load style file", "style"));
 
+    m_parser.addOption(QCommandLineOption("sound-profile",
+                                          "Use with '-o <file>.mp3' or with '-j <file>', override the sound profile in the given score(s). "
+                                          "Possible values: \"MuseScore Basic\", \"Muse Sounds\"", "sound-profile"));
+
+    // MusicXML
+    m_parser.addOption(QCommandLineOption("musicxml-use-default-font",
+                                          "Apply default typeface (Edwin) to imported scores"));
+    m_parser.addOption(QCommandLineOption("musicxml-infer-text-type",
+                                          "Infer text type based on content where possible"));
+
     // Video export
 #ifdef MUE_BUILD_VIDEOEXPORT_MODULE
     m_parser.addOption(QCommandLineOption("score-video", "Generate video for the given score and export it to file"));
@@ -136,6 +156,10 @@ void CommandLineParser::init()
     m_parser.addOption(QCommandLineOption("register-audio-plugin",
                                           "Check an audio plugin for compatibility with the application and register it", "path"));
     m_parser.addOption(QCommandLineOption("register-failed-audio-plugin", "Register an incompatible audio plugin", "path"));
+
+    // Internal
+    m_parser.addOption(internalCommandLineOption("score-display-name-override",
+                                                 "Display name to be shown in splash screen for the score that is being opened", "name"));
 }
 
 void CommandLineParser::parse(int argc, char** argv)
@@ -185,7 +209,7 @@ void CommandLineParser::parse(int argc, char** argv)
     }
 
     if (m_parser.isSet("d")) {
-        haw::logger::Logger::instance()->setLevel(haw::logger::Debug);
+        m_options.app.loggerLevel = logger::Level::Debug;
     }
 
     if (m_parser.isSet("D")) {
@@ -332,6 +356,15 @@ void CommandLineParser::parse(int argc, char** argv)
         }
     }
 
+    // MusicXML
+    if (m_parser.isSet("musicxml-use-default-font")) {
+        m_options.importMusicXML.useDefaultFont = true;
+    }
+
+    if (m_parser.isSet("musicxml-infer-text-type")) {
+        m_options.importMusicXML.inferTextType = true;
+    }
+
     // Video
 #ifdef MUE_BUILD_VIDEOEXPORT_MODULE
     if (m_parser.isSet("score-video")) {
@@ -380,6 +413,10 @@ void CommandLineParser::parse(int argc, char** argv)
 
     if (m_parser.isSet("S")) {
         m_converterTask.params[CommandLineParser::ParamKey::StylePath] = fromUserInputPath(m_parser.value("S"));
+    }
+
+    if (m_parser.isSet("sound-profile")) {
+        m_converterTask.params[CommandLineParser::ParamKey::SoundProfile] = m_parser.value("sound-profile");
     }
 
     if (m_parser.isSet("gp-linked")) {
@@ -451,7 +488,11 @@ void CommandLineParser::parse(int argc, char** argv)
     // Startup
     if (m_runMode == IApplication::RunMode::GuiApp) {
         if (!scorefiles.isEmpty()) {
-            m_options.startup.scorePath = scorefiles[0].toStdString();
+            m_options.startup.scoreUrl = QUrl::fromUserInput(scorefiles[0], QDir::currentPath(), QUrl::AssumeLocalFile);
+        }
+
+        if (m_parser.isSet("score-display-name-override")) {
+            m_options.startup.scoreDisplayNameOverride = m_parser.value("score-display-name-override");
         }
     }
 }
@@ -462,7 +503,7 @@ void CommandLineParser::processBuiltinArgs(const QCoreApplication& app)
     m_parser.process(app);
 }
 
-mu::framework::IApplication::RunMode CommandLineParser::runMode() const
+IApplication::RunMode CommandLineParser::runMode() const
 {
     return m_runMode;
 }
@@ -494,11 +535,12 @@ CommandLineParser::AudioPluginRegistration CommandLineParser::audioPluginRegistr
 
 void CommandLineParser::printLongVersion() const
 {
-    if (MUVersion::unstable()) {
+    Application app;
+    if (app.unstable()) {
         printf("MuseScore: Music Score Editor\nUnstable Prerelease for Version %s; Build %s\n",
-               MUVersion::version().toStdString().c_str(), MUVersion::revision().toStdString().c_str());
+               app.version().toStdString().c_str(), app.revision().toStdString().c_str());
     } else {
         printf("MuseScore: Music Score Editor; Version %s; Build %s\n",
-               MUVersion::version().toStdString().c_str(), MUVersion::revision().toStdString().c_str());
+               app.version().toStdString().c_str(), app.revision().toStdString().c_str());
     }
 }

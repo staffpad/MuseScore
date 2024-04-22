@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# MuseScore-CLA-applies
+# MuseScore-Studio-CLA-applies
 #
-# MuseScore
+# MuseScore Studio
 # Music Composition & Notation
 #
-# Copyright (C) 2021 MuseScore BVBA and others
+# Copyright (C) 2021 MuseScore Limited
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -18,12 +18,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-set(MODULE notation)
+declare_module(notation)
 
 set(MODULE_QRC notationscene.qrc)
 set(MODULE_QML_IMPORT ${CMAKE_CURRENT_LIST_DIR}/qml)
-
-find_package(Qt5 COMPONENTS Svg REQUIRED)
 
 include(${CMAKE_CURRENT_LIST_DIR}/view/widgets/widgets.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/view/styledialog/styledialog.cmake)
@@ -36,6 +34,7 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/inotation.h
     ${CMAKE_CURRENT_LIST_DIR}/inotationpainting.h
     ${CMAKE_CURRENT_LIST_DIR}/inotationviewstate.h
+    ${CMAKE_CURRENT_LIST_DIR}/inotationsolomutestate.h
     ${CMAKE_CURRENT_LIST_DIR}/inotationnoteinput.h
     ${CMAKE_CURRENT_LIST_DIR}/inotationselection.h
     ${CMAKE_CURRENT_LIST_DIR}/inotationinteraction.h
@@ -66,6 +65,8 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationpainting.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationviewstate.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationviewstate.h
+    ${CMAKE_CURRENT_LIST_DIR}/internal/notationsolomutestate.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/internal/notationsolomutestate.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationundostack.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationundostack.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationstyle.cpp
@@ -108,6 +109,8 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/internal/instrumentsrepository.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationcreator.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationcreator.h
+    ${CMAKE_CURRENT_LIST_DIR}/internal/mscoreerrorscontroller.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/internal/mscoreerrorscontroller.h
 
     ${CMAKE_CURRENT_LIST_DIR}/view/abstractnotationpaintview.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/abstractnotationpaintview.h
@@ -141,19 +144,23 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/view/noteinputbarcustomiseitem.h
     ${CMAKE_CURRENT_LIST_DIR}/view/continuouspanel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/continuouspanel.h
+    ${CMAKE_CURRENT_LIST_DIR}/view/abstractelementpopupmodel.h
+    ${CMAKE_CURRENT_LIST_DIR}/view/abstractelementpopupmodel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/internal/undoredomodel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/internal/undoredomodel.h
     ${CMAKE_CURRENT_LIST_DIR}/view/internal/noteflagstypeselectormodel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/internal/noteflagstypeselectormodel.h
-    ${CMAKE_CURRENT_LIST_DIR}/view/internal/abstractelementpopupmodel.h
-    ${CMAKE_CURRENT_LIST_DIR}/view/internal/abstractelementpopupmodel.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/view/internal/harppedalpopupmodel.h
     ${CMAKE_CURRENT_LIST_DIR}/view/internal/harppedalpopupmodel.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/view/internal/harppedalpopupmodel.h
+    ${CMAKE_CURRENT_LIST_DIR}/view/internal/caposettingsmodel.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/view/internal/caposettingsmodel.h
+    ${CMAKE_CURRENT_LIST_DIR}/view/internal/stringtuningssettingsmodel.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/view/internal/stringtuningssettingsmodel.h
     ${CMAKE_CURRENT_LIST_DIR}/view/selectionfiltermodel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/selectionfiltermodel.h
     ${CMAKE_CURRENT_LIST_DIR}/view/editgridsizedialogmodel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/editgridsizedialogmodel.h
-    
+
     ${CMAKE_CURRENT_LIST_DIR}/view/pianokeyboard/pianokeyboardtypes.h
     ${CMAKE_CURRENT_LIST_DIR}/view/pianokeyboard/pianokeyboardcontroller.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/pianokeyboard/pianokeyboardcontroller.h
@@ -171,16 +178,19 @@ set(MODULE_UI
     )
 
 set(MODULE_LINK
-    Qt5::Svg
-    draw
+    muse::draw
     engraving
     commonscene
-    uicomponents
-    ui
+    muse::uicomponents
+    muse::ui
     )
+
+if (MUE_BUILD_NOTATION_TESTS)
+    add_subdirectory(tests)
+endif()
 
 if (NOT MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 9.0)
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-copy")
 endif (NOT MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 9.0)
 
-include(${PROJECT_SOURCE_DIR}/build/module.cmake)
+setup_module()

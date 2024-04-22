@@ -20,14 +20,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_UI_LINUXPLATFORMTHEME_H
-#define MU_UI_LINUXPLATFORMTHEME_H
+#ifndef MUSE_UI_LINUXPLATFORMTHEME_H
+#define MUSE_UI_LINUXPLATFORMTHEME_H
+
+#include <QtDBus/QDBusReply>
 
 #include "internal/iplatformtheme.h"
 
-namespace mu::ui {
-class LinuxPlatformTheme : public IPlatformTheme
+class QDBusVariant;
+
+namespace muse::ui {
+class LinuxPlatformTheme : public QObject, public IPlatformTheme
 {
+    Q_OBJECT
 public:
     LinuxPlatformTheme();
 
@@ -44,9 +49,17 @@ public:
     void applyPlatformStyleOnAppForTheme(const ThemeCode& themeCode) override;
     void applyPlatformStyleOnWindowForTheme(QWindow* window, const ThemeCode& themeCode) override;
 
+private slots:
+    void processSettingChange(const QString& group, const QString& key, const QDBusVariant& value);
+
 private:
+    bool isSystemThemeCurrentlyDark() const;
+    QDBusReply<QVariant> getSystemTheme() const;
+
     async::Notification m_platformThemeChanged;
+    bool m_isListening = false;
+    bool m_isSystemThemeDark = false;
 };
 }
 
-#endif // MU_UI_LINUXPLATFORMTHEME_H
+#endif // MUSE_UI_LINUXPLATFORMTHEME_H

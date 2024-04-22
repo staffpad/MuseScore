@@ -2,21 +2,20 @@ corruption:
 - cbjeukendrup
 crash:
 - RomanPudashkin
+- DmitryArefiev
+- zacjansheski
 engraving:
 - oktophonie
 VST:
 - RomanPudashkin
-"Muse Sounds":
-- davidwhearn
-- Iamtesch
+"muse sounds":
+- matthewreadbass
 playback:
 - RomanPudashkin
-- DmitryArefiev
 UI:
+- Eism
+accessibility:
 - Eism
 cloud:
 - shoogle
 - cbjeukendrup
-"needs review":
-- DmitryArefiev
-- bkunda

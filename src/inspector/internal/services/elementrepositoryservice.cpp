@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,29 +21,31 @@
  */
 #include "elementrepositoryservice.h"
 
-#include "chord.h"
-#include "stem.h"
-#include "hook.h"
-#include "beam.h"
-#include "glissando.h"
-#include "hairpin.h"
-#include "volta.h"
-#include "staff.h"
-#include "layoutbreak.h"
-#include "pedal.h"
-#include "tremolo.h"
-#include "bracket.h"
-#include "bracketItem.h"
-#include "durationtype.h"
-#include "stafftype.h"
-#include "mscore.h"
-#include "trill.h"
-
-#include "log.h"
 #include "types/texttypes.h"
 
+#include "engraving/dom/beam.h"
+#include "engraving/dom/bracket.h"
+#include "engraving/dom/bracketItem.h"
+#include "engraving/dom/chord.h"
+#include "engraving/dom/durationtype.h"
+#include "engraving/dom/glissando.h"
+#include "engraving/dom/hairpin.h"
+#include "engraving/dom/hook.h"
+#include "engraving/dom/layoutbreak.h"
+#include "engraving/dom/mscore.h"
+#include "engraving/dom/note.h"
+#include "engraving/dom/pedal.h"
+#include "engraving/dom/staff.h"
+#include "engraving/dom/stafftype.h"
+#include "engraving/dom/stem.h"
+#include "engraving/dom/trill.h"
+#include "engraving/dom/volta.h"
+#include "engraving/dom/note.h"
+
+#include "log.h"
+
 using namespace mu::inspector;
-using namespace mu::notation;
+using namespace mu::engraving;
 
 ElementRepositoryService::ElementRepositoryService(QObject* parent)
     : QObject(parent)
@@ -55,14 +57,14 @@ QObject* ElementRepositoryService::getQObject()
     return this;
 }
 
-bool ElementRepositoryService::needUpdateElementList(const QList<mu::engraving::EngravingItem*>& newRawElementList,
-                                                     SelectionState selectionState) const
+bool ElementRepositoryService::needUpdateElementList(const QList<EngravingItem*>& newRawElementList,
+                                                     SelState selectionState) const
 {
     return m_rawElementList != newRawElementList || m_selectionState != selectionState;
 }
 
-void ElementRepositoryService::updateElementList(const QList<mu::engraving::EngravingItem*>& newRawElementList,
-                                                 SelectionState selectionState)
+void ElementRepositoryService::updateElementList(const QList<EngravingItem*>& newRawElementList,
+                                                 SelState selectionState)
 {
     if (!needUpdateElementList(newRawElementList, selectionState)) {
         return;
@@ -87,7 +89,6 @@ QList<mu::engraving::EngravingItem*> ElementRepositoryService::findElementsByTyp
     case mu::engraving::ElementType::STAFF: return findStaffs();
     case mu::engraving::ElementType::LAYOUT_BREAK: return findSectionBreaks(); //Page breaks and line breaks are of type LAYOUT_BREAK, but they don't appear in the inspector for now.
     case mu::engraving::ElementType::TEXT: return findTexts();
-    case mu::engraving::ElementType::TREMOLO: return findTremolos();
     case mu::engraving::ElementType::BRACKET: return findBrackets();
     case mu::engraving::ElementType::REST: return findRests();
     case mu::engraving::ElementType::ORNAMENT: return findOrnaments();
@@ -380,23 +381,6 @@ QList<mu::engraving::EngravingItem*> ElementRepositoryService::findTexts() const
     for (mu::engraving::EngravingItem* element : m_exposedElementList) {
         if (TEXT_ELEMENT_TYPES.contains(element->type())) {
             resultList << element;
-        }
-    }
-
-    return resultList;
-}
-
-QList<mu::engraving::EngravingItem*> ElementRepositoryService::findTremolos() const
-{
-    QList<mu::engraving::EngravingItem*> resultList;
-
-    for (mu::engraving::EngravingItem* element : m_exposedElementList) {
-        if (element->isTremolo()) {
-            // the tremolo section currently only has a style setting
-            // so only tremolos which can have custom styles make it appear
-            if (mu::engraving::toTremolo(element)->customStyleApplicable()) {
-                resultList << element;
-            }
         }
     }
 

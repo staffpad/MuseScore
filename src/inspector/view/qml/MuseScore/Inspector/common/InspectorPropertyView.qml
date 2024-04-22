@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,8 +22,8 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.Inspector 1.0
 
 Column {
@@ -34,13 +34,15 @@ Column {
     property string navigationName: "InspectorPropertyView"
     property NavigationPanel navigationPanel: null
     property int navigationRowStart: 0
+    property int buttonNavigationRow: navigationRowStart
 
     // Normally, this is just the reset or menu button (navigationRowStart + 0),
     // and one control (navigationRowStart + 1)
     property int navigationRowEnd: navigationRowStart + 1
 
-    property alias titleText: titleLabel.text
-    property alias showTitle: titleLabel.visible
+    property string titleText: ""
+    property Component titleLabelComponent: null
+    property alias showTitle: titleLabelLoader.visible
     property alias showButton: buttonLoader.visible
 
     readonly property bool isStyled: propertyItem ? propertyItem.isStyled : false
@@ -69,7 +71,7 @@ Column {
         }
     }
 
-    onRequestResetToDefault:  {
+    onRequestResetToDefault: {
         root.propertyItem.resetToDefault()
     }
 
@@ -85,14 +87,27 @@ Column {
 
         spacing: 4
 
-        StyledTextLabel {
-            id: titleLabel
+        Loader {
+            id: titleLabelLoader
 
-            visible: !isEmpty
             Layout.alignment: Qt.AlignLeft
             Layout.fillWidth: true
 
-            horizontalAlignment: Text.AlignLeft
+            visible: Boolean(root.titleText)
+
+            sourceComponent: root.titleLabelComponent ? root.titleLabelComponent : defaultTitleLabel
+
+            Component {
+                id: defaultTitleLabel
+
+                StyledTextLabel {
+                    width: parent.width
+                    visible: !isEmpty
+
+                    text: root.titleText
+                    horizontalAlignment: Text.AlignLeft
+                }
+            }
         }
 
         Loader {
@@ -105,18 +120,13 @@ Column {
             Component {
                 id: resetButtonComponent
 
-                FlatButton {
-                    width: 20
-                    height: width
-
+                PropertyResetButton {
                     navigation.name: root.navigationName + "Reset"
                     navigation.panel: root.navigationPanel
-                    navigation.row: root.navigationRowStart
-                    navigation.accessible.name: qsTrc("inspector", "Reset \"%1\" to default value").arg(root.titleText)
+                    navigation.row: root.buttonNavigationRow
+                    navigation.accessible.name: root.titleText ? qsTrc("inspector", "Reset “%1” to default value").arg(root.titleText)
+                                                               : qsTrc("inspector", "Reset property to default value")
 
-                    icon: IconCode.UNDO
-                    toolTipTitle: qsTrc("inspector", "Reset")
-                    transparent: true
                     enabled: root.isModified
 
                     onClicked: {
@@ -134,7 +144,7 @@ Column {
 
                     navigation.name: root.navigationName + " Menu Button"
                     navigation.panel: root.navigationPanel
-                    navigation.row: root.navigationRowStart
+                    navigation.row: root.buttonNavigationRow
                     navigation.accessible.name: root.titleText + " " + qsTrc("inspector", "Menu")
 
                     menuModel: {

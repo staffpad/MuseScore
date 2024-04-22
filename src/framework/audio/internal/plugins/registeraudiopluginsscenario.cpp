@@ -24,21 +24,22 @@
 
 #include <QApplication>
 
+#include "global/translation.h"
+
+#include "audioutils.h"
 #include "audioerrors.h"
-#include "translation.h"
+
 #include "log.h"
 
-using namespace mu::audio;
-using namespace mu::framework;
+using namespace muse;
+using namespace muse::audio;
 
 void RegisterAudioPluginsScenario::init()
 {
     TRACEFUNC;
 
-    m_progress.finished.onReceive(this, [this](const ProgressResult& res) {
-        if (res.ret.code() == static_cast<int>(Ret::Code::Cancel)) {
-            m_aborted = true;
-        }
+    m_progress.cancelRequested.onNotify(this, [this]() {
+        m_aborted = true;
     });
 
     Ret ret = knownPluginsRegister()->load();
@@ -47,7 +48,7 @@ void RegisterAudioPluginsScenario::init()
     }
 }
 
-mu::Ret RegisterAudioPluginsScenario::registerNewPlugins()
+Ret RegisterAudioPluginsScenario::registerNewPlugins()
 {
     TRACEFUNC;
 
@@ -64,7 +65,7 @@ mu::Ret RegisterAudioPluginsScenario::registerNewPlugins()
     }
 
     if (newPluginPaths.empty()) {
-        return make_ok();
+        return muse::make_ok();
     }
 
     processPluginsRegistration(newPluginPaths);
@@ -75,7 +76,7 @@ mu::Ret RegisterAudioPluginsScenario::registerNewPlugins()
 
 void RegisterAudioPluginsScenario::processPluginsRegistration(const io::paths_t& pluginPaths)
 {
-    Ret ret = interactive()->showProgress(mu::trc("audio", "Scanning audio plugins"), &m_progress);
+    Ret ret = interactive()->showProgress(muse::trc("audio", "Scanning audio plugins"), &m_progress);
     if (!ret) {
         LOGE() << ret.toString();
     }
@@ -107,10 +108,10 @@ void RegisterAudioPluginsScenario::processPluginsRegistration(const io::paths_t&
         }
     }
 
-    m_progress.finished.send(make_ok());
+    m_progress.finished.send(muse::make_ok());
 }
 
-mu::Ret RegisterAudioPluginsScenario::registerPlugin(const io::path_t& pluginPath)
+Ret RegisterAudioPluginsScenario::registerPlugin(const io::path_t& pluginPath)
 {
     TRACEFUNC;
 
@@ -131,7 +132,7 @@ mu::Ret RegisterAudioPluginsScenario::registerPlugin(const io::path_t& pluginPat
 
     for (const AudioResourceMeta& meta : metaList.val) {
         AudioPluginInfo info;
-        info.type = audioPluginTypeFromCategoriesString(meta.attributeVal(audio::CATEGORIES_ATTRIBUTE).toStdString());
+        info.type = audioPluginTypeFromCategoriesString(meta.attributeVal(audio::CATEGORIES_ATTRIBUTE));
         info.meta = meta;
         info.path = pluginPath;
         info.enabled = true;
@@ -142,10 +143,10 @@ mu::Ret RegisterAudioPluginsScenario::registerPlugin(const io::path_t& pluginPat
         }
     }
 
-    return make_ok();
+    return muse::make_ok();
 }
 
-mu::Ret RegisterAudioPluginsScenario::registerFailedPlugin(const io::path_t& pluginPath, int failCode)
+Ret RegisterAudioPluginsScenario::registerFailedPlugin(const io::path_t& pluginPath, int failCode)
 {
     TRACEFUNC;
 
@@ -154,7 +155,13 @@ mu::Ret RegisterAudioPluginsScenario::registerFailedPlugin(const io::path_t& plu
     }
 
     AudioPluginInfo info;
-    info.meta.id = io::filename(pluginPath).toStdString();
+    info.meta.id = io::completeBasename(pluginPath).toStdString();
+
+    std::string ext = io::suffix(pluginPath);
+    if (ext.find("vst") != std::string::npos) {
+        info.meta.type = AudioResourceType::VstPlugin;
+    }
+
     info.path = pluginPath;
     info.enabled = false;
     info.errorCode = failCode;

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,64 +22,57 @@
 #include "mscloader.h"
 
 #include <memory>
-#include <map>
 
 #include "global/io/buffer.h"
 #include "global/types/retval.h"
 
-#include "../libmscore/masterscore.h"
-#include "../libmscore/audio.h"
-#include "../libmscore/excerpt.h"
-#include "../libmscore/imageStore.h"
+#include "../types/types.h"
 
-#include "114/read114.h"
-#include "206/read206.h"
-#include "302/read302.h"
-#include "400/read400.h"
-#include "rw/compat/compatutils.h"
+#include "../dom/masterscore.h"
+#include "../dom/audio.h"
+#include "../dom/excerpt.h"
+#include "../dom/imageStore.h"
 
+#include "compat/compatutils.h"
 #include "compat/readstyle.h"
 
+#include "rwregister.h"
 #include "xmlreader.h"
-#include "400/readcontext.h"
+#include "inoutdata.h"
 
 #include "log.h"
 
 using namespace mu;
-using namespace mu::io;
+using namespace muse;
+using namespace muse::io;
 using namespace mu::engraving;
+using namespace mu::engraving::rw;
 
-using IScoreReaderPtr = std::shared_ptr<IScoreReader>;
-
-static RetVal<IScoreReaderPtr> makeReader(int version, bool ignoreVersionError)
+static RetVal<IReaderPtr> makeReader(int version, bool ignoreVersionError)
 {
     if (!ignoreVersionError) {
-        if (version > MSCVERSION) {
-            return RetVal<IScoreReaderPtr>(make_ret(Err::FileTooNew));
+        if (version > Constants::MSC_VERSION) {
+            return RetVal<IReaderPtr>(make_ret(Err::FileTooNew));
         }
 
         if (version < 114) {
-            return RetVal<IScoreReaderPtr>(make_ret(Err::FileTooOld));
+            return RetVal<IReaderPtr>(make_ret(Err::FileTooOld));
         }
 
         if (version == 300) {
-            return RetVal<IScoreReaderPtr>(make_ret(Err::FileOld300Format));
+            return RetVal<IReaderPtr>(make_ret(Err::FileOld300Format));
         }
     }
 
-    if (version <= 114) {
-        return RetVal<IScoreReaderPtr>::make_ok(std::make_shared<compat::Read114>());
-    } else if (version <= 207) {
-        return RetVal<IScoreReaderPtr>::make_ok(std::make_shared<compat::Read206>());
-    } else if (version < 400 || MScore::testMode) {
-        return RetVal<IScoreReaderPtr>::make_ok(std::make_shared<compat::Read302>());
+    if (version > 302 && MScore::testMode && MScore::useRead302InTestMode) {
+        version = 302;
     }
 
-    return RetVal<IScoreReaderPtr>::make_ok(std::make_shared<rw400::Read400>());
+    return RetVal<IReaderPtr>::make_ok(RWRegister::reader(version));
 }
 
-mu::Ret MscLoader::loadMscz(MasterScore* masterScore, const MscReader& mscReader, SettingsCompat& settingsCompat,
-                            bool ignoreVersionError)
+Ret MscLoader::loadMscz(MasterScore* masterScore, const MscReader& mscReader, SettingsCompat& settingsCompat,
+                        bool ignoreVersionError)
 {
     TRACEFUNC;
 
@@ -123,7 +116,7 @@ mu::Ret MscLoader::loadMscz(MasterScore* masterScore, const MscReader& mscReader
 
     ReadInOutData masterReadOutData;
 
-    Ret ret = make_ok();
+    Ret ret = muse::make_ok();
 
     // Read score
     {
@@ -135,38 +128,59 @@ mu::Ret MscLoader::loadMscz(MasterScore* masterScore, const MscReader& mscReader
         XmlReader xml(scoreData);
         xml.setDocName(docName);
 
-        ret = read(masterScore, xml, ignoreVersionError, &masterReadOutData, &styleHook);
+        ret = readMasterScore(masterScore, xml, ignoreVersionError, &masterReadOutData, &styleHook);
     }
 
     // Read excerpts
-    if (masterScore->mscVersion() >= 400) {
-        std::vector<String> excerptNames = mscReader.excerptNames();
-        for (const String& excerptName : excerptNames) {
+    if (ret && masterScore->mscVersion() >= 400) {
+        std::vector<String> excerptFileNames = mscReader.excerptFileNames();
+        for (const String& excerptFileName : excerptFileNames) {
             Score* partScore = masterScore->createScore();
 
             compat::ReadStyleHook::setupDefaultStyle(partScore);
 
             Excerpt* ex = new Excerpt(masterScore);
             ex->setExcerptScore(partScore);
+            ex->setFileName(excerptFileName);
 
-            ByteArray excerptStyleData = mscReader.readExcerptStyleFile(excerptName);
+            ByteArray excerptStyleData = mscReader.readExcerptStyleFile(excerptFileName);
             Buffer excerptStyleBuf(&excerptStyleData);
             excerptStyleBuf.open(IODevice::ReadOnly);
             partScore->style().read(&excerptStyleBuf);
 
-            ByteArray excerptData = mscReader.readExcerptFile(excerptName);
+            ByteArray excerptData = mscReader.readExcerptFile(excerptFileName);
 
             XmlReader xml(excerptData);
-            xml.setDocName(excerptName);
+            xml.setDocName(excerptFileName);
 
             ReadInOutData partReadInData;
             partReadInData.links = masterReadOutData.links;
 
-            rw400::Read400().read(partScore, xml, &partReadInData);
+            RetVal<IReaderPtr> reader = makeReader(masterScore->mscVersion(), ignoreVersionError);
+            if (!reader.ret) {
+                ret = reader.ret;
+                break;
+            }
+
+            Err err = reader.val->readScore(partScore, xml, &partReadInData);
+            ret =  make_ret(err);
+            if (!ret) {
+                break;
+            }
 
             partScore->linkMeasures(masterScore);
 
-            ex->setName(excerptName);
+            if (ex->name().empty()) {
+                // If no excerpt name tag was found while reading, try the "partName" meta tag
+                const String nameFromMeta = partScore->metaTag(u"partName");
+
+                if (nameFromMeta.empty()) {
+                    // If that's also empty, fall back to the filename
+                    ex->setName(excerptFileName, /*saveAndNotify=*/ false);
+                } else {
+                    ex->setName(nameFromMeta, /*saveAndNotify=*/ false);
+                }
+            }
 
             masterScore->addExcerpt(ex);
         }
@@ -189,7 +203,8 @@ mu::Ret MscLoader::loadMscz(MasterScore* masterScore, const MscReader& mscReader
     return ret;
 }
 
-mu::Ret MscLoader::read(MasterScore* score, XmlReader& e, bool ignoreVersionError, ReadInOutData* out, compat::ReadStyleHook* styleHook)
+Ret MscLoader::readMasterScore(MasterScore* score, XmlReader& e, bool ignoreVersionError, ReadInOutData* out,
+                               compat::ReadStyleHook* styleHook)
 {
     while (e.readNextStartElement()) {
         if (e.name() == "museScore") {
@@ -197,7 +212,7 @@ mu::Ret MscLoader::read(MasterScore* score, XmlReader& e, bool ignoreVersionErro
             StringList sl = version.split('.');
             score->setMscVersion(sl[0].toInt() * 100 + sl[1].toInt());
 
-            RetVal<IScoreReaderPtr> reader = makeReader(score->mscVersion(), ignoreVersionError);
+            RetVal<IReaderPtr> reader = makeReader(score->mscVersion(), ignoreVersionError);
             if (!reader.ret) {
                 return reader.ret;
             }
@@ -221,12 +236,9 @@ mu::Ret MscLoader::read(MasterScore* score, XmlReader& e, bool ignoreVersionErro
                 score->checkChordList();
             }
 
-            Err err = reader.val->read(score, e, out);
+            Err err = reader.val->readScore(score, e, out);
 
             score->setExcerptsChanged(false);
-
-            // don't autosave (as long as there's no change to the score)
-            score->setAutosaveDirty(false);
 
             return make_ret(err);
         } else {

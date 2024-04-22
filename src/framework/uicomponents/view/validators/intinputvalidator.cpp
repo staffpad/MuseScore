@@ -20,8 +20,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "intinputvalidator.h"
+#include "global/realfn.h"
 
-using namespace mu::uicomponents;
+using namespace muse::uicomponents;
 
 IntInputValidator::IntInputValidator(QObject* parent)
     : QValidator(parent)
@@ -48,9 +49,13 @@ QValidator::State IntInputValidator::validate(QString& inputStr, int& cursorPos)
 {
     QValidator::State state = Invalid;
 
-    if (inputStr.contains(QRegularExpression("^\\-?\\d{1,3}$"))) {
-        if (inputStr.contains(QRegularExpression("^\\-?0{2,3}"))
-            || (inputStr.startsWith("-") && inputStr.toDouble() == 0.0)) {
+    const int maxAbsoluteValue = std::max(std::abs(m_top), std::abs(m_bottom));
+    const int maxNumberOfDigits = maxAbsoluteValue > 0
+                                  ? std::floor(std::log10(maxAbsoluteValue)) + 1
+                                  : 1;
+    if (inputStr.contains(QRegularExpression(QString("^\\-?\\d{1,%1}$").arg(maxNumberOfDigits)))) {
+        if ((maxNumberOfDigits >= 2 && inputStr.contains(QRegularExpression(QString("^\\-?0{2,%1}").arg(maxNumberOfDigits))))
+            || (inputStr.startsWith("-") && muse::RealIsNull(inputStr.toDouble()))) {
             state = Intermediate;
         } else {
             state = Acceptable;

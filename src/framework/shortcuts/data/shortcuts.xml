@@ -360,10 +360,6 @@
     <seq>Ctrl+Alt+Up</seq>
     </SC>
   <SC>
-    <key>top-staff</key>
-    <seq></seq>
-    </SC>
-  <SC>
     <key>first-element</key>
     <seq>Ctrl+Home</seq>
     </SC>
@@ -524,14 +520,6 @@
     <seq>Shift+.</seq>
     </SC>
   <SC>
-    <key>add-8va</key>
-    <seq>Ctrl+Y,Ctrl+O,Ctrl+A</seq>
-    </SC>
-  <SC>
-    <key>add-8vb</key>
-    <seq>Ctrl+Y,Ctrl+O,Ctrl+B</seq>
-    </SC>
-  <SC>
     <key>notation-escape</key>
     <seq>Esc</seq>
     </SC>
@@ -687,6 +675,10 @@
     <seq>F10</seq>
     </SC>
   <SC>
+    <key>toggle-braille-panel</key>
+    <seq>Alt+F11</seq>
+    </SC>
+  <SC>
     <key>toggle-timeline</key>
     <seq>F12</seq>
     </SC>
@@ -755,14 +747,6 @@
     <seq>Ctrl+A</seq>
     </SC>
   <SC>
-    <key>clef-violin</key>
-    <seq>Ctrl+Y,Ctrl+1</seq>
-    </SC>
-  <SC>
-    <key>clef-bass</key>
-    <seq>Ctrl+Y,Ctrl+2</seq>
-    </SC>
-  <SC>
     <key>system-break</key>
     <seq>Return</seq>
     </SC>
@@ -782,22 +766,6 @@
   <SC>
     <key>show-keys</key>
     <seq>Shift+F2</seq>
-    </SC>
-  <SC>
-    <key>rest-1</key>
-    <seq>Shift+R, Shift+S</seq>
-    </SC>
-  <SC>
-    <key>rest-2</key>
-    <seq>Shift+R, Shift+M</seq>
-    </SC>
-  <SC>
-    <key>rest-4</key>
-    <seq>Shift+R, Shift+R</seq>
-    </SC>
-  <SC>
-    <key>rest-8</key>
-    <seq>Shift+R, Shift+Q</seq>
     </SC>
   <SC>
     <key>backspace</key>
@@ -1178,5 +1146,13 @@
     <key>notation-context-menu</key>
     <seq>Shift+F10</seq>
     <seq>Ctrl+Shift+F10</seq>
+    </SC>
+  <SC>
+    <key>standard-bend</key>
+    <seq>Alt+B</seq>
+    </SC>
+  <SC>
+    <key>grace-note-bend</key>
+    <seq>Ctrl+Alt+B</seq>
     </SC>
   </Shortcuts>

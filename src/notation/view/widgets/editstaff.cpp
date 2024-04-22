@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -32,21 +32,22 @@
 #include "editstafftype.h"
 #include "editstringdata.h"
 
-#include "libmscore/factory.h"
-#include "libmscore/part.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/staff.h"
-#include "libmscore/stringdata.h"
-#include "libmscore/text.h"
-#include "libmscore/utils.h"
-#include "libmscore/undo.h"
-#include "libmscore/instrumentname.h"
-#include "libmscore/system.h"
+#include "engraving/dom/factory.h"
+#include "engraving/dom/part.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/staff.h"
+#include "engraving/dom/stringdata.h"
+#include "engraving/dom/text.h"
+#include "engraving/dom/utils.h"
+#include "engraving/dom/undo.h"
+#include "engraving/dom/instrumentname.h"
+#include "engraving/dom/system.h"
 
 #include "log.h"
 
 using namespace mu::notation;
-using namespace mu::ui;
+using namespace muse;
+using namespace muse::ui;
 using namespace mu::engraving;
 
 static const QChar GO_UP_ICON = iconCodeToChar(IconCode::Code::ARROW_UP);
@@ -109,15 +110,13 @@ EditStaff::EditStaff(QWidget* parent)
     setFocus();
 }
 
+#ifdef MU_QT5_COMPAT
 EditStaff::EditStaff(const EditStaff& other)
     : QDialog(other.parentWidget())
 {
 }
 
-int EditStaff::metaTypeId()
-{
-    return QMetaType::type("EditStaff");
-}
+#endif
 
 void EditStaff::setStaff(Staff* s, const Fraction& tick)
 {
@@ -134,7 +133,7 @@ void EditStaff::setStaff(Staff* s, const Fraction& tick)
     Part* part = m_orgStaff->part();
     mu::engraving::Score* score = part->score();
 
-    auto it = mu::findLessOrEqual(part->instruments(), tick.ticks());
+    auto it = muse::findLessOrEqual(part->instruments(), tick.ticks());
     if (it == part->instruments().cend()) {
         return;
     }
@@ -156,6 +155,7 @@ void EditStaff::setStaff(Staff* s, const Fraction& tick)
     m_staff->setShowIfEmpty(m_orgStaff->showIfEmpty());
     m_staff->setHideSystemBarLine(m_orgStaff->hideSystemBarLine());
     m_staff->setMergeMatchingRests(m_orgStaff->mergeMatchingRests());
+    m_staff->setReflectTranspositionInLinkedTab(m_orgStaff->reflectTranspositionInLinkedTab());
 
     // get tick range for instrument
     auto i = part->instruments().upper_bound(tick.ticks());
@@ -172,7 +172,7 @@ void EditStaff::setStaff(Staff* s, const Fraction& tick)
     }
 
     // set dlg controls
-    spinExtraDistance->setValue(s->userDist() / score->spatium());
+    spinExtraDistance->setValue(s->userDist() / score->style().spatium());
     invisible->setChecked(stt->invisible());
     isSmallCheckbox->setChecked(stt->isSmall());
     color->setColor(stt->color().toQColor());
@@ -183,6 +183,7 @@ void EditStaff::setStaff(Staff* s, const Fraction& tick)
     showIfEmpty->setChecked(m_staff->showIfEmpty());
     hideSystemBarLine->setChecked(m_staff->hideSystemBarLine());
     mergeMatchingRests->setChecked(m_staff->mergeMatchingRests());
+    noReflectTranspositionInLinkedTab->setChecked(!m_staff->reflectTranspositionInLinkedTab());
 
     updateStaffType(*stt);
     updateInstrument();
@@ -217,7 +218,7 @@ void EditStaff::updateInstrument()
     if (templ) {
         instrumentName->setText(formatInstrumentTitle(templ->trackName, templ->trait));
     } else {
-        instrumentName->setText(qtrc("notation/editstaff", "Unknown"));
+        instrumentName->setText(muse::qtrc("notation/editstaff", "Unknown"));
     }
 
     m_minPitchA = m_instrument.minPitchA();
@@ -458,7 +459,16 @@ void EditStaff::initStaff()
     const EngravingItem* element = context.element;
     Staff* staff = context.staff;
 
-    if (!element) {
+    if (interaction && !element) {
+        INotationSelectionPtr selection = interaction->selection();
+        if (selection->isRange()) {
+            INotationSelectionRangePtr range = selection->range();
+            element = range->measureRange().endMeasure;
+            staff = element->score()->staff(range->endStaffIndex() - 1);
+        }
+    }
+
+    IF_ASSERT_FAILED(element) {
         return;
     }
 
@@ -477,6 +487,10 @@ void EditStaff::initStaff()
         if (measure) {
             tick = measure->tick();
         }
+    }
+
+    IF_ASSERT_FAILED(staff) {
+        return;
     }
 
     setStaff(staff, tick);
@@ -498,7 +512,7 @@ void EditStaff::applyStaffProperties()
     StaffConfig config;
     config.visible = m_orgStaff->visible();
 
-    config.userDistance = spinExtraDistance->value() * m_orgStaff->score()->spatium();
+    config.userDistance = spinExtraDistance->value() * m_orgStaff->style().spatium();
     config.cutaway = cutaway->isChecked();
     config.showIfEmpty = showIfEmpty->isChecked();
     config.hideSystemBarline = hideSystemBarLine->isChecked();
@@ -506,6 +520,7 @@ void EditStaff::applyStaffProperties()
     config.hideMode = Staff::HideMode(hideMode->currentIndex());
     config.clefTypeList = m_instrument.clefType(m_orgStaff->rstaff());
     config.staffType = *m_staff->staffType(mu::engraving::Fraction(0, 1));
+    config.reflectTranspositionInLinkedTab = !noReflectTranspositionInLinkedTab->isChecked();
 
     notationParts()->setStaffConfig(m_orgStaff->id(), config);
 }
@@ -517,8 +532,8 @@ void EditStaff::applyPartProperties()
     String _sn = shortName->toPlainText();
     String _ln = longName->toPlainText();
     if (!mu::engraving::Text::validateText(_sn) || !mu::engraving::Text::validateText(_ln)) {
-        interactive()->warning(trc("notation/staffpartproperties", "Invalid instrument name"),
-                               trc("notation/staffpartproperties", "The instrument name is invalid."));
+        interactive()->warning(muse::trc("notation/staffpartproperties", "Invalid instrument name"),
+                               muse::trc("notation/staffpartproperties", "The instrument name is invalid."));
         return;
     }
     QString sn = _sn;
@@ -564,7 +579,7 @@ void EditStaff::applyPartProperties()
     SharpFlat newSharpFlat = SharpFlat(preferSharpFlat->currentIndex());
     if ((iList->currentIndex() == 0) || (iList->currentIndex() == 25)) {
         // instrument becomes non/octave-transposing, preferSharpFlat isn't useful anymore
-        newSharpFlat = SharpFlat::DEFAULT;
+        newSharpFlat = SharpFlat::NONE;
     }
 
     if (part->preferSharpFlat() != newSharpFlat) {
@@ -589,9 +604,12 @@ void EditStaff::editStringDataClicked()
     int frets = m_instrument.stringData()->frets();
     std::vector<mu::engraving::instrString> stringList = m_instrument.stringData()->stringList();
 
-    EditStringData* esd = new EditStringData(this, &stringList, &frets);
-    esd->setWindowModality(Qt::WindowModal);
+    EditStringData* esd = new EditStringData(this, stringList, frets);
+
     if (esd->exec()) {
+        frets = esd->frets();
+        stringList = esd->strings();
+
         mu::engraving::StringData stringData(frets, stringList);
 
         // update instrument pitch ranges as necessary
@@ -644,7 +662,7 @@ void EditStaff::editStringDataClicked()
 
 QString EditStaff::midiCodeToStr(int midiCode)
 {
-    return QString::fromStdString(mu::pitchToString(midiCode));
+    return QString::fromStdString(muse::pitchToString(midiCode));
 }
 
 void EditStaff::showStaffTypeDialog()

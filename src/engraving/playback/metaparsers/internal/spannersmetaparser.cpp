@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,17 +22,18 @@
 
 #include "spannersmetaparser.h"
 
-#include "libmscore/glissando.h"
-#include "libmscore/note.h"
-#include "libmscore/spanner.h"
-#include "libmscore/trill.h"
-#include "libmscore/pedal.h"
-#include "libmscore/tempo.h"
+#include "dom/glissando.h"
+#include "dom/note.h"
+#include "dom/spanner.h"
+#include "dom/trill.h"
+#include "dom/pedal.h"
+#include "dom/tempo.h"
 
 #include "playback/utils/pitchutils.h"
 #include "playback/filters/spannerfilter.h"
 
 using namespace mu::engraving;
+using namespace muse;
 
 bool SpannersMetaParser::isAbleToParse(const EngravingItem* spannerItem)
 {
@@ -43,6 +44,8 @@ bool SpannersMetaParser::isAbleToParse(const EngravingItem* spannerItem)
         ElementType::PALM_MUTE,
         ElementType::TRILL,
         ElementType::GLISSANDO,
+        ElementType::GUITAR_BEND,
+        ElementType::VIBRATO,
     };
 
     return SUPPORTED_TYPES.find(spannerItem->type()) != SUPPORTED_TYPES.cend();
@@ -75,7 +78,15 @@ void SpannersMetaParser::doParse(const EngravingItem* item, const RenderingConte
         type = mpe::ArticulationType::LaissezVibrer;
         break;
     case ElementType::PALM_MUTE: {
-        type = mpe::ArticulationType::Mute;
+        type = mpe::ArticulationType::PalmMute;
+        break;
+    }
+    case ElementType::GUITAR_BEND: {
+        type = mpe::ArticulationType::Multibend;
+        break;
+    }
+    case ElementType::VIBRATO: {
+        type = mpe::ArticulationType::Vibrato;
         break;
     }
     case ElementType::TRILL: {
@@ -102,8 +113,8 @@ void SpannersMetaParser::doParse(const EngravingItem* item, const RenderingConte
             break;
         }
 
-        Note* startNote = toNote(glissando->startElement());
-        Note* endNote = toNote(glissando->endElement());
+        const Note* startNote = toNote(glissando->startElement());
+        const Note* endNote = toNote(glissando->endElement());
 
         if (!startNote || !endNote) {
             break;
@@ -136,9 +147,14 @@ void SpannersMetaParser::doParse(const EngravingItem* item, const RenderingConte
         return;
     }
 
+    const mpe::ArticulationPattern& pattern = spannerCtx.profile->pattern(type);
+    if (pattern.empty()) {
+        return;
+    }
+
     mpe::ArticulationMeta articulationMeta;
     articulationMeta.type = type;
-    articulationMeta.pattern = spannerCtx.profile->pattern(type);
+    articulationMeta.pattern = pattern;
     articulationMeta.timestamp = spannerCtx.nominalTimestamp;
     articulationMeta.overallPitchChangesRange = overallPitchRange;
     articulationMeta.overallDynamicChangesRange = overallDynamicRange;
@@ -149,21 +165,11 @@ void SpannersMetaParser::doParse(const EngravingItem* item, const RenderingConte
     appendArticulationData(std::move(articulationMeta), result);
 }
 
-mu::mpe::duration_t SpannersMetaParser::spannerDuration(const Score* score, const int positionTick, const int durationTicks)
+mpe::duration_t SpannersMetaParser::spannerDuration(const Score* score, const int positionTick, const int durationTicks)
 {
     if (!score) {
         return 0;
     }
 
-    BeatsPerSecond startBps = score->tempomap()->tempo(positionTick);
-    BeatsPerSecond endBps = score->tempomap()->tempo(positionTick + durationTicks);
-
-    if (startBps == endBps) {
-        return durationFromTicks(startBps.val, durationTicks);
-    }
-
-    mpe::duration_t result = (durationFromTicks(startBps.val, durationTicks)
-                              + durationFromTicks(endBps.val, durationTicks)) / 2;
-
-    return result;
+    return durationFromStartAndTicks(score, positionTick, durationTicks, 0);
 }

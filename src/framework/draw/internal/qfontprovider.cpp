@@ -26,11 +26,11 @@
 #include <QFontDatabase>
 #include <QFontMetricsF>
 
-#include "engraving/libmscore/mscore.h"
+#include "engraving/dom/mscore.h"
 #include "fontengineft.h"
 
-using namespace mu;
-using namespace mu::draw;
+using namespace muse;
+using namespace muse::draw;
 
 class FontPaintDevice : public QPaintDevice
 {
@@ -139,7 +139,12 @@ RectF QFontProvider::boundingRect(const Font& f, const RectF& r, int flags, cons
 
 RectF QFontProvider::tightBoundingRect(const Font& f, const String& string) const
 {
-    return RectF::fromQRectF(QFontMetricsF(f.toQFont(), &device).tightBoundingRect(string));
+    auto boundingRect = QFontMetricsF(f.toQFont(), &device).tightBoundingRect(string);
+    if (!boundingRect.isValid()) {
+        // fix for https://github.com/musescore/MuseScore/issues/19503 - Qt can return garbage bounding rectangles that corrupt layout
+        return RectF();
+    }
+    return RectF::fromQRectF(boundingRect);
 }
 
 // Score symbols

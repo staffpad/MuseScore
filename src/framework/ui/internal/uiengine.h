@@ -20,14 +20,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_UI_UIENGINE_H
-#define MU_UI_UIENGINE_H
+#ifndef MUSE_UI_UIENGINE_H
+#define MUSE_UI_UIENGINE_H
 
 #include <QObject>
 #include <memory>
 
 #include "../iuiengine.h"
-#include "../view/uitheme.h"
+#include "../api/themeapi.h"
 #include "../view/qmltooltip.h"
 #include "../view/qmltranslation.h"
 #include "../view/interactiveprovider.h"
@@ -35,16 +35,14 @@
 
 #include "languages/ilanguagesservice.h"
 
-class QQmlEngine;
-
-namespace mu::ui {
+namespace muse::ui {
 class UiEngine : public QObject, public IUiEngine
 {
     Q_OBJECT
 
     INJECT(languages::ILanguagesService, languagesService)
 
-    Q_PROPERTY(UiTheme * theme READ theme NOTIFY themeChanged)
+    Q_PROPERTY(api::ThemeApi * theme READ theme NOTIFY themeChanged)
     Q_PROPERTY(QmlToolTip * tooltip READ tooltip CONSTANT)
 
     Q_PROPERTY(QQuickItem * rootItem READ rootItem WRITE setRootItem NOTIFY rootItemChanged)
@@ -53,12 +51,13 @@ class UiEngine : public QObject, public IUiEngine
     Q_PROPERTY(InteractiveProvider * _interactiveProvider READ interactiveProvider_property CONSTANT)
 
 public:
+    UiEngine();
     ~UiEngine() override;
 
-    static UiEngine* instance();
+    void init();
 
     QmlApi* api() const;
-    UiTheme* theme() const;
+    api::ThemeApi* theme() const;
     QmlToolTip* tooltip() const;
     InteractiveProvider* interactiveProvider_property() const;
     std::shared_ptr<InteractiveProvider> interactiveProvider() const;
@@ -68,13 +67,12 @@ public:
 
     // IUiEngine
     void updateTheme() override;
+    QQmlApplicationEngine* qmlAppEngine() const override;
     QQmlEngine* qmlEngine() const override;
+    void quit() override;
     void clearComponentCache() override;
     void addSourceImportPath(const QString& path) override;
     // ---
-
-    void moveQQmlEngine(QQmlEngine* e);
-    void quit();
 
     QQuickItem* rootItem() const;
 
@@ -82,19 +80,14 @@ public slots:
     void setRootItem(QQuickItem* rootItem);
 
 signals:
-    void themeChanged(UiTheme* theme);
-
+    void themeChanged(api::ThemeApi* theme);
     void rootItemChanged(QQuickItem* rootItem);
 
 private:
-    UiEngine();
 
-    QQmlEngine* engine();
-    void setup(QQmlEngine* engine);
-
-    QQmlEngine* m_engine = nullptr;
+    QQmlApplicationEngine* m_engine = nullptr;
     QStringList m_sourceImportPaths;
-    UiTheme* m_theme = nullptr;
+    api::ThemeApi* m_theme = nullptr;
     QmlTranslation* m_translation = nullptr;
     std::shared_ptr<InteractiveProvider> m_interactiveProvider = nullptr;
     QmlApi* m_api = nullptr;
@@ -103,4 +96,4 @@ private:
 };
 }
 
-#endif // MU_UI_UIENGINE_H
+#endif // MUSE_UI_UIENGINE_H

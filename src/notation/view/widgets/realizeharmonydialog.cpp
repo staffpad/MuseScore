@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,8 +22,8 @@
 
 #include "realizeharmonydialog.h"
 
-#include "libmscore/harmony.h"
-#include "libmscore/staff.h"
+#include "engraving/dom/harmony.h"
+#include "engraving/dom/staff.h"
 
 #include "translation.h"
 
@@ -48,7 +48,7 @@ RealizeHarmonyDialog::RealizeHarmonyDialog(QWidget* parent)
         return;
     }
 
-    std::vector<mu::engraving::EngravingItem*> selectedElements = interaction->selection()->elements();
+    const std::vector<mu::engraving::EngravingItem*>& selectedElements = interaction->selection()->elements();
     QList<mu::engraving::Harmony*> selectedHarmonyList;
 
     for (mu::engraving::EngravingItem* element : selectedElements) {
@@ -60,10 +60,13 @@ RealizeHarmonyDialog::RealizeHarmonyDialog(QWidget* parent)
     setChordList(selectedHarmonyList);
 }
 
+#ifdef MU_QT5_COMPAT
 RealizeHarmonyDialog::RealizeHarmonyDialog(const RealizeHarmonyDialog& dialog)
     : RealizeHarmonyDialog(dialog.parentWidget())
 {
 }
+
+#endif
 
 INotationInteractionPtr RealizeHarmonyDialog::interaction() const
 {
@@ -93,7 +96,7 @@ void RealizeHarmonyDialog::toggleChordTable()
 {
     int visible = chordTable->isVisible();
     chordTable->setVisible(!visible);
-    showButton->setText(!visible ? mu::qtrc("global", "Show less…") : mu::qtrc("global", "Show more…"));
+    showButton->setText(!visible ? muse::qtrc("global", "Show less…") : muse::qtrc("global", "Show more…"));
 }
 
 //---------------------------------------------------------
@@ -129,10 +132,10 @@ void RealizeHarmonyDialog::setChordList(const QList<Harmony*>& hlist)
 
         noteNames = tpc2name(rootTpc, mu::engraving::NoteSpellingType::STANDARD, mu::engraving::NoteCaseType::AUTO);
         mu::engraving::RealizedHarmony::PitchMap map = h->getRealizedHarmony().notes();
-        for (int pitch : mu::keys(map)) {
+        for (int pitch : muse::keys(map)) {
             intervals += QString::number((pitch - mu::engraving::tpc2pitch(rootTpc)) % 128 % 12) + " ";
         }
-        for (int tpc : mu::values(map)) {
+        for (int tpc : muse::values(map)) {
             noteNames += u", " + mu::engraving::tpc2name(tpc, mu::engraving::NoteSpellingType::STANDARD, mu::engraving::NoteCaseType::AUTO);
         }
 

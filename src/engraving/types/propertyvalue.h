@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,20 +22,18 @@
 #ifndef MU_ENGRAVING_PROPERTYVALUE_H
 #define MU_ENGRAVING_PROPERTYVALUE_H
 
-#include <any>
-#include <string>
 #include <memory>
 #include <cassert>
-
-#include "types/string.h"
-#include "types/types.h"
-#include "types/symid.h"
-
-#include "global/logstream.h"
 
 #ifndef NO_QT_SUPPORT
 #include <QVariant>
 #endif
+
+#include "global/types/string.h"
+#include "global/logstream.h"
+
+#include "../types/types.h"
+#include "../types/symid.h"
 
 namespace mu::engraving {
 class Groups;
@@ -78,6 +76,7 @@ enum class P_TYPE {
     ORIENTATION,
     BEAM_MODE,
     ACCIDENTAL_ROLE,
+    TIE_PLACEMENT,
 
     // Sound
     FRACTION,
@@ -202,6 +201,9 @@ public:
 
     PropertyValue(const AccidentalRole& v)
         : m_type(P_TYPE::ACCIDENTAL_ROLE), m_data(make_data<AccidentalRole>(v)) {}
+
+    PropertyValue(TiePlacement v)
+        : m_type(P_TYPE::TIE_PLACEMENT), m_data(make_data<TiePlacement>(v)) {}
 
     // Sound
     PropertyValue(const Fraction& v)
@@ -462,7 +464,7 @@ private:
 };
 }
 
-inline mu::logger::Stream& operator<<(mu::logger::Stream& s, const mu::engraving::PropertyValue&)
+inline muse::logger::Stream& operator<<(muse::logger::Stream& s, const mu::engraving::PropertyValue&)
 {
     s << "property(not implemented log output)";
     return s;

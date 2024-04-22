@@ -20,8 +20,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_DOCK_MAINWINDOWBRIDGE_H
-#define MU_DOCK_MAINWINDOWBRIDGE_H
+#ifndef MUSE_DOCK_MAINWINDOWBRIDGE_H
+#define MUSE_DOCK_MAINWINDOWBRIDGE_H
 
 #include <QObject>
 #include <QWindow>
@@ -31,7 +31,7 @@
 #include "framework/ui/imainwindow.h"
 #include "async/notification.h"
 
-namespace mu::ui {
+namespace muse::ui {
 class MainWindowBridge : public QObject
 {
     Q_OBJECT
@@ -57,6 +57,7 @@ public:
     bool isFullScreen() const;
     async::Notification isFullScreenChanged() const;
     void toggleFullScreen();
+
     QScreen* screen() const;
 
     Q_INVOKABLE void showMinimizedWithSavePreviousState();
@@ -79,8 +80,11 @@ private slots: // Should only be used from QML
     virtual void setFileModified(bool modified);
 
 private:
+    void updateFullScreen();
+
+    bool m_isFullScreen = false;
     async::Notification m_isFullScreenChanged;
 };
 }
 
-#endif // MU_DOCK_MAINWINDOWBRIDGE_H
+#endif // MUSE_DOCK_MAINWINDOWBRIDGE_H

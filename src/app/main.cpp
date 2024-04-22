@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,6 +22,8 @@
 
 #include <QTextCodec>
 
+#include <csignal>
+
 #include "runtime.h"
 #include "log.h"
 
@@ -29,73 +31,111 @@
 
 #include "framework/global/globalmodule.h"
 
-#ifdef MUE_BUILD_ACCESSIBILITY_MODULE
+#include "muse_framework_config.h"
+
+#ifdef MUSE_MODULE_ACCESSIBILITY
 #include "framework/accessibility/accessibilitymodule.h"
 #else
-#include "stubs/framework/accessibility/accessibilitystubmodule.h"
+#include "framework/stubs/accessibility/accessibilitystubmodule.h"
 #endif
 
 #include "framework/actions/actionsmodule.h"
 
-#ifdef MUE_BUILD_AUDIO_MODULE
+#ifdef MUSE_MODULE_AUDIO
 #include "framework/audio/audiomodule.h"
 #else
-#include "stubs/framework/audio/audiostubmodule.h"
+#include "framework/stubs/audio/audiostubmodule.h"
+#endif
+
+#ifdef MUSE_MODULE_CLOUD
+#include "framework/cloud/cloudmodule.h"
+#else
+#include "framework/stubs/cloud/cloudstubmodule.h"
 #endif
 
 #include "framework/draw/drawmodule.h"
-#include "framework/fonts/fontsmodule.h"
 
-#ifdef MUE_BUILD_MIDI_MODULE
+#ifdef MUSE_MODULE_LANGUAGES
+#include "framework/languages/languagesmodule.h"
+#else
+#include "framework/stubs/languages/languagesstubmodule.h"
+#endif
+
+#ifdef MUSE_MODULE_LEARN
+#include "framework/learn/learnmodule.h"
+#else
+#include "framework/stubs/learn/learnmodule.h"
+#endif
+
+#ifdef MUSE_MODULE_MIDI
 #include "framework/midi/midimodule.h"
 #else
-#include "stubs/framework/midi/midistubmodule.h"
+#include "framework/stubs/midi/midistubmodule.h"
 #endif
 
-#ifdef MUE_BUILD_MIDI_MODULE
+#ifdef MUSE_MODULE_MPE
 #include "framework/mpe/mpemodule.h"
 #else
-#include "stubs/framework/mpe/mpestubmodule.h"
+#include "framework/stubs/mpe/mpestubmodule.h"
 #endif
 
-#ifdef MUE_BUILD_MUSESAMPLER_MODULE
+#ifdef MUSE_MODULE_MULTIINSTANCES
+#include "framework/multiinstances/multiinstancesmodule.h"
+#else
+#include "framework/stubs/multiinstances/multiinstancesstubmodule.h"
+#endif
+
+#ifdef MUSE_MODULE_MUSESAMPLER
 #include "framework/musesampler/musesamplermodule.h"
 #endif
 
-#ifdef MUE_BUILD_NETWORK_MODULE
+#ifdef MUSE_MODULE_NETWORK
 #include "framework/network/networkmodule.h"
 #else
-#include "stubs/framework/network/networkstubmodule.h"
+#include "framework/stubs/network/networkstubmodule.h"
 #endif
 
-#ifdef MUE_BUILD_SHORTCUTS_MODULE
+#ifdef MUSE_MODULE_SHORTCUTS
 #include "framework/shortcuts/shortcutsmodule.h"
 #else
-#include "stubs/framework/shortcuts/shortcutsstubmodule.h"
+#include "framework/stubs/shortcuts/shortcutsstubmodule.h"
 #endif
 
-#ifdef MUE_BUILD_UI_MODULE
+#ifdef MUSE_MODULE_UI
+#include "framework/dockwindow/dockmodule.h"
 #include "framework/ui/uimodule.h"
 #include "framework/uicomponents/uicomponentsmodule.h"
 #endif
 
-#ifdef MUE_BUILD_VST_MODULE
+#ifdef MUSE_MODULE_UPDATE
+#include "update/updatemodule.h"
+#else
+#include "framework/stubs/update/updatestubmodule.h"
+#endif
+
+#ifdef MUSE_MODULE_VST
 #include "framework/vst/vstmodule.h"
 #else
-#include "stubs/framework/vst/vststubmodule.h"
+#include "framework/stubs/vst/vststubmodule.h"
+#endif
+
+#ifdef MUSE_MODULE_WORKSPACE
+#include "framework/workspace/workspacemodule.h"
+#else
+#include "framework/stubs/workspace/workspacestubmodule.h"
 #endif
 
 // Modules
 #include "appshell/appshellmodule.h"
 
-#ifdef MUE_BUILD_AUTOBOT_MODULE
+#ifdef MUSE_MODULE_AUTOBOT
 #include "autobot/autobotmodule.h"
 #endif
 
-#ifdef MUE_BUILD_CLOUD_MODULE
-#include "cloud/cloudmodule.h"
+#ifdef MUE_BUILD_BRAILLE_MODULE
+#include "braille/braillemodule.h"
 #else
-#include "stubs/cloud/cloudstubmodule.h"
+#include "stubs/braille/braillestubmodule.h"
 #endif
 
 #include "commonscene/commonscenemodule.h"
@@ -111,7 +151,6 @@
 #ifdef MUE_BUILD_IMPORTEXPORT_MODULE
 #include "importexport/musicxml/musicxmlmodule.h"
 #include "importexport/bb/bbmodule.h"
-#include "importexport/braille/braillemodule.h"
 #include "importexport/bww/bwwmodule.h"
 #include "importexport/capella/capellamodule.h"
 #include "importexport/guitarpro/guitarpromodule.h"
@@ -120,6 +159,7 @@
 #include "importexport/ove/ovemodule.h"
 #include "importexport/audioexport/audioexportmodule.h"
 #include "importexport/imagesexport/imagesexportmodule.h"
+#include "importexport/mei/meimodule.h"
 #ifdef MUE_BUILD_VIDEOEXPORT_MODULE
 #include "importexport/videoexport/videoexportmodule.h"
 #endif
@@ -135,24 +175,6 @@
 #include "instrumentsscene/instrumentsscenemodule.h"
 #else
 #include "stubs/instrumentsscene/instrumentsscenestubmodule.h"
-#endif
-
-#ifdef MUE_BUILD_LANGUAGES_MODULE
-#include "languages/languagesmodule.h"
-#else
-#include "stubs/languages/languagesstubmodule.h"
-#endif
-
-#ifdef MUE_BUILD_LEARN_MODULE
-#include "learn/learnmodule.h"
-#else
-#include "stubs/learn/learnmodule.h"
-#endif
-
-#ifdef MUE_BUILD_MULTIINSTANCES_MODULE
-#include "multiinstances/multiinstancesmodule.h"
-#else
-#include "stubs/multiinstances/multiinstancesstubmodule.h"
 #endif
 
 #ifdef MUE_BUILD_NOTATION_MODULE
@@ -173,10 +195,8 @@
 #include "stubs/playback/playbackstubmodule.h"
 #endif
 
-#ifdef MUE_BUILD_PLUGINS_MODULE
-#include "plugins/pluginsmodule.h"
-#else
-#include "stubs/plugins/pluginsstubmodule.h"
+#ifdef MUSE_MODULE_EXTENSIONS
+#include "extensions/extensionsmodule.h"
 #endif
 
 #include "print/printmodule.h"
@@ -187,16 +207,10 @@
 #include "stubs/project/projectstubmodule.h"
 #endif
 
-#ifdef MUE_BUILD_UPDATE_MODULE
-#include "update/updatemodule.h"
+#ifdef MUSE_MODULE_WORKSPACE
+#include "workspacescene/workspacescenemodule.h"
 #else
-#include "stubs/update/updatestubmodule.h"
-#endif
-
-#ifdef MUE_BUILD_WORKSPACE_MODULE
-#include "workspace/workspacemodule.h"
-#else
-#include "stubs/workspace/workspacestubmodule.h"
+#include "stubs/workspacescene/workspacescenestubmodule.h"
 #endif
 
 #ifdef Q_OS_WASM
@@ -210,10 +224,35 @@
 #include <shellapi.h>
 #endif
 
-#include <iostream>
+#ifndef MUSE_MODULE_DIAGNOSTICS_CRASHPAD_CLIENT
+static void crashCallback(int signum)
+{
+    const char* signame = "UNKNOWN SIGNAME";
+    const char* sigdescript = "";
+    switch (signum) {
+    case SIGILL:
+        signame = "SIGILL";
+        sigdescript = "Illegal Instruction";
+        break;
+    case SIGSEGV:
+        signame = "SIGSEGV";
+        sigdescript =  "Invalid memory reference";
+        break;
+    }
+    LOGE() << "Oops! Application crashed with signal: [" << signum << "] " << signame << "-" << sigdescript;
+    exit(EXIT_FAILURE);
+}
+
+#endif
 
 int main(int argc, char** argv)
 {
+#ifndef MUSE_MODULE_DIAGNOSTICS_CRASHPAD_CLIENT
+    signal(SIGSEGV, crashCallback);
+    signal(SIGILL, crashCallback);
+    signal(SIGFPE, crashCallback);
+#endif
+
     // Force the 8-bit text encoding to UTF-8. This is the default encoding on all supported platforms except for MSVC under Windows, which
     // would otherwise default to the local ANSI code page and cause corruption of any non-ANSI Unicode characters in command-line arguments.
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
@@ -222,37 +261,39 @@ int main(int argc, char** argv)
 
     //! NOTE `diagnostics` must be first, because it installs the crash handler.
     //! For other modules, the order is (an should be) unimportant.
-    app.addModule(new mu::diagnostics::DiagnosticsModule());
+    app.addModule(new muse::diagnostics::DiagnosticsModule());
 
     // framework
-    app.addModule(new mu::accessibility::AccessibilityModule());
-    app.addModule(new mu::actions::ActionsModule());
-    app.addModule(new mu::audio::AudioModule());
-    app.addModule(new mu::draw::DrawModule());
-    app.addModule(new mu::fonts::FontsModule());
-    app.addModule(new mu::midi::MidiModule());
-    app.addModule(new mu::mpe::MpeModule());
-#ifdef MUE_BUILD_MUSESAMPLER_MODULE
-    app.addModule(new mu::musesampler::MuseSamplerModule());
+    app.addModule(new muse::accessibility::AccessibilityModule());
+    app.addModule(new muse::actions::ActionsModule());
+    app.addModule(new muse::audio::AudioModule());
+    app.addModule(new muse::draw::DrawModule());
+    app.addModule(new muse::midi::MidiModule());
+    app.addModule(new muse::mpe::MpeModule());
+#ifdef MUSE_MODULE_MUSESAMPLER
+    app.addModule(new muse::musesampler::MuseSamplerModule());
 #endif
-    app.addModule(new mu::network::NetworkModule());
-    app.addModule(new mu::shortcuts::ShortcutsModule());
-#ifdef MUE_BUILD_UI_MODULE
-    app.addModule(new mu::ui::UiModule());
-    app.addModule(new mu::uicomponents::UiComponentsModule());
+    app.addModule(new muse::network::NetworkModule());
+    app.addModule(new muse::shortcuts::ShortcutsModule());
+#ifdef MUSE_MODULE_UI
+    app.addModule(new muse::ui::UiModule());
+    app.addModule(new muse::uicomponents::UiComponentsModule());
+    app.addModule(new muse::dock::DockModule());
 #endif
-    app.addModule(new mu::vst::VSTModule());
+    app.addModule(new muse::vst::VSTModule());
 
     // modules
 #ifdef MUE_BUILD_APPSHELL_MODULE
     app.addModule(new mu::appshell::AppShellModule());
 #endif
 
-#ifdef MUE_BUILD_AUTOBOT_MODULE
-    app.addModule(new mu::autobot::AutobotModule());
+#ifdef MUSE_MODULE_AUTOBOT
+    app.addModule(new muse::autobot::AutobotModule());
 #endif
 
-    app.addModule(new mu::cloud::CloudModule());
+    app.addModule(new mu::braille::BrailleModule());
+
+    app.addModule(new muse::cloud::CloudModule());
     app.addModule(new mu::commonscene::CommonSceneModule());
     app.addModule(new mu::context::ContextModule());
 
@@ -264,7 +305,6 @@ int main(int argc, char** argv)
 
 #ifdef MUE_BUILD_IMPORTEXPORT_MODULE
     app.addModule(new mu::iex::bb::BBModule());
-    app.addModule(new mu::iex::braille::BrailleModule());
     app.addModule(new mu::iex::bww::BwwModule());
     app.addModule(new mu::iex::musicxml::MusicXmlModule());
     app.addModule(new mu::iex::capella::CapellaModule());
@@ -274,6 +314,7 @@ int main(int argc, char** argv)
     app.addModule(new mu::iex::ove::OveModule());
     app.addModule(new mu::iex::audioexport::AudioExportModule());
     app.addModule(new mu::iex::imagesexport::ImagesExportModule());
+    app.addModule(new mu::iex::mei::MeiModule());
 #ifdef MUE_BUILD_VIDEOEXPORT_MODULE
     app.addModule(new mu::iex::videoexport::VideoExportModule());
 #endif
@@ -285,17 +326,20 @@ int main(int argc, char** argv)
 
     app.addModule(new mu::inspector::InspectorModule());
     app.addModule(new mu::instrumentsscene::InstrumentsSceneModule());
-    app.addModule(new mu::languages::LanguagesModule());
-    app.addModule(new mu::learn::LearnModule());
-    app.addModule(new mu::mi::MultiInstancesModule());
+    app.addModule(new muse::languages::LanguagesModule());
+    app.addModule(new muse::learn::LearnModule());
+    app.addModule(new muse::mi::MultiInstancesModule());
     app.addModule(new mu::notation::NotationModule());
     app.addModule(new mu::palette::PaletteModule());
     app.addModule(new mu::playback::PlaybackModule());
-    app.addModule(new mu::plugins::PluginsModule());
+#ifdef MUSE_MODULE_EXTENSIONS
+    app.addModule(new muse::extensions::ExtensionsModule());
+#endif
     app.addModule(new mu::print::PrintModule());
     app.addModule(new mu::project::ProjectModule());
-    app.addModule(new mu::update::UpdateModule());
-    app.addModule(new mu::workspace::WorkspaceModule());
+    app.addModule(new muse::update::UpdateModule());
+    app.addModule(new muse::workspace::WorkspaceModule());
+    app.addModule(new mu::workspacescene::WorkspaceSceneModule());
 
 #ifdef Q_OS_WASM
     app.addModule(new mu::wasmtest::WasmTestModule());

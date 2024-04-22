@@ -19,40 +19,43 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_AUDIO_SOUNDFONTREPOSITORY_H
-#define MU_AUDIO_SOUNDFONTREPOSITORY_H
+#ifndef MUSE_AUDIO_SOUNDFONTREPOSITORY_H
+#define MUSE_AUDIO_SOUNDFONTREPOSITORY_H
 
-#include "audio/isoundfontrepository.h"
+#include "global/modularity/ioc.h"
+#include "global/iinteractive.h"
+#include "global/io/ifilesystem.h"
+#include "global/async/asyncable.h"
 
-#include "modularity/ioc.h"
-#include "iinteractive.h"
-#include "audio/iaudioconfiguration.h"
-#include "io/ifilesystem.h"
-#include "async/asyncable.h"
+#include "isoundfontrepository.h"
+#include "iaudioconfiguration.h"
 
-namespace mu::audio {
+namespace muse::audio {
 class SoundFontRepository : public ISoundFontRepository, public async::Asyncable
 {
-    INJECT(framework::IInteractive, interactive)
-    INJECT(IAudioConfiguration, configuration)
-    INJECT(io::IFileSystem, fileSystem)
+    Inject<IInteractive> interactive;
+    Inject<IAudioConfiguration> configuration;
+    Inject<io::IFileSystem> fileSystem;
 
 public:
     void init();
 
-    synth::SoundFontPaths soundFontPaths() const override;
-    async::Notification soundFontPathsChanged() const override;
+    const synth::SoundFontPaths& soundFontPaths() const override;
+    const synth::SoundFontsMap& soundFonts() const override;
+    async::Notification soundFontsChanged() const override;
 
-    mu::Ret addSoundFont(const synth::SoundFontPath& path) override;
+    Ret addSoundFont(const synth::SoundFontPath& path) override;
 
 private:
-    void loadSoundFontPaths();
+    void loadSoundFonts();
+    void loadSoundFont(const synth::SoundFontPath& path, const synth::SoundFontsMap& oldSoundFonts = {});
 
-    mu::RetVal<synth::SoundFontPath> resolveInstallationPath(const synth::SoundFontPath& path) const;
+    RetVal<synth::SoundFontPath> resolveInstallationPath(const synth::SoundFontPath& path) const;
 
     synth::SoundFontPaths m_soundFontPaths;
-    mu::async::Notification m_soundFontPathsChanged;
+    synth::SoundFontsMap m_soundFonts;
+    async::Notification m_soundFontsChanged;
 };
 }
 
-#endif // MU_AUDIO_SOUNDFONTREPOSITORY_H
+#endif // MUSE_AUDIO_SOUNDFONTREPOSITORY_H

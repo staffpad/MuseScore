@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -26,7 +26,7 @@
 #include <QDialog>
 
 #include "ui_measureproperties.h"
-#include "libmscore/sig.h"
+#include "engraving/dom/sig.h"
 #include "modularity/ioc.h"
 #include "context/iglobalcontext.h"
 #include "notation/inotation.h"
@@ -44,7 +44,9 @@ class MeasurePropertiesDialog : public QDialog, private Ui::MeasurePropertiesBas
 
 public:
     MeasurePropertiesDialog(QWidget* parent = nullptr);
+#ifdef MU_QT5_COMPAT
     MeasurePropertiesDialog(const MeasurePropertiesDialog& dialog);
+#endif
 
 private slots:
     void bboxClicked(QAbstractButton* button);
@@ -72,6 +74,4 @@ private:
     std::shared_ptr<INotation> m_notation;
 };
 }
-
-Q_DECLARE_METATYPE(mu::notation::MeasurePropertiesDialog)
 #endif

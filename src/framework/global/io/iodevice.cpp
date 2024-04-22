@@ -29,8 +29,8 @@
 
 #include "log.h"
 
-using namespace mu;
-using namespace mu::io;
+using namespace muse;
+using namespace muse::io;
 
 bool IODevice::open(IODevice::OpenMode mode)
 {
@@ -75,6 +75,12 @@ bool IODevice::isReadable() const
 bool IODevice::isOpenModeWriteable() const
 {
     return m_mode == OpenMode::WriteOnly || m_mode == OpenMode::ReadWrite || m_mode == OpenMode::Append;
+}
+
+void IODevice::setError(int error, const std::string& errorString)
+{
+    m_error = error;
+    m_errorString = errorString;
 }
 
 bool IODevice::isWriteable() const
@@ -222,3 +228,32 @@ size_t IODevice::write(const QByteArray& ba)
 }
 
 #endif
+
+std::string IODevice::meta(const std::string& key) const
+{
+    auto it = m_meta.find(key);
+    if (it != m_meta.end()) {
+        return it->second;
+    }
+    return std::string();
+}
+
+void IODevice::setMeta(const std::string& key, const std::string& val)
+{
+    m_meta[key] = val;
+}
+
+bool IODevice::hasError() const
+{
+    return m_error != 0;
+}
+
+int IODevice::error() const
+{
+    return m_error;
+}
+
+std::string IODevice::errorString() const
+{
+    return m_errorString;
+}

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,8 +25,8 @@
 #include "importmidi_clef.h"
 #include "importmidi_operations.h"
 #include "importmidi_quant.h"
-#include "libmscore/mscore.h"
-#include "libmscore/sig.h"
+#include "engraving/dom/mscore.h"
+#include "engraving/dom/sig.h"
 
 #include <set>
 
@@ -86,7 +86,7 @@ findFirstChordInRange(const std::multimap<ReducedFraction, MidiChord>& chords,
 
 const ReducedFraction& minAllowedDuration()
 {
-    const static auto minDuration = ReducedFraction::fromTicks(engraving::Constants::division) / 32;
+    const static auto minDuration = ReducedFraction::fromTicks(engraving::Constants::DIVISION) / 32;
     return minDuration;
 }
 
@@ -414,7 +414,7 @@ void collectChords(
                 }
 
                 if (!hasNotesWithEqualPitch(chordAddTo->second, it->second)) {
-                    for (const auto& note: qAsConst(it->second.notes)) {
+                    for (const auto& note: std::as_const(it->second.notes)) {
                         chordAddTo->second.notes.push_back(note);
                     }
                     if (maxNoteOffTime > maxOffTime) {

@@ -31,9 +31,8 @@
 #include "containers.h"
 #include "log.h"
 
-using namespace mu;
-using namespace mu::ui;
-using namespace mu::framework;
+using namespace muse;
+using namespace muse::ui;
 
 class WidgetDialogEventFilter : public QObject
 {
@@ -106,7 +105,8 @@ RetVal<Val> InteractiveProvider::question(const std::string& title, const IInter
     return openStandardDialog("QUESTION", title, text, {}, buttons, defBtn, options);
 }
 
-RetVal<Val> InteractiveProvider::info(const std::string& title, const IInteractive::Text& text, const IInteractive::ButtonDatas& buttons,
+RetVal<Val> InteractiveProvider::info(const std::string& title, const IInteractive::Text& text,
+                                      const IInteractive::ButtonDatas& buttons,
                                       int defBtn,
                                       const IInteractive::Options& options)
 {
@@ -122,7 +122,7 @@ RetVal<Val> InteractiveProvider::warning(const std::string& title, const IIntera
     return openStandardDialog("WARNING", title, text, detailedText, buttons, defBtn, options);
 }
 
-RetVal<Val> InteractiveProvider::error(const std::string& title, const framework::IInteractive::Text& text,
+RetVal<Val> InteractiveProvider::error(const std::string& title, const IInteractive::Text& text,
                                        const std::string& detailedText,
                                        const IInteractive::ButtonDatas& buttons,
                                        int defBtn,
@@ -131,7 +131,7 @@ RetVal<Val> InteractiveProvider::error(const std::string& title, const framework
     return openStandardDialog("ERROR", title, text, detailedText, buttons, defBtn, options);
 }
 
-Ret InteractiveProvider::showProgress(const std::string& title, framework::Progress* progress)
+Ret InteractiveProvider::showProgress(const std::string& title, Progress* progress)
 {
     IF_ASSERT_FAILED(progress) {
         return false;
@@ -162,7 +162,7 @@ Ret InteractiveProvider::showProgress(const std::string& title, framework::Progr
         }
     }
 
-    return make_ok();
+    return muse::make_ok();
 }
 
 RetVal<io::path_t> InteractiveProvider::selectOpeningFile(const std::string& title, const io::path_t& dir,
@@ -186,9 +186,14 @@ RetVal<io::path_t> InteractiveProvider::selectDirectory(const std::string& title
 RetVal<Val> InteractiveProvider::open(const UriQuery& q)
 {
     m_openingUriQuery = q;
+    RetVal<OpenData> openedRet;
+
+    //! NOTE Currently, extensions do not replace the default functionality
+    //! But in the future, we may allow extensions to replace the current functionality
+    //! (first check for the presence of an extension with this uri,
+    //! and if it is found, then open it)
 
     ContainerMeta openMeta = uriRegister()->meta(q.uri());
-    RetVal<OpenData> openedRet;
     switch (openMeta.type) {
     case ContainerType::QWidgetDialog:
         openedRet = openWidgetDialog(q);
@@ -197,8 +202,15 @@ RetVal<Val> InteractiveProvider::open(const UriQuery& q)
     case ContainerType::QmlDialog:
         openedRet = openQml(q);
         break;
-    case ContainerType::Undefined:
-        openedRet.ret = make_ret(Ret::Code::UnknownError);
+    case ContainerType::Undefined: {
+        //! NOTE Not found default, try extension
+        extensions::Manifest ext = extensionsProvider()->manifest(q.uri());
+        if (ext.isValid()) {
+            openedRet = openExtensionDialog(q);
+        } else {
+            openedRet.ret = make_ret(Ret::Code::UnknownError);
+        }
+    }
     }
 
     if (!openedRet.ret) {
@@ -317,6 +329,28 @@ void InteractiveProvider::closeObject(const ObjectInfo& obj)
     }
 }
 
+void InteractiveProvider::fillExtData(QmlLaunchData* data, const UriQuery& q) const
+{
+    static Uri VIEWER_URI = Uri("muse://extensions/viewer");
+
+    ContainerMeta meta = uriRegister()->meta(VIEWER_URI);
+    data->setValue("path", meta.qmlPath);
+    data->setValue("type", meta.type);
+
+    QVariantMap params;
+    params["uri"] = QString::fromStdString(q.toString());
+
+    //! NOTE Extension dialogs open as non-modal by default
+    //! The modal parameter must be present in the uri
+    //! But here, just in case, `true` is indicated by default,
+    //! since this value is set in the base class of the dialog by default
+    params["modal"] = q.param("modal", Val(true)).toBool();
+
+    data->setValue("uri", QString::fromStdString(VIEWER_URI.toString()));
+    data->setValue("sync", params.value("sync", false));
+    data->setValue("params", params);
+}
+
 void InteractiveProvider::fillData(QmlLaunchData* data, const UriQuery& q) const
 {
     ContainerMeta meta = uriRegister()->meta(q.uri());
@@ -374,19 +408,24 @@ void InteractiveProvider::fillStandardDialogData(QmlLaunchData* data, const QStr
     params["textFormat"] = format(text.format);
     params["defaultButtonId"] = defBtn;
 
-    QVariantList buttonList;
-    for (const IInteractive::ButtonData& buttonData: buttons) {
-        QVariantMap buttonObj;
-        buttonObj["buttonId"] = QVariant::fromValue(buttonData.btn);
-        buttonObj["title"] = QVariant::fromValue(QString::fromStdString(buttonData.text));
-        buttonObj["accent"] = QVariant::fromValue(buttonData.accent);
-
-        buttonList << buttonObj;
+    QVariantList buttonsList;
+    QVariantList customButtonsList;
+    if (buttons.empty()) {
+        buttonsList << static_cast<int>(IInteractive::Button::Ok);
+    } else {
+        for (const IInteractive::ButtonData& buttonData: buttons) {
+            QVariantMap customButton;
+            customButton["text"] = QString::fromStdString(buttonData.text);
+            customButton["buttonId"] = buttonData.btn;
+            customButton["role"] = static_cast<int>(buttonData.role);
+            customButton["isAccent"] = buttonData.accent;
+            customButton["isLeftSide"] = buttonData.leftSide;
+            customButtonsList << QVariant(customButton);
+        }
     }
 
-    if (!buttonList.empty()) {
-        params["buttons"] = buttonList;
-    }
+    params["buttons"] = buttonsList;
+    params["customButtons"] = customButtonsList;
 
     if (options.testFlag(IInteractive::Option::WithIcon)) {
         params["withIcon"] = true;
@@ -547,6 +586,23 @@ RetVal<Val> InteractiveProvider::toRetVal(const QVariant& jsrv) const
     return rv;
 }
 
+RetVal<InteractiveProvider::OpenData> InteractiveProvider::openExtensionDialog(const UriQuery& q)
+{
+    notifyAboutCurrentUriWillBeChanged();
+
+    QmlLaunchData data;
+    fillExtData(&data, q);
+
+    emit fireOpen(&data);
+
+    RetVal<OpenData> result;
+    result.ret = toRet(data.value("ret"));
+    result.val.sync = data.value("sync").toBool();
+    result.val.objectId = data.value("objectId").toString();
+
+    return result;
+}
+
 RetVal<InteractiveProvider::OpenData> InteractiveProvider::openWidgetDialog(const UriQuery& q)
 {
     notifyAboutCurrentUriWillBeChanged();
@@ -559,8 +615,8 @@ RetVal<InteractiveProvider::OpenData> InteractiveProvider::openWidgetDialog(cons
     static int count(0);
     QString objectId = QString("%1_%2").arg(widgetMetaTypeId).arg(++count);
 
-    void* widgetClassPtr = QMetaType::create(widgetMetaTypeId);
-    QDialog* dialog = static_cast<QDialog*>(widgetClassPtr);
+    QMetaType metaType = QMetaType(widgetMetaTypeId);
+    QDialog* dialog = static_cast<QDialog*>(metaType.create());
 
     if (!dialog) {
         result.ret = make_ret(Ret::Code::UnknownError);
@@ -755,7 +811,7 @@ void InteractiveProvider::onClose(const QString& objectId, const QVariant& jsrv)
     if (found) {
         notifyAboutCurrentUriChanged();
     } else {
-        mu::remove_if(m_floatingObjects, [objectId](const ObjectInfo& obj) {
+        muse::remove_if(m_floatingObjects, [objectId](const ObjectInfo& obj) {
             return obj.objectId == objectId;
         });
     }

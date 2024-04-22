@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2022 MuseScore BVBA and others
+ * Copyright (C) 2022 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,13 +23,14 @@
 #include <gtest/gtest.h>
 
 #include "engraving/compat/scoreaccess.h"
-#include "libmscore/factory.h"
-#include "libmscore/harppedaldiagram.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/measure.h"
-#include "libmscore/part.h"
-#include "libmscore/segment.h"
-#include "libmscore/undo.h"
+#include "dom/factory.h"
+#include "dom/harppedaldiagram.h"
+#include "dom/masterscore.h"
+#include "dom/measure.h"
+#include "dom/part.h"
+#include "dom/segment.h"
+#include "dom/undo.h"
+#include "dom/pitchspelling.h"
 
 #include "utils/scorerw.h"
 #include "utils/scorecomp.h"
@@ -68,15 +69,16 @@ TEST_F(Engraving_HarpDiagramTests, harpdiagram)
     diagram->setPedal(HarpStringType::C, PedalPosition::SHARP);
 
     d = toHarpPedalDiagram((ScoreRW::writeReadElement(diagram)));
-    EXPECT_FALSE(d->isPitchPlayable(60));
-    EXPECT_TRUE(d->isPitchPlayable(61));
+    EXPECT_FALSE(d->isTpcPlayable(Tpc::TPC_C));
+    EXPECT_TRUE(d->isTpcPlayable(Tpc::TPC_C_S));
+    EXPECT_FALSE(d->isTpcPlayable(Tpc::TPC_D_B));
     delete d;
 }
 
 TEST_F(Engraving_HarpDiagramTests, textdiagrams)
 {
     const String initFile(HARPDIAGRAM_DATA_DIR + u"harpdiagram-blank.mscx");
-    const String ref(HARPDIAGRAM_DATA_DIR + u"textdiagram01.mscx");
+    const String ref(HARPDIAGRAM_DATA_DIR + u"textdiagram01-ref.mscx");
     const String write(u"textdiagram-test01.mscx");
 
     MasterScore* score = ScoreRW::readScore(initFile);

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,9 +23,10 @@ import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.NotationScene 1.0
+import MuseScore.Braille 1.0
 
 import "internal"
 
@@ -38,11 +39,12 @@ FocusScope {
     property alias paintView: notationView
 
     property alias isNavigatorVisible: notationNavigator.visible
+    property alias isBraillePanelVisible: brailleViewLoader.active
     property alias isMainView: notationView.isMainView
 
     property alias defaultNavigationControl: fakeNavCtrl
 
-    property NavigationPanel navigationPanel: notationView.navigationPanel // first panel
+    property NavigationPanel navigationPanel: tabPanel.navigationPanel // first panel
 
     NavigationSection {
         id: navSec
@@ -73,7 +75,7 @@ FocusScope {
             Layout.fillWidth: true
 
             navigationPanel.section: navSec
-            navigationPanel.order: notationView.navigationPanel.order + 1
+            navigationPanel.order: 1
         }
 
         SeparatorLine { visible: tabPanel.visible }
@@ -99,7 +101,7 @@ FocusScope {
                         section: navSec
                         enabled: notationView.enabled && notationView.visible
                         direction: NavigationPanel.Both
-                        order: 1
+                        order: tabPanel.navigationPanel.order + 1
                     }
 
                     NavigationControl {
@@ -107,7 +109,7 @@ FocusScope {
                         name: "Score"
                         enabled: notationView.enabled && notationView.visible
 
-                        panel: navigationPanel
+                        panel: notationView.navigationPanel
                         order: 1
 
                         onActiveChanged: {
@@ -141,12 +143,12 @@ FocusScope {
                         contextMenuLoader.close()
                     }
 
-                    onShowElementPopupRequested: function (popupType, viewPos, elemSize) {
-                        popUpLoader.show(popupType, viewPos, elemSize)
+                    onShowElementPopupRequested: function (popupType, elementRect) {
+                        Qt.callLater(popUpLoader.show, popupType, elementRect)
                     }
 
                     onHideElementPopupRequested: {
-                        popUpLoader.close()
+                        Qt.callLater(popUpLoader.close)
                     }
 
                     onViewportChanged: {
@@ -159,16 +161,19 @@ FocusScope {
                         onHandleMenuItem: function(itemId) {
                             contextMenuModel.handleMenuItem(itemId)
                         }
+
+                        onOpened: paintView.onContextMenuIsOpenChanged(true)
+                        onClosed: paintView.onContextMenuIsOpenChanged(false)
                     }
 
                     ElementPopupLoader {
                         id: popUpLoader
 
-                        navigationSection: navSec
-                        navigationOrderStart: 2
+                        notationViewNavigationSection: navSec
+                        navigationOrderStart: notationView.navigationPanel.order + 1
 
-                        onOpened: paintView.setIsPopupOpen(true)
-                        onClosed: paintView.setIsPopupOpen(false)
+                        onOpened: paintView.onElementPopupIsOpenChanged(true)
+                        onClosed: paintView.onElementPopupIsOpenChanged(false)
                     }
                 }
             }
@@ -190,6 +195,31 @@ FocusScope {
                 function setCursorRect(viewport) {
                     if (notationNavigator.item) {
                         notationNavigator.item.setCursorRect(viewport)
+                    }
+                }
+            }
+
+            Loader {
+                id: brailleViewLoader
+
+                readonly property int navigationOrder: popUpLoader.navigationOrderEnd + 1
+
+                active: false
+                visible: active
+
+                SplitView.fillWidth: true
+                SplitView.preferredHeight: 50
+                SplitView.minimumHeight: 30
+
+                sourceComponent: BrailleView {
+                    navigationPanel.section: navSec
+                    navigationPanel.order: brailleViewLoader.navigationOrder
+
+                    navigationPanel.onActiveChanged: {
+                        if (active) {
+                            notationView.navigationPanel.setActive(false);
+                            fakeNavCtrl.setActive(false);
+                        }
                     }
                 }
             }
@@ -248,7 +278,7 @@ FocusScope {
             Layout.fillWidth: true
 
             navigationPanel.section: navSec
-            navigationPanel.order: tabPanel.navigationPanel.order + 1
+            navigationOrderStart: brailleViewLoader.navigationOrder + 1
 
             onClosed: {
                 fakeNavCtrl.requestActive()

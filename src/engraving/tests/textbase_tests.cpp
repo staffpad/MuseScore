@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,14 +25,12 @@
 
 #include <gtest/gtest.h>
 
-#include "layout/v0/tlayout.h"
-
-#include "libmscore/chordrest.h"
-#include "libmscore/dynamic.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/segment.h"
-#include "libmscore/stafftext.h"
-#include "libmscore/textedit.h"
+#include "dom/chordrest.h"
+#include "dom/dynamic.h"
+#include "dom/masterscore.h"
+#include "dom/segment.h"
+#include "dom/stafftext.h"
+#include "dom/textedit.h"
 
 #include "utils/scorerw.h"
 #include "utils/scorecomp.h"
@@ -83,9 +81,10 @@ TEST_F(Engraving_TextBaseTests, dynamicAddTextAfter)
     MasterScore* score = ScoreRW::readScore(u"test.mscx");
     Dynamic* dynamic = addDynamic(score);
     EditData ed;
+    ed.s = String(u" ma non troppo");
     dynamic->startEdit(ed);
     dynamic->cursor()->moveCursorToEnd();
-    score->undo(new InsertText(dynamic->cursor(), String(u" ma non troppo")), &ed);
+    dynamic->edit(ed);
     dynamic->endEdit(ed);
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"dynamicAddTextAfter.mscx", TEXTBASE_DATA_DIR + u"dynamicAddTextAfter-ref.mscx"));
 }
@@ -128,7 +127,7 @@ TEST_F(Engraving_TextBaseTests, getFontStyleProperty)
     staffText->cursor()->movePosition(TextCursor::MoveOperation::End, TextCursor::MoveMode::KeepAnchor);
     EXPECT_EQ(staffText->getProperty(Pid::FONT_STYLE), PropertyValue::fromValue(0));
     staffText->cursor()->movePosition(TextCursor::MoveOperation::WordLeft, TextCursor::MoveMode::MoveAnchor);
-    EXPECT_EQ(staffText->getProperty(Pid::FONT_STYLE), PropertyValue::fromValue(static_cast<int>(FontStyle::Bold)));
+    EXPECT_EQ(staffText->getProperty(Pid::FONT_STYLE), PropertyValue::fromValue(static_cast<int>(FontStyle::Normal)));
     staffText->cursor()->movePosition(TextCursor::MoveOperation::NextWord, TextCursor::MoveMode::KeepAnchor);
     EXPECT_EQ(staffText->getProperty(Pid::FONT_STYLE), PropertyValue::fromValue(static_cast<int>(FontStyle::Bold)));
     staffText->endEdit(ed);
@@ -140,8 +139,7 @@ TEST_F(Engraving_TextBaseTests, undoChangeFontStyleProperty)
     MasterScore* score = ScoreRW::readScore(u"test.mscx");
     StaffText* staffText = addStaffText(score);
     staffText->setXmlText(u"normal <b>bold</b> <u>underline</u> <i>italic</i>");
-    layout::v0::LayoutContext lctx(score);
-    layout::v0::TLayout::layout(staffText, lctx);
+    EngravingItem::renderer()->layoutItem(staffText);
     score->startCmd();
     staffText->undoChangeProperty(Pid::FONT_STYLE, PropertyValue::fromValue(0), PropertyFlags::UNSTYLED);
     score->endCmd();
@@ -179,8 +177,7 @@ TEST_F(Engraving_TextBaseTests, musicalSymbolsNotBold)
     MasterScore* score = ScoreRW::readScore(u"test.mscx");
     StaffText* staffText = addStaffText(score);
     staffText->setXmlText(u"<b>Allegro <sym>metNoteQuarterUp</sym> = 120</b>");
-    layout::v0::LayoutContext lctx(score);
-    layout::v0::TLayout::layout(staffText, lctx);
+    EngravingItem::renderer()->layoutItem(staffText);
     auto fragmentList = staffText->fragmentList();
     EXPECT_TRUE(fragmentList.front().font(staffText).bold());
     EXPECT_TRUE(!std::next(fragmentList.begin())->font(staffText).bold());
@@ -191,8 +188,7 @@ TEST_F(Engraving_TextBaseTests, musicalSymbolsNotItalic)
     MasterScore* score = ScoreRW::readScore(u"test.mscx");
     Dynamic* dynamic = addDynamic(score);
     dynamic->setXmlText(u"molto <sym>dynamicForte</sym>");
-    layout::v0::LayoutContext lctx(score);
-    layout::v0::TLayout::layout(dynamic, lctx);
+    EngravingItem::renderer()->layoutItem(dynamic);
     auto fragmentList = dynamic->fragmentList();
     EXPECT_TRUE(fragmentList.front().font(dynamic).italic());
     EXPECT_TRUE(!std::next(fragmentList.begin())->font(dynamic).italic());

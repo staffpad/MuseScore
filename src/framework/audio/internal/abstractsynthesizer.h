@@ -20,25 +20,24 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_AUDIO_ISYNTHESIZER_H
-#define MU_AUDIO_ISYNTHESIZER_H
+#ifndef MUSE_AUDIO_ISYNTHESIZER_H
+#define MUSE_AUDIO_ISYNTHESIZER_H
 
-#include "async/channel.h"
-#include "async/asyncable.h"
+#include "global/async/channel.h"
+#include "global/async/asyncable.h"
+#include "global/modularity/ioc.h"
 #include "mpe/events.h"
-#include "modularity/ioc.h"
 
-#include "../synthtypes.h"
 #include "../audiotypes.h"
 #include "../isynthesizer.h"
 #include "../iaudioconfiguration.h"
 
-#include "abstracteventsequencer.h"
-
-namespace mu::audio::synth {
+namespace muse::audio::synth {
 class AbstractSynthesizer : public ISynthesizer, public async::Asyncable
 {
-    INJECT_STATIC(IAudioConfiguration, config)
+public:
+    static inline Inject<IAudioConfiguration> config;
+
 public:
     AbstractSynthesizer(const audio::AudioInputParams& params);
     virtual ~AbstractSynthesizer() = default;
@@ -69,4 +68,4 @@ protected:
 };
 }
 
-#endif // MU_AUDIO_ISYNTHESIZER_H
+#endif // MUSE_AUDIO_ISYNTHESIZER_H

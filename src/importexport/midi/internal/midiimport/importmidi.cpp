@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -31,34 +31,34 @@
 
 #include "infrastructure/messagebox.h"
 
-#include "libmscore/factory.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/key.h"
-#include "libmscore/clef.h"
-#include "libmscore/sig.h"
-#include "libmscore/tempo.h"
-#include "libmscore/note.h"
-#include "libmscore/chord.h"
-#include "libmscore/rest.h"
-#include "libmscore/segment.h"
-#include "libmscore/utils.h"
-#include "libmscore/text.h"
-#include "libmscore/slur.h"
-#include "libmscore/tie.h"
-#include "libmscore/staff.h"
-#include "libmscore/measure.h"
-#include "libmscore/part.h"
-#include "libmscore/timesig.h"
-#include "libmscore/barline.h"
-#include "libmscore/pedal.h"
-#include "libmscore/ottava.h"
-#include "libmscore/lyrics.h"
-#include "libmscore/bracket.h"
-#include "libmscore/drumset.h"
-#include "libmscore/box.h"
-#include "libmscore/pitchspelling.h"
-#include "libmscore/tuplet.h"
-#include "libmscore/articulation.h"
+#include "engraving/dom/factory.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/key.h"
+#include "engraving/dom/clef.h"
+#include "engraving/dom/sig.h"
+#include "engraving/dom/tempo.h"
+#include "engraving/dom/note.h"
+#include "engraving/dom/chord.h"
+#include "engraving/dom/rest.h"
+#include "engraving/dom/segment.h"
+#include "engraving/dom/utils.h"
+#include "engraving/dom/text.h"
+#include "engraving/dom/slur.h"
+#include "engraving/dom/tie.h"
+#include "engraving/dom/staff.h"
+#include "engraving/dom/measure.h"
+#include "engraving/dom/part.h"
+#include "engraving/dom/timesig.h"
+#include "engraving/dom/barline.h"
+#include "engraving/dom/pedal.h"
+#include "engraving/dom/ottava.h"
+#include "engraving/dom/lyrics.h"
+#include "engraving/dom/bracket.h"
+#include "engraving/dom/drumset.h"
+#include "engraving/dom/box.h"
+#include "engraving/dom/pitchspelling.h"
+#include "engraving/dom/tuplet.h"
+#include "engraving/dom/articulation.h"
 
 #include "importmidi_meter.h"
 #include "importmidi_chord.h"
@@ -328,8 +328,20 @@ void MTrack::processMeta(int tick, const MidiEvent& mm)
             break;
         }
         KeySigEvent ke;
-        ke.setKey(Key(key));
-        staff->setKey(Fraction::fromTicks(tick), ke);
+        Key tKey = Key(key);
+        Key cKey = tKey;
+        Fraction t = Fraction::fromTicks(tick);
+        Interval v = staff->part()->instrument(t)->transpose();
+        if (!v.isZero() && !cs->style().styleB(Sid::concertPitch)) {
+            cKey = transposeKey(tKey, v);
+            // if there are more than 6 accidentals in transposing key, it cannot be PreferSharpFlat::AUTO
+            if ((tKey > 6 || tKey < -6) && staff->part()->preferSharpFlat() == PreferSharpFlat::AUTO) {
+                staff->part()->setPreferSharpFlat(PreferSharpFlat::NONE);
+            }
+        }
+        ke.setConcertKey(cKey);
+        ke.setKey(tKey);
+        staff->setKey(t, ke);
         hasKey = true;
     }
     break;
@@ -348,7 +360,7 @@ void MTrack::processMeta(int tick, const MidiEvent& mm)
             ssid = TextStyleType::TRANSLATOR;
             break;
         case META_POET:
-            ssid = TextStyleType::POET;
+            ssid = TextStyleType::LYRICIST;
             break;
         case META_SUBTITLE:
             ssid = TextStyleType::SUBTITLE;
@@ -614,7 +626,13 @@ void MTrack::createKeys(Key defaultKey, const KeyList& allKeyList)
     if (!hasKey && !mtrack->drumTrack()) {
         if (allKeyList.empty()) {
             KeySigEvent ke;
-            ke.setKey(defaultKey);
+            Interval v = staff->part()->instrument()->transpose();
+            ke.setConcertKey(defaultKey);
+            if (!v.isZero() && !staff->score()->style().styleB(Sid::concertPitch)) {
+                v.flip();
+                Key tKey = transposeKey(defaultKey, v);
+                ke.setKey(tKey);
+            }
             staffKeyList[0] = ke;
             MidiKey::assignKeyListToStaff(staffKeyList, staff);
         } else {
@@ -1255,8 +1273,8 @@ Err importMidi(MasterScore* score, const QString& name)
         }
         catch (QString errorText) {
             if (!MScore::noGui) {
-                MessageBox::warning(mu::trc("iex_midi", "Import MIDI"),
-                                    mu::qtrc("iex_midi", "Import failed: %1").arg(errorText).toStdString(),
+                MessageBox::warning(muse::trc("iex_midi", "Import MIDI"),
+                                    muse::qtrc("iex_midi", "Import failed: %1").arg(errorText).toStdString(),
                                     { MessageBox::Ok });
             }
             fp.close();

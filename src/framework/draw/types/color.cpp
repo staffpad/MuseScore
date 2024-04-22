@@ -3,7 +3,7 @@
 #include <sstream>
 #include <iomanip>
 
-namespace mu::draw {
+namespace muse::draw {
 static constexpr int fromHex(char c);
 static int hex2int(const char* s, int n);
 static bool getHexRgb(const char* name, size_t len, Rgba* rgba);
@@ -79,7 +79,21 @@ std::string Color::toString() const
 
 Color Color::fromString(const std::string& str)
 {
-    return Color(str.c_str());
+    Color c;
+    c.setNamedColor(str);
+    return c;
+}
+
+Color Color::fromString(const char* str)
+{
+    Color c;
+    c.setNamedColor(str);
+    return c;
+}
+
+Color Color::fromString(const String& str)
+{
+    return fromString(str.toStdString());
 }
 
 bool Color::isValid() const
@@ -144,6 +158,9 @@ void Color::setNamedColor(const std::string& color)
 
 void Color::setNamedColor(const char* color)
 {
+    if (!color) {
+        return;
+    }
     setNamedColor(std::string(color));
 }
 
@@ -187,6 +204,14 @@ void Color::setRgba(Rgba rgba)
 
     m_rgba = rgba;
     m_isValid = true;
+}
+
+Color Color::inverted() const
+{
+    int m = std::min(red() < green() ? red() : green(), blue());
+    int M = std::max(red() > green() ? red() : green(), blue());
+    int x = 255 - m - M;
+    return Color(red() + x, green() + x, blue() + x, alpha());
 }
 
 static constexpr int fromHex(char c)
@@ -245,7 +270,7 @@ static bool getHexRgb(const char* name, size_t len, Rgba* rgba)
         return false;
     }
 
-    *rgba = mu::draw::rgba(r, g, b, a);
+    *rgba = muse::draw::rgba(r, g, b, a);
     return true;
 }
 

@@ -25,7 +25,7 @@
 #include <iomanip>
 #include <cassert>
 
-using namespace mu;
+using namespace muse;
 // ==================================
 // Format
 // ==================================
@@ -36,9 +36,9 @@ static Date dateFromTM(const std::tm& tm)
 
 static void toTM(std::tm& tm, const Date& d)
 {
-    tm.tm_year = d.year() - 1900;
-    tm.tm_mon = d.month() - 1;
-    tm.tm_mday = d.day();
+    tm.tm_year = std::max(d.year() - 1900, 0);
+    tm.tm_mon = std::max(d.month() - 1, 0);
+    tm.tm_mday = std::max(d.day(), 1);
 }
 
 static Time timeFromTM(const std::tm& tm)
@@ -48,9 +48,9 @@ static Time timeFromTM(const std::tm& tm)
 
 static void toTM(std::tm& tm, const Time& t)
 {
-    tm.tm_hour = t.hour();
-    tm.tm_min = t.minute();
-    tm.tm_sec = t.second();
+    tm.tm_hour = std::max(t.hour(), 0);
+    tm.tm_min = std::max(t.minute(), 0);
+    tm.tm_sec = std::max(t.second(), 0);
 }
 
 static DateTime datetimeFromTM(const std::tm& tm)
@@ -152,12 +152,17 @@ Date Date::currentDate()
     milliseconds ms_d = duration_cast< milliseconds >(system_clock::now().time_since_epoch());
 
     std::time_t sec = static_cast<std::time_t>(ms_d.count() / 1000);
-    std::tm* tm = std::localtime(&sec);
-    assert(tm);
-    if (!tm) {
+    std::tm tm;
+#ifdef WIN32
+    bool err = localtime_s(&tm, &sec) != 0;
+#else
+    bool err = localtime_r(&sec, &tm) == nullptr;
+#endif
+    assert(!err);
+    if (err) {
         return Date();
     }
-    return dateFromTM(*tm);
+    return dateFromTM(tm);
 }
 
 String Date::toString(DateFormat format) const
@@ -207,12 +212,17 @@ Time Time::currentTime()
     milliseconds ms_d = duration_cast< milliseconds >(system_clock::now().time_since_epoch());
 
     std::time_t sec = static_cast<std::time_t>(ms_d.count() / 1000);
-    std::tm* tm = std::localtime(&sec);
-    assert(tm);
-    if (!tm) {
+    std::tm tm;
+#ifdef WIN32
+    bool err = localtime_s(&tm, &sec) != 0;
+#else
+    bool err = localtime_r(&sec, &tm) == nullptr;
+#endif
+    assert(!err);
+    if (err) {
         return Time();
     }
-    return timeFromTM(*tm);
+    return timeFromTM(tm);
 }
 
 String Time::toString(DateFormat format) const
@@ -256,13 +266,18 @@ DateTime DateTime::currentDateTime()
     milliseconds ms_d = duration_cast< milliseconds >(system_clock::now().time_since_epoch());
 
     std::time_t sec = static_cast<std::time_t>(ms_d.count() / 1000);
-    std::tm* tm = std::localtime(&sec);
-    assert(tm);
-    if (!tm) {
+    std::tm tm;
+#ifdef WIN32
+    bool err = localtime_s(&tm, &sec) != 0;
+#else
+    bool err = localtime_r(&sec, &tm) == nullptr;
+#endif
+    assert(!err);
+    if (err) {
         return DateTime();
     }
 
-    return datetimeFromTM(*tm);
+    return datetimeFromTM(tm);
 }
 
 String DateTime::toString(DateFormat format) const

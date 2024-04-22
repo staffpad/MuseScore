@@ -19,32 +19,40 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_FRAMEWORK_APPLICATION_H
-#define MU_FRAMEWORK_APPLICATION_H
+#ifndef MUSE_GLOBAL_APPLICATION_H
+#define MUSE_GLOBAL_APPLICATION_H
 
 #include "../iapplication.h"
 
-namespace mu::framework {
+namespace muse {
 class Application : public IApplication
 {
 public:
 
     Application() = default;
 
+    String name() const override;
+
+    bool unstable() const override;
+    Version version() const override;
+    Version fullVersion() const override;
+    String build() const override;
+    String revision() const override;
+
     void setRunMode(const RunMode& mode) override;
     RunMode runMode() const override;
     bool noGui() const override;
 
-    QWindow* focusWindow() const override;
-
-    bool notify(QObject* object, QEvent* event) override;
-
     void restart() override;
 
-private:
+#ifndef NO_QT_SUPPORT
+    QWindow* focusWindow() const override;
+    bool notify(QObject* object, QEvent* event) override;
+#endif
 
+private:
     RunMode m_runMode = RunMode::GuiApp;
 };
 }
 
-#endif // MU_FRAMEWORK_APPLICATION_H
+#endif // MUSE_GLOBAL_APPLICATION_H

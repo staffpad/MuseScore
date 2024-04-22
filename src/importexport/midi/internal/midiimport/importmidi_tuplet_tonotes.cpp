@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -24,14 +24,14 @@
 #include "importmidi_tuplet.h"
 #include "importmidi_fraction.h"
 #include "importmidi_inner.h"
-#include "libmscore/staff.h"
-#include "libmscore/masterscore.h"
+#include "engraving/dom/staff.h"
+#include "engraving/dom/masterscore.h"
 #include "engraving/types/fraction.h"
-#include "libmscore/durationelement.h"
-#include "libmscore/measure.h"
-#include "libmscore/tuplet.h"
-#include "libmscore/mscore.h"
-#include "libmscore/chordrest.h"
+#include "engraving/dom/durationelement.h"
+#include "engraving/dom/measure.h"
+#include "engraving/dom/tuplet.h"
+#include "engraving/dom/mscore.h"
+#include "engraving/dom/chordrest.h"
 
 #include "log.h"
 

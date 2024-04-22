@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,9 +21,10 @@
  */
 import QtQuick 2.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
-import MuseScore.Audio 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
+import Muse.Audio 1.0
+import MuseScore.Playback 1.0
 
 MixerPanelSection {
     id: root
@@ -51,7 +52,7 @@ MixerPanelSection {
                 checked: channelItem.muted
 
                 // TODO: not use `enabled` for this, but present visually in some other way
-                enabled: !(channelItem.muted && !channelItem.mutedManually)
+                enabled: !(channelItem.muted && channelItem.forceMute) && channelItem.type !== MixerChannelItem.Metronome
 
                 navigation.name: "MuteButton"
                 navigation.panel: channelItem.panel
@@ -64,7 +65,7 @@ MixerPanelSection {
                 }
 
                 onToggled: {
-                    channelItem.mutedManually = !checked
+                    channelItem.muted = !checked
                 }
             }
 
@@ -76,6 +77,9 @@ MixerPanelSection {
 
                 icon: IconCode.SOLO
                 checked: channelItem.solo
+
+                enabled: channelItem.type !== MixerChannelItem.Aux && (!channelItem.muted || channelItem.forceMute)
+                visible: channelItem.type !== MixerChannelItem.Master && channelItem.type !== MixerChannelItem.Metronome
 
                 navigation.name: "SoloButton"
                 navigation.panel: channelItem.panel

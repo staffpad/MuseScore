@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -43,7 +43,9 @@ class TransposeDialog : public QDialog, Ui::TransposeDialogBase
 
 public:
     TransposeDialog(QWidget* parent = 0);
+#ifdef MU_QT5_COMPAT
     TransposeDialog(const TransposeDialog& dialog);
+#endif
 
 private slots:
     void transposeByKeyToggled(bool);
@@ -75,7 +77,5 @@ private:
     bool m_allSelected = false;
 };
 }
-
-Q_DECLARE_METATYPE(mu::notation::TransposeDialog)
 
 #endif // MU_NOTATION_TRANSPOSEDIALOG_H

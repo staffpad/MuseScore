@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -27,12 +27,12 @@
 #include "log.h"
 
 using namespace mu::appshell;
-using namespace mu::actions;
-using namespace mu::framework;
+using namespace muse;
+using namespace muse::actions;
 
-static const mu::Uri FIRST_LAUNCH_SETUP_URI("musescore://firstLaunchSetup");
-static const mu::Uri HOME_URI("musescore://home");
-static const mu::Uri NOTATION_URI("musescore://notation");
+static const muse::Uri FIRST_LAUNCH_SETUP_URI("musescore://firstLaunchSetup");
+static const muse::Uri HOME_URI("musescore://home");
+static const muse::Uri NOTATION_URI("musescore://notation");
 
 static StartupModeType modeTypeTromString(const std::string& str)
 {
@@ -60,14 +60,27 @@ void StartupScenario::setStartupType(const std::optional<std::string>& type)
     m_startupTypeStr = type ? type.value() : "";
 }
 
-mu::io::path_t StartupScenario::startupScorePath() const
+bool StartupScenario::isStartWithNewFileAsSecondaryInstance() const
 {
-    return m_startupScorePath;
+    if (m_startupScoreFile.isValid()) {
+        return false;
+    }
+
+    if (!m_startupTypeStr.empty()) {
+        return modeTypeTromString(m_startupTypeStr) == StartupModeType::StartWithNewScore;
+    }
+
+    return false;
 }
 
-void StartupScenario::setStartupScorePath(const std::optional<io::path_t>& path)
+const mu::project::ProjectFile& StartupScenario::startupScoreFile() const
 {
-    m_startupScorePath = path ? path.value() : "";
+    return m_startupScoreFile;
+}
+
+void StartupScenario::setStartupScoreFile(const std::optional<project::ProjectFile>& file)
+{
+    m_startupScoreFile = file ? file.value() : project::ProjectFile();
 }
 
 void StartupScenario::run()
@@ -81,12 +94,12 @@ void StartupScenario::run()
     StartupModeType modeType = resolveStartupModeType();
     bool isMainInstance = multiInstancesProvider()->isMainInstance();
     if (isMainInstance && sessionsManager()->hasProjectsForRestore()) {
-        modeType = StartupModeType::ContinueLastSession;
+        modeType = StartupModeType::Recovery;
     }
 
     Uri startupUri = startupPageUri(modeType);
 
-    async::Channel<Uri> opened = interactive()->opened();
+    muse::async::Channel<Uri> opened = interactive()->opened();
     opened.onReceive(this, [this, opened, modeType](const Uri&) {
         static bool once = false;
         if (once) {
@@ -97,7 +110,7 @@ void StartupScenario::run()
         onStartupPageOpened(modeType);
 
         async::Async::call(this, [this, opened]() {
-            async::Channel<Uri> mut = opened;
+            muse::async::Channel<Uri> mut = opened;
             mut.resetOnReceive(this);
             m_startupCompleted = true;
         });
@@ -113,7 +126,7 @@ bool StartupScenario::startupCompleted() const
 
 StartupModeType StartupScenario::resolveStartupModeType() const
 {
-    if (!m_startupScorePath.empty()) {
+    if (m_startupScoreFile.isValid()) {
         return StartupModeType::StartWithScore;
     }
 
@@ -135,12 +148,15 @@ void StartupScenario::onStartupPageOpened(StartupModeType modeType)
         dispatcher()->dispatch("file-new");
         break;
     case StartupModeType::ContinueLastSession:
+        dispatcher()->dispatch("continue-last-session");
+        break;
+    case StartupModeType::Recovery:
         restoreLastSession();
         break;
     case StartupModeType::StartWithScore: {
-        io::path_t path = m_startupScorePath.empty() ? configuration()->startupScorePath()
-                          : m_startupScorePath;
-        openScore(path);
+        project::ProjectFile file
+            = m_startupScoreFile.isValid() ? m_startupScoreFile : project::ProjectFile(configuration()->startupScorePath());
+        openScore(file);
     } break;
     }
 
@@ -149,35 +165,30 @@ void StartupScenario::onStartupPageOpened(StartupModeType modeType)
     }
 }
 
-mu::Uri StartupScenario::startupPageUri(StartupModeType modeType) const
+muse::Uri StartupScenario::startupPageUri(StartupModeType modeType) const
 {
     switch (modeType) {
     case StartupModeType::StartEmpty:
     case StartupModeType::StartWithNewScore:
+    case StartupModeType::Recovery:
         return HOME_URI;
     case StartupModeType::StartWithScore:
-        return NOTATION_URI;
     case StartupModeType::ContinueLastSession:
-        return HOME_URI;
+        return NOTATION_URI;
     }
 
     return HOME_URI;
 }
 
-void StartupScenario::openScore(const io::path_t& path)
+void StartupScenario::openScore(const project::ProjectFile& file)
 {
-    dispatcher()->dispatch("file-open", ActionData::make_arg1<io::path_t>(path));
+    dispatcher()->dispatch("file-open", ActionData::make_arg2<QUrl, QString>(file.url, file.displayNameOverride));
 }
 
 void StartupScenario::restoreLastSession()
 {
-    if (!sessionsManager()->hasProjectsForRestore()) {
-        dispatcher()->dispatch("continue-last-session");
-        return;
-    }
-
-    IInteractive::Result result = interactive()->question(trc("appshell", "The previous session quit unexpectedly."),
-                                                          trc("appshell", "Do you want to restore the session?"),
+    IInteractive::Result result = interactive()->question(muse::trc("appshell", "The previous session quit unexpectedly."),
+                                                          muse::trc("appshell", "Do you want to restore the session?"),
                                                           { IInteractive::Button::No, IInteractive::Button::Yes });
 
     if (result.button() == static_cast<int>(IInteractive::Button::Yes)) {
@@ -190,7 +201,7 @@ void StartupScenario::restoreLastSession()
 
 void StartupScenario::removeProjectsUnsavedChanges(const io::paths_t& projectsPaths)
 {
-    for (const io::path_t& path : projectsPaths) {
+    for (const muse::io::path_t& path : projectsPaths) {
         projectAutoSaver()->removeProjectUnsavedChanges(path);
     }
 }

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -24,19 +24,15 @@
 
 #include "timedialog.h"
 
+#include "translation.h"
+
 #include "palettewidget.h"
 #include "internal/palettecreator.h"
 
-#include "engraving/libmscore/factory.h"
-#include "engraving/libmscore/chord.h"
-#include "engraving/libmscore/masterscore.h"
-#include "engraving/libmscore/mcursor.h"
-#include "engraving/libmscore/part.h"
-#include "engraving/libmscore/timesig.h"
+#include "engraving/dom/factory.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/timesig.h"
 #include "engraving/compat/dummyelement.h"
-#include "engraving/layout/v0/tlayout.h"
-
-#include "translation.h"
 
 using namespace mu::palette;
 using namespace mu::engraving;
@@ -45,7 +41,7 @@ TimeDialog::TimeDialog(QWidget* parent)
     : QWidget(parent, Qt::WindowFlags(Qt::Dialog | Qt::Window))
 {
     setupUi(this);
-    setWindowTitle(mu::qtrc("palette", "Time signatures"));
+    setWindowTitle(muse::qtrc("palette", "Time signatures"));
 
     setWindowFlags(this->windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
@@ -84,8 +80,8 @@ TimeDialog::TimeDialog(QWidget* parent)
     }
 
     ElementPtr el = sp->elementForCellAt(2);
-    layout::v0::LayoutContext lctx(el->score());
-    layout::v0::TLayout::layoutItem(el.get(), lctx);
+
+    engravingRender()->layoutItem(el.get());
 
     sp->setSelected(2);
     paletteChanged(2);
@@ -94,10 +90,13 @@ TimeDialog::TimeDialog(QWidget* parent)
     setFocus();
 }
 
+#ifdef MU_QT5_COMPAT
 TimeDialog::TimeDialog(const TimeDialog& dialog)
     : TimeDialog(dialog.parentWidget())
 {
 }
+
+#endif
 
 bool TimeDialog::dirty() const
 {

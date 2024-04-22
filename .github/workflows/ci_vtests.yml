@@ -4,7 +4,6 @@ on:
   pull_request:
     branches:
     - master
-    - 4.0.2
 
 jobs:
   setup:
@@ -16,18 +15,19 @@ jobs:
       artifact_name: ${{ steps.output_data.outputs.artifact_name }}
     steps:
     - name: Cancel Previous Runs
-      uses: styfle/cancel-workflow-action@0.11.0
+      uses: styfle/cancel-workflow-action@0.12.1
       with:
         access_token: ${{ github.token }}
     - name: Clone repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: "Configure workflow"
       run: |
-        sudo bash ./build/ci/tools/make_build_number.sh
+        sudo bash ./buildscripts/ci/tools/make_build_number.sh
         BUILD_NUMBER=$(cat ./build.artifacts/env/build_number.env)
 
         echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
         echo "BUILD_NUMBER: $BUILD_NUMBER"
+        
     - name: Get reference commit for PR
       if: github.event_name == 'pull_request'
       env:
@@ -55,7 +55,7 @@ jobs:
         echo "DO_RUN=${{ env.DO_RUN }}"
         echo "reference_sha=${{ env.REFERENCE_SHA }}" >> $GITHUB_OUTPUT
         echo "REFERENCE_SHA=${{ env.REFERENCE_SHA }}"
-        UPLOAD_ARTIFACT_NAME="$(tr '":<>|*?/\\' '_' <<<"VTests Comparison ${{ env.BUILD_NUMBER }}${pr_info}")"
+        UPLOAD_ARTIFACT_NAME="$(tr '":<>|*?/\\’' '_' <<<"VTests Comparison ${{ env.BUILD_NUMBER }}${pr_info}")"
         echo "artifact_name=$UPLOAD_ARTIFACT_NAME"  >> $GITHUB_OUTPUT
         echo "UPLOAD_ARTIFACT_NAME=$UPLOAD_ARTIFACT_NAME"
 
@@ -66,24 +66,24 @@ jobs:
     if: needs.setup.outputs.do_run == 'true' # Can't use env: see https://github.com/actions/runner/issues/480
     steps:
     - name: Clone repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Ccache cache files
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.ccache
         key: ${{github.workflow}}-ccache-$(date -u +"%F-%T")
         restore-keys: ${{github.workflow}}-ccache- # restore ccache from either previous build on this branch or on master
     - name: Setup ccache
       run: |
-        bash ./build/ci/tools/setup_ccache.sh
+        bash ./buildscripts/ci/tools/setup_ccache.sh
     - name: Setup environment
       run: |
-        bash ./build/ci/linux/setup.sh
+        bash ./buildscripts/ci/linux/setup.sh
     - name: Build and Pack
       run: |
-        bash ./build/ci/vtests/build_and_pack.sh
+        bash ./buildscripts/ci/vtests/build_and_pack.sh
     - name: Upload
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: current_build
         path: ./build.artifacts/
@@ -95,26 +95,26 @@ jobs:
     if: needs.setup.outputs.do_run == 'true'
     steps:
     - name: Clone repository and checkout reference commit
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         ref: ${{ needs.setup.outputs.reference_sha }}
     - name: Ccache cache files
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.ccache
         key: ${{github.workflow}}-ccache-$(date -u +"%F-%T")
         restore-keys: ${{github.workflow}}-ccache- # restore ccache from either previous build on this branch or on master
     - name: Setup ccache
       run: |
-        bash ./build/ci/tools/setup_ccache.sh
+        bash ./buildscripts/ci/tools/setup_ccache.sh
     - name: Setup environment
       run: |
-        bash ./build/ci/linux/setup.sh
+        bash ./buildscripts/ci/linux/setup.sh
     - name: Build and Pack
       run: |
-        bash ./build/ci/vtests/build_and_pack.sh
+        bash ./buildscripts/ci/vtests/build_and_pack.sh
     - name: Upload
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: reference_build
         path: ./build.artifacts/
@@ -126,29 +126,29 @@ jobs:
     if: needs.setup.outputs.do_run == 'true'
     steps:
     - name: Clone repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Download current
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: current_build
         path: ./musescore_current
     - name: Download reference
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: reference_build
         path: ./musescore_reference
     - name: Generate PNGs   
       run: |
-        xvfb-run ./build/ci/vtests/generate_pngs.sh
+        xvfb-run ./buildscripts/ci/vtests/generate_pngs.sh
       env: 
         ASAN_OPTIONS: "detect_leaks=0"
     - name: Compare PNGs
       run: |
         echo "VTEST_DIFF_FOUND=false" >> $GITHUB_ENV
-        ./vtest/vtest-compare-pngs.sh
+        ./vtest/vtest-compare-pngs.sh --ci 1
     - name: Upload comparison
       if: env.VTEST_DIFF_FOUND == 'true'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ needs.setup.outputs.artifact_name }}
         path: ./comparison

@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-set(MODULE draw)
+declare_module(muse_draw)
+set(MODULE_ALIAS muse::draw)
 
 set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/drawmodule.cpp
@@ -42,6 +43,7 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/types/font.cpp
     ${CMAKE_CURRENT_LIST_DIR}/types/font.h
     ${CMAKE_CURRENT_LIST_DIR}/types/drawdata.h
+    ${CMAKE_CURRENT_LIST_DIR}/types/fontstypes.h
 
     ${CMAKE_CURRENT_LIST_DIR}/painter.cpp
     ${CMAKE_CURRENT_LIST_DIR}/painter.h
@@ -75,26 +77,58 @@ else()
         ${CMAKE_CURRENT_LIST_DIR}/internal/qpainterprovider.h
         ${CMAKE_CURRENT_LIST_DIR}/internal/qimageprovider.h
         ${CMAKE_CURRENT_LIST_DIR}/internal/qimageprovider.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/internal/qfontprovider.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/internal/qfontprovider.h
-        ${CMAKE_CURRENT_LIST_DIR}/internal/fontengineft.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/internal/fontengineft.h
         ${CMAKE_CURRENT_LIST_DIR}/internal/qimagepainterprovider.cpp
         ${CMAKE_CURRENT_LIST_DIR}/internal/qimagepainterprovider.h
         )
 
-    add_subdirectory(${THIRDPARTY_DIR}/freetype freetype)
-    set(MODULE_INCLUDE ${THIRDPARTY_DIR}/freetype/include)
-    set(MODULE_LINK freetype)
+    if (MUSE_MODULE_DRAW_USE_QTFONTMETRICS)
+        set(MODULE_SRC ${MODULE_SRC}
+            ${CMAKE_CURRENT_LIST_DIR}/internal/qfontprovider.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/internal/qfontprovider.h
+            ${CMAKE_CURRENT_LIST_DIR}/internal/fontengineft.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/internal/fontengineft.h
+        )
+
+        include(cmake/SetupFreeType.cmake)
+        set(MODULE_INCLUDE ${FREETYPE_INCLUDE_DIRS})
+        set(MODULE_LINK ${FREETYPE_LIBRARIES})
+    else()
+        set(MODULE_SRC ${MODULE_SRC}
+            ${CMAKE_CURRENT_LIST_DIR}/internal/ifontsengine.h
+            ${CMAKE_CURRENT_LIST_DIR}/internal/ifontsdatabase.h
+            ${CMAKE_CURRENT_LIST_DIR}/internal/ifontface.h
+            ${CMAKE_CURRENT_LIST_DIR}/internal/fontprovider.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/internal/fontprovider.h
+            ${CMAKE_CURRENT_LIST_DIR}/internal/fontsdatabase.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/internal/fontsdatabase.h
+            ${CMAKE_CURRENT_LIST_DIR}/internal/fontsengine.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/internal/fontsengine.h
+            ${CMAKE_CURRENT_LIST_DIR}/internal/fontfaceft.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/internal/fontfaceft.h
+            ${CMAKE_CURRENT_LIST_DIR}/internal/fontfacedu.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/internal/fontfacedu.h
+        )
+
+        include(cmake/SetupFreeType.cmake)
+        add_subdirectory(thirdparty/harfbuzz)
+        add_subdirectory(thirdparty/msdfgen)
+
+        set(MODULE_INCLUDE
+            ${FREETYPE_INCLUDE_DIRS}
+            ${CMAKE_CURRENT_LIST_DIR}/thirdparty/harfbuzz/harfbuzz/src
+            ${CMAKE_CURRENT_LIST_DIR}/thirdparty/msdfgen/msdfgen-1.4
+        )
+        set(MODULE_LINK ${FREETYPE_LIBRARIES} harfbuzz msdfgen)
+    endif()
 
 endif()
 
-if (MUE_ENABLE_DRAW_TRACE)
-    set(MODULE_DEF ${MODULE_DEF} -DMUE_ENABLE_DRAW_TRACE)
+if (MUSE_MODULE_DRAW_TRACE)
+    set(MODULE_DEF ${MODULE_DEF} -DMUSE_MODULE_DRAW_TRACE)
 endif()
 
-include(SetupModule)
+setup_module()
 
-if (MUE_BUILD_UNIT_TESTS)
+if (MUSE_MODULE_DRAW_TESTS)
     add_subdirectory(tests)
 endif()

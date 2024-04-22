@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,6 +22,7 @@
 #include "playbackconfigurationstub.h"
 
 using namespace mu::playback;
+using namespace muse::audio;
 
 bool PlaybackConfigurationStub::playNotesWhenEditing() const
 {
@@ -64,18 +65,57 @@ void PlaybackConfigurationStub::setMixerSectionVisible(MixerSectionType, bool)
 {
 }
 
-bool PlaybackConfigurationStub::isAuxSendVisible(audio::aux_channel_idx_t) const
+muse::async::Channel<MixerSectionType, bool> PlaybackConfigurationStub::isMixerSectionVisibleChanged() const
+{
+    return {};
+}
+
+bool PlaybackConfigurationStub::isAuxSendVisible(aux_channel_idx_t) const
 {
     return false;
 }
 
-void PlaybackConfigurationStub::setAuxSendVisible(audio::aux_channel_idx_t, bool)
+void PlaybackConfigurationStub::setAuxSendVisible(aux_channel_idx_t, bool)
 {
 }
 
-mu::async::Channel<mu::audio::aux_channel_idx_t, bool> PlaybackConfigurationStub::isAuxSendVisibleChanged() const
+muse::async::Channel<aux_channel_idx_t, bool> PlaybackConfigurationStub::isAuxSendVisibleChanged() const
 {
     return {};
+}
+
+bool PlaybackConfigurationStub::isAuxChannelVisible(aux_channel_idx_t) const
+{
+    return false;
+}
+
+void PlaybackConfigurationStub::setAuxChannelVisible(aux_channel_idx_t, bool) const
+{
+}
+
+muse::async::Channel<aux_channel_idx_t, bool> PlaybackConfigurationStub::isAuxChannelVisibleChanged() const
+{
+    return {};
+}
+
+gain_t PlaybackConfigurationStub::defaultAuxSendValue(aux_channel_idx_t, AudioSourceType, const muse::String&) const
+{
+    return 0.f;
+}
+
+bool PlaybackConfigurationStub::muteHiddenInstruments() const
+{
+    return false;
+}
+
+void PlaybackConfigurationStub::setMuteHiddenInstruments(bool)
+{
+}
+
+muse::async::Channel<bool> PlaybackConfigurationStub::muteHiddenInstrumentsChanged() const
+{
+    static muse::async::Channel<bool> ch;
+    return ch;
 }
 
 const SoundProfileName& PlaybackConfigurationStub::basicSoundProfileName() const
@@ -96,5 +136,23 @@ SoundProfileName PlaybackConfigurationStub::defaultProfileForNewProjects() const
 }
 
 void PlaybackConfigurationStub::setDefaultProfileForNewProjects(const SoundProfileName&)
+{
+}
+
+bool PlaybackConfigurationStub::soundPresetsMultiSelectionEnabled() const
+{
+    return false;
+}
+
+void PlaybackConfigurationStub::setSoundPresetsMultiSelectionEnabled(bool)
+{
+}
+
+bool PlaybackConfigurationStub::needToShowChangeSoundWarning() const
+{
+    return false;
+}
+
+void PlaybackConfigurationStub::setNeedToShowChangeSoundWarning(bool)
 {
 }

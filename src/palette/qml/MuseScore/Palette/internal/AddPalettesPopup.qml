@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,8 +25,8 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 
 import MuseScore.Palette 1.0
-import MuseScore.UiComponents 1.0
-import MuseScore.Ui 1.0
+import Muse.UiComponents 1.0
+import Muse.Ui 1.0
 
 StyledPopupView {
     id: root
@@ -89,10 +89,12 @@ StyledPopupView {
         StyledListView {
             id: palettesList
             height: Math.min(availableHeight, contentHeight)
-            width: parent.width
+            width: parent.width + root.margins
 
             readonly property int availableHeight:
                 root.maxHeight - header.height - createCustomPaletteButton.height - 2 * contentColumn.spacing
+
+            scrollBarThickness: 6
 
             spacing: 8
             visible: count > 0
@@ -100,7 +102,7 @@ StyledPopupView {
             delegate: Item {
                 id: morePalettesDelegate
 
-                width: parent.width
+                width: parent.width - root.margins
                 height: addButton.height
 
                 property bool added: false

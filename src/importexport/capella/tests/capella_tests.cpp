@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,7 +23,7 @@
 #include <gtest/gtest.h>
 
 #include "engraving/engravingerrors.h"
-#include "engraving/libmscore/masterscore.h"
+#include "engraving/dom/masterscore.h"
 
 #include "engraving/tests/utils/scorecomp.h"
 #include "engraving/tests/utils/scorerw.h"
@@ -52,7 +52,7 @@ public:
 
 void Capella_Tests::capReadTest(const char* file)
 {
-    auto importFunc = [](MasterScore* score, const io::path_t& path) -> engraving::Err {
+    auto importFunc = [](MasterScore* score, const muse::io::path_t& path) -> engraving::Err {
         return mu::iex::capella::importCapella(score, path.toQString());
     };
 
@@ -72,7 +72,7 @@ void Capella_Tests::capReadTest(const char* file)
 
 void Capella_Tests::capxReadTest(const char* file)
 {
-    auto importFunc = [](MasterScore* score, const io::path_t& path) -> engraving::Err {
+    auto importFunc = [](MasterScore* score, const muse::io::path_t& path) -> engraving::Err {
         return mu::iex::capella::importCapXml(score, path.toQString());
     };
 

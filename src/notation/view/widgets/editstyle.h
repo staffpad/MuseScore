@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -40,19 +40,26 @@ class EditStyle : public QDialog, private Ui::EditStyleBase
 
     INJECT(mu::context::IGlobalContext, globalContext)
     INJECT(mu::notation::INotationConfiguration, configuration)
-    INJECT(mu::framework::IInteractive, interactive)
-    INJECT(mu::ui::IUiEngine, uiEngine)
+    INJECT(muse::IInteractive, interactive)
+    INJECT(muse::ui::IUiEngine, uiEngine)
     INJECT(mu::engraving::IEngravingFontsProvider, engravingFonts)
+    INJECT(muse::accessibility::IAccessibilityController, accessibilityController)
 
     Q_PROPERTY(QString currentPageCode READ currentPageCode WRITE setCurrentPageCode NOTIFY currentPageChanged)
     Q_PROPERTY(QString currentSubPageCode READ currentSubPageCode WRITE setCurrentSubPageCode NOTIFY currentSubPageChanged)
 
 public:
     EditStyle(QWidget* = nullptr);
+
+#ifdef MU_QT5_COMPAT
     EditStyle(const EditStyle&);
+#endif
 
     QString currentPageCode() const;
     QString currentSubPageCode() const;
+
+    static QString pageCodeForElement(const EngravingItem*);
+    static QString subPageCodeForElement(const EngravingItem*);
 
 public slots:
     void accept();
@@ -69,6 +76,7 @@ private:
     void showEvent(QShowEvent*);
     void hideEvent(QHideEvent*);
     void changeEvent(QEvent*);
+    void keyPressEvent(QKeyEvent* event);
 
     void retranslate();
     void setHeaderFooterToolTip();
@@ -78,7 +86,6 @@ private:
     /// This is a type for a pointer to any QWidget that is a member of EditStyle.
     /// It's used to create static references to the pointers to pages.
     typedef QWidget* EditStyle::* EditStylePage;
-    static EditStylePage pageForElement(EngravingItem*);
 
     struct StyleWidget {
         StyleId idx = StyleId::NOSTYLE;
@@ -132,16 +139,18 @@ private slots:
     void on_buttonTogglePagelist_clicked();
     void on_resetStylesButton_clicked();
     void on_resetTabStylesButton_clicked();
+    void on_pageRowSelectionChanged();
     void editUserStyleName();
     void endEditUserStyleName();
     void resetUserStyleName();
+    void updateParenthesisIndicatingTiesGroupState();
+    void clefVisibilityChanged(bool);
+    void tupletUseSymbolsChanged(bool);
 
 private:
     QString m_currentPageCode;
     QString m_currentSubPageCode;
 };
 }
-
-Q_DECLARE_METATYPE(mu::notation::EditStyle)
 
 #endif // MU_NOTATION_EDITSTYLE_H

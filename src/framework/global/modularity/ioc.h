@@ -5,7 +5,7 @@
  * MuseScore
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2024 MuseScore BVBA and others
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -19,45 +19,35 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 #ifndef MU_MODULARITY_IOC_H
 #define MU_MODULARITY_IOC_H
 
-#include <memory>
-#include "modulesioc.h"
+#include "../thirdparty/kors_modularity/modularity/ioc.h" // IWYU pragma: export
 
-#define INJECT(Interface, getter) \
-private: \
-    mutable std::shared_ptr<Interface> m_##getter = nullptr; \
-public: \
-    std::shared_ptr<Interface> getter() const {  \
-        if (!m_##getter) { \
-            static const std::string_view sig(IOC_FUNC_SIG); \
-            m_##getter = mu::modularity::ioc()->resolve<Interface>(mu::modularity::moduleNameBySig(sig), sig); \
-        } \
-        return m_##getter; \
-    } \
-    void set##getter(std::shared_ptr<Interface> impl) { m_##getter = impl; } \
+namespace muse {
+template<class I>
+using Inject = kors::modularity::Inject<I>;
+}
 
-#define INJECT_STATIC(Interface, getter) \
-public: \
-    static std::shared_ptr<Interface>& getter() {  \
-        static std::shared_ptr<Interface> s_##getter = nullptr; \
-        if (!s_##getter) { \
-            static const std::string_view sig(IOC_FUNC_SIG); \
-            s_##getter = mu::modularity::ioc()->resolve<Interface>(mu::modularity::moduleNameBySig(sig), sig); \
-        } \
-        return s_##getter; \
-    } \
-    static void set##getter(std::shared_ptr<Interface> impl) { \
-        std::shared_ptr<Interface>& s_##getter = getter(); \
-        s_##getter = impl; \
-    } \
+namespace muse {
+template<class I>
+using Inject = kors::modularity::Inject<I>;
+}
 
-namespace mu::modularity {
+namespace mu {
+template<class I>
+using Inject = kors::modularity::Inject<I>;
+}
+
+namespace muse::modularity {
+using ModulesIoC = kors::modularity::ModulesIoC;
+
+template<class T>
+using Creator = kors::modularity::Creator<T>;
+
 inline ModulesIoC* ioc()
 {
-    return ModulesIoC::instance();
+    return kors::modularity::ModulesIoC::instance();
 }
 }
 

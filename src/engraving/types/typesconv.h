@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -38,6 +38,9 @@ public:
 
     static String toXml(const std::vector<int>& v);
     static std::vector<int> fromXml(const String& tag, const std::vector<int>& def);
+
+    static String toXml(const std::vector<string_idx_t>& v);
+    static std::vector<string_idx_t> fromXml(const String& tag, const std::vector<string_idx_t>& def);
 
     static const TranslatableString& userName(ElementType v);
     static AsciiStringView toXml(ElementType v);
@@ -82,6 +85,7 @@ public:
     static DynamicType dynamicType(SymId v);
     static DynamicType dynamicType(const AsciiStringView& string);
     static AsciiStringView toXml(DynamicType v);
+    static bool dynamicValid(const AsciiStringView& tag);
     static DynamicType fromXml(const AsciiStringView& tag, DynamicType def);
     static String translatedUserName(DynamicRange v);
     static String toXml(DynamicRange v);
@@ -225,6 +229,9 @@ public:
 
     static const char* userName(Key v, bool isAtonal = false, bool isCustom = false);
     static String translatedUserName(Key v, bool isAtonal = false, bool isCustom = false);
+
+    static AsciiStringView toXml(TiePlacement interval);
+    static TiePlacement fromXml(const AsciiStringView& str, TiePlacement def);
 };
 }
 

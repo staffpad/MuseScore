@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -24,10 +24,8 @@
 
 #include "types/typesconv.h"
 
-#include "libmscore/engravingitem.h"
-#include "libmscore/property.h"
-
-#include "400/writecontext.h"
+#include "dom/engravingitem.h"
+#include "dom/property.h"
 
 #include "log.h"
 
@@ -35,16 +33,13 @@ using namespace mu;
 using namespace mu::engraving;
 
 namespace mu::engraving {
-XmlWriter::XmlWriter(mu::io::IODevice* device)
+XmlWriter::XmlWriter(muse::io::IODevice* device)
     : XmlStreamWriter(device)
 {
 }
 
 XmlWriter::~XmlWriter()
 {
-    if (m_selfContext) {
-        delete m_context;
-    }
 }
 
 void XmlWriter::startElementRaw(const String& s)
@@ -296,6 +291,9 @@ void XmlWriter::tagProperty(const AsciiStringView& name, P_TYPE type, const Prop
     case P_TYPE::ORNAMENT_INTERVAL: {
         element(name, TConv::toXml(data.value<OrnamentInterval>()));
     } break;
+    case P_TYPE::TIE_PLACEMENT: {
+        element(name, TConv::toXml(data.value<TiePlacement>()));
+    } break;
     default: {
         UNREACHABLE; //! TODO
     }
@@ -303,7 +301,7 @@ void XmlWriter::tagProperty(const AsciiStringView& name, P_TYPE type, const Prop
     }
 }
 
-void XmlWriter::tagPoint(const AsciiStringView& name, const mu::PointF& p)
+void XmlWriter::tagPoint(const AsciiStringView& name, const PointF& p)
 {
     tag(name, { { "x", p.x() }, { "y", p.y() } });
 }
@@ -337,24 +335,5 @@ void XmlWriter::comment(const String& text)
 String XmlWriter::xmlString(const String& s)
 {
     return XmlStreamWriter::escapeString(s);
-}
-
-WriteContext* XmlWriter::context() const
-{
-    if (!m_context) {
-        m_context = new WriteContext();
-        m_selfContext = true;
-    }
-    return m_context;
-}
-
-void XmlWriter::setContext(WriteContext* context)
-{
-    if (m_context && m_selfContext) {
-        delete m_context;
-    }
-
-    m_context = context;
-    m_selfContext = false;
 }
 }

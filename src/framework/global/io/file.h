@@ -19,26 +19,21 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_IO_FILE_H
-#define MU_IO_FILE_H
+#ifndef MUSE_IO_FILE_H
+#define MUSE_IO_FILE_H
+
+#include "global/modularity/ioc.h"
+#include "ifilesystem.h"
 
 #include "iodevice.h"
 #include "path.h"
 
-#include "modularity/ioc.h"
-#include "ifilesystem.h"
-
-namespace mu::io {
+namespace muse::io {
 class File : public IODevice
 {
-    INJECT_STATIC(IFileSystem, fileSystem)
-public:
+    static inline Inject<IFileSystem> fileSystem;
 
-    enum Error {
-        NoError = 0,
-        ReadError = 1,
-        WriteError = 2
-    };
+public:
 
     File() = default;
     File(const path_t& filePath);
@@ -48,9 +43,6 @@ public:
 
     bool exists() const;
     bool remove();
-
-    Error error() const;
-    std::string errorString() const;
 
     static bool exists(const path_t& filePath);
     static bool remove(const path_t& filePath);
@@ -71,8 +63,7 @@ private:
 
     path_t m_filePath;
     ByteArray m_data;
-    Error m_error = Error::NoError;
 };
 }
 
-#endif // MU_IO_FILE_H
+#endif // MUSE_IO_FILE_H

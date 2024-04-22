@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -39,6 +39,11 @@ bool NoteInputPreferencesModel::advanceToNextNoteOnKeyRelease() const
 bool NoteInputPreferencesModel::colorNotesOutsideOfUsablePitchRange() const
 {
     return notationConfiguration()->colorNotesOutsideOfUsablePitchRange();
+}
+
+bool NoteInputPreferencesModel::warnGuitarBends() const
+{
+    return notationConfiguration()->warnGuitarBends();
 }
 
 int NoteInputPreferencesModel::delayBetweenNotesInRealTimeModeMilliseconds() const
@@ -84,6 +89,16 @@ void NoteInputPreferencesModel::setColorNotesOutsideOfUsablePitchRange(bool valu
 
     notationConfiguration()->setColorNotesOutsideOfUsablePitchRange(value);
     emit colorNotesOutsideOfUsablePitchRangeChanged(value);
+}
+
+void NoteInputPreferencesModel::setWarnGuitarBends(bool value)
+{
+    if (value == warnGuitarBends()) {
+        return;
+    }
+
+    notationConfiguration()->setWarnGuitarBends(value);
+    emit warnGuitarBendsChanged(value);
 }
 
 void NoteInputPreferencesModel::setDelayBetweenNotesInRealTimeModeMilliseconds(int delay)

@@ -22,13 +22,14 @@
 
 #include "sequenceplayer.h"
 
+#include "internal/audiosanitizer.h"
+#include "audioengine.h"
+
 #include "log.h"
 
-#include "internal/audiosanitizer.h"
-
-using namespace mu;
-using namespace mu::audio;
-using namespace mu::async;
+using namespace muse;
+using namespace muse::audio;
+using namespace muse::async;
 
 SequencePlayer::SequencePlayer(IGetTracks* getTracks, IClockPtr clock)
     : m_getTracks(getTracks), m_clock(clock)
@@ -46,6 +47,7 @@ void SequencePlayer::play()
 {
     ONLY_AUDIO_WORKER_THREAD;
 
+    AudioEngine::instance()->setMode(RenderMode::RealTimeMode);
     m_clock->start();
     setAllTracksActive(true);
 }
@@ -63,6 +65,7 @@ void SequencePlayer::stop()
 {
     ONLY_AUDIO_WORKER_THREAD;
 
+    AudioEngine::instance()->setMode(RenderMode::IdleMode);
     m_clock->stop();
     setAllTracksActive(false);
 }
@@ -71,6 +74,7 @@ void SequencePlayer::pause()
 {
     ONLY_AUDIO_WORKER_THREAD;
 
+    AudioEngine::instance()->setMode(RenderMode::IdleMode);
     m_clock->pause();
     setAllTracksActive(false);
 }
@@ -79,6 +83,7 @@ void SequencePlayer::resume()
 {
     ONLY_AUDIO_WORKER_THREAD;
 
+    AudioEngine::instance()->setMode(RenderMode::RealTimeMode);
     m_clock->resume();
     setAllTracksActive(true);
 }

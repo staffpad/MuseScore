@@ -20,17 +20,20 @@
   * along with this program.  If not, see <https://www.gnu.org/licenses/>.
   */
 
-#ifndef MU_DRAW_COLOR_H
-#define MU_DRAW_COLOR_H
+#ifndef MUSE_DRAW_COLOR_H
+#define MUSE_DRAW_COLOR_H
 
 #include <string>
+
+#include "global/types/string.h"
+
 #include "rgba.h"
 
 #ifndef NO_QT_SUPPORT
 #include <QColor>
 #endif
 
-namespace mu::draw {
+namespace muse::draw {
 class Color
 {
 public:
@@ -54,6 +57,8 @@ public:
 
     std::string toString() const;
     static Color fromString(const std::string& str);
+    static Color fromString(const char* str);
+    static Color fromString(const String& str);
 
     void setNamedColor(const std::string& color);
     void setNamedColor(const char* color);
@@ -61,6 +66,8 @@ public:
     void setGreen(int value);
     void setBlue(int value);
     void setAlpha(int value);
+
+    Color inverted() const;
 
     bool operator==(const Color& other) const;
     bool operator!=(const Color& other) const;
@@ -103,4 +110,4 @@ inline const Color Color::GREEN { 0, 255, 0 };
 inline const Color Color::BLUE { 0, 0, 255 };
 }
 
-#endif // MU_DRAW_COLOR_H
+#endif // MUSE_DRAW_COLOR_H

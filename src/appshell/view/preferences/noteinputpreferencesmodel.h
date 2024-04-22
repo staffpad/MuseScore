@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -34,7 +34,7 @@ class NoteInputPreferencesModel : public QObject
 {
     Q_OBJECT
 
-    INJECT(shortcuts::IShortcutsConfiguration, shortcutsConfiguration)
+    INJECT(muse::shortcuts::IShortcutsConfiguration, shortcutsConfiguration)
     INJECT(notation::INotationConfiguration, notationConfiguration)
     INJECT(playback::IPlaybackConfiguration, playbackConfiguration)
 
@@ -42,6 +42,8 @@ class NoteInputPreferencesModel : public QObject
         bool advanceToNextNoteOnKeyRelease READ advanceToNextNoteOnKeyRelease WRITE setAdvanceToNextNoteOnKeyRelease NOTIFY advanceToNextNoteOnKeyReleaseChanged)
     Q_PROPERTY(
         bool colorNotesOutsideOfUsablePitchRange READ colorNotesOutsideOfUsablePitchRange WRITE setColorNotesOutsideOfUsablePitchRange NOTIFY colorNotesOutsideOfUsablePitchRangeChanged)
+    Q_PROPERTY(
+        bool warnGuitarBends READ warnGuitarBends WRITE setWarnGuitarBends NOTIFY warnGuitarBendsChanged)
     Q_PROPERTY(
         int delayBetweenNotesInRealTimeModeMilliseconds READ delayBetweenNotesInRealTimeModeMilliseconds WRITE setDelayBetweenNotesInRealTimeModeMilliseconds NOTIFY delayBetweenNotesInRealTimeModeMillisecondsChanged)
 
@@ -57,6 +59,7 @@ public:
 
     bool advanceToNextNoteOnKeyRelease() const;
     bool colorNotesOutsideOfUsablePitchRange() const;
+    bool warnGuitarBends() const;
     int delayBetweenNotesInRealTimeModeMilliseconds() const;
 
     bool playNotesWhenEditing() const;
@@ -67,6 +70,7 @@ public:
 public slots:
     void setAdvanceToNextNoteOnKeyRelease(bool value);
     void setColorNotesOutsideOfUsablePitchRange(bool value);
+    void setWarnGuitarBends(bool value);
     void setDelayBetweenNotesInRealTimeModeMilliseconds(int delay);
     void setPlayNotesWhenEditing(bool value);
     void setNotePlayDurationMilliseconds(int duration);
@@ -76,6 +80,7 @@ public slots:
 signals:
     void advanceToNextNoteOnKeyReleaseChanged(bool value);
     void colorNotesOutsideOfUsablePitchRangeChanged(bool value);
+    void warnGuitarBendsChanged(bool value);
     void delayBetweenNotesInRealTimeModeMillisecondsChanged(int delay);
     void playNotesWhenEditingChanged(bool value);
     void notePlayDurationMillisecondsChanged(int duration);

@@ -22,14 +22,14 @@
 
 #include "sequenceio.h"
 
-#include "log.h"
-
 #include "internal/audiosanitizer.h"
 #include "audioerrors.h"
 
-using namespace mu;
-using namespace mu::audio;
-using namespace mu::async;
+#include "log.h"
+
+using namespace muse;
+using namespace muse::audio;
+using namespace muse::async;
 
 SequenceIO::SequenceIO(IGetTracks* getTracks)
     : m_getTracks(getTracks)

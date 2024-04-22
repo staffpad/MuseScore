@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -20,25 +20,28 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "palettecell.h"
+#include "palettecompat.h"
 
 #include "mimedatautils.h"
 
-#include "engraving/rw/400/tread.h"
-#include "engraving/rw/400/twrite.h"
-#include "engraving/libmscore/actionicon.h"
-#include "engraving/libmscore/engravingitem.h"
-#include "engraving/libmscore/fret.h"
-#include "engraving/libmscore/masterscore.h"
-#include "engraving/libmscore/textbase.h"
-#include "engraving/libmscore/factory.h"
+#include "engraving/dom/actionicon.h"
+#include "engraving/dom/engravingitem.h"
+#include "engraving/dom/factory.h"
+#include "engraving/dom/fret.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/textbase.h"
+#include "engraving/dom/tremolosinglechord.h"
+#include "engraving/dom/tremolotwochord.h"
 
-#include "engraving/accessibility/accessibleitem.h"
+#include "engraving/rw/rwregister.h"
+#include "engraving/rw/compat/tremolocompat.h"
 
 #include "view/widgets/palettewidget.h"
 
 #include "log.h"
 #include "translation.h"
 
+using namespace muse;
 using namespace mu::palette;
 using namespace mu::engraving;
 
@@ -117,11 +120,13 @@ const char* PaletteCell::translationContext() const
     case ElementType::BREATH:
     case ElementType::FERMATA:
     case ElementType::MEASURE_REPEAT:
+    case ElementType::ORNAMENT:
     case ElementType::SYMBOL:
         return "engraving/sym";
     case ElementType::TIMESIG:
         return "engraving/timesig";
-    case ElementType::TREMOLO:
+    case ElementType::TREMOLO_SINGLECHORD:
+    case ElementType::TREMOLO_TWOCHORD:
         return "engraving/tremolotype";
     case ElementType::TRILL:
         return "engraving/trilltype";
@@ -137,7 +142,7 @@ const char* PaletteCell::translationContext() const
 
 QString PaletteCell::translatedName() const
 {
-    const QString trName = mu::qtrc(translationContext(), name.toUtf8());
+    const QString trName = muse::qtrc(translationContext(), name.toUtf8());
 
     if (element && element->isTextBase() && name.contains("%1")) {
         return trName.arg(toTextBase(element.get())->plainText());
@@ -152,7 +157,7 @@ void PaletteCell::retranslate()
         TextBase* target = toTextBase(element.get());
         TextBase* orig = toTextBase(untranslatedElement.get());
         const QString& text = orig->xmlText();
-        target->setXmlText(mu::qtrc("palette", text.toUtf8().constData()));
+        target->setXmlText(muse::qtrc("palette", text.toUtf8().constData()));
     }
 }
 
@@ -169,6 +174,8 @@ void PaletteCell::setElementTranslated(bool translate)
 
 bool PaletteCell::read(XmlReader& e, bool pasteMode)
 {
+    UNUSED(pasteMode);
+
     bool add = true;
     name = e.attribute("name");
 
@@ -198,19 +205,33 @@ bool PaletteCell::read(XmlReader& e, bool pasteMode)
             custom = e.readBool();
         } else if (s == "visible") {
             visible = e.readBool();
+        } else if (s == "Tremolo") {
+            compat::TremoloCompat tc;
+            tc.parent = gpaletteScore->dummy()->chord();
+            rw::RWRegister::reader()->readTremoloCompat(&tc, e);
+            if (tc.single) {
+                element.reset(tc.single);
+            } else if (tc.two) {
+                element.reset(tc.two);
+            } else {
+                UNREACHABLE;
+            }
+
+            if (element) {
+                element->styleChanged();
+            }
         } else {
             element.reset(Factory::createItemByName(s, gpaletteScore->dummy()));
             if (!element) {
                 e.unknown();
             } else {
-                ReadContext ctx;
-                ctx.setPasteMode(pasteMode);
-                rw400::TRead::readItem(element.get(), e, ctx);
+                rw::RWRegister::reader()->readItem(element.get(), e);
+                PaletteCompat::migrateOldPaletteItemIfNeeded(element, gpaletteScore);
                 element->styleChanged();
 
                 if (element->type() == ElementType::ACTION_ICON) {
                     ActionIcon* icon = toActionIcon(element.get());
-                    const mu::ui::UiAction& action = actionsRegister()->action(icon->actionCode());
+                    const muse::ui::UiAction& action = actionsRegister()->action(icon->actionCode());
                     if (action.isValid()) {
                         icon->setAction(icon->actionCode(), static_cast<char16_t>(action.iconCode));
                     } else {
@@ -226,8 +247,10 @@ bool PaletteCell::read(XmlReader& e, bool pasteMode)
     return add && element;
 }
 
-void PaletteCell::write(XmlWriter& xml) const
+void PaletteCell::write(XmlWriter& xml, bool pasteMode) const
 {
+    UNUSED(pasteMode);
+
     if (!element) {
         xml.tag("Cell");
         return;
@@ -264,14 +287,14 @@ void PaletteCell::write(XmlWriter& xml) const
     if (!tag.isEmpty()) {
         xml.tag("tag", tag);
     }
-    if (mag != 1.0) {
+    if (!RealIsEqual(mag, 1.0)) {
         xml.tag("mag", mag);
     }
 
     if (untranslatedElement) {
-        rw400::TWrite::writeItem(untranslatedElement.get(), xml, *xml.context());
+        rw::RWRegister::writer()->writeItem(untranslatedElement.get(), xml);
     } else {
-        rw400::TWrite::writeItem(element.get(), xml, *xml.context());
+        rw::RWRegister::writer()->writeItem(element.get(), xml);
     }
     xml.endElement();
 }
@@ -297,7 +320,7 @@ PaletteCellPtr PaletteCell::fromElementMimeData(const QByteArray& data)
 
     if (element->isActionIcon()) {
         ActionIcon* icon = toActionIcon(element.get());
-        const mu::ui::UiAction& action = actionsRegister()->action(icon->actionCode());
+        const muse::ui::UiAction& action = actionsRegister()->action(icon->actionCode());
         if (action.isValid()) {
             icon->setAction(icon->actionCode(), static_cast<char16_t>(action.iconCode));
         }

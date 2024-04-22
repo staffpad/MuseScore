@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,8 +22,9 @@
 
 #include "excerptnotation.h"
 
-#include "libmscore/excerpt.h"
-#include "libmscore/text.h"
+#include "engraving/dom/excerpt.h"
+#include "engraving/dom/text.h"
+#include "engraving/dom/undo.h"
 
 #include "log.h"
 
@@ -96,31 +97,17 @@ void ExcerptNotation::fillWithDefaultInfo()
         topVerticalFrame->undoUnlink();
     }
 
-    auto setText = [&score](TextStyleType textType, const QString& text) {
-        TextBase* textItem = score->getText(textType);
-
-        if (!textItem) {
-            textItem = score->addText(textType, nullptr /*destinationElement*/, false /*addToAllScores*/);
-        }
-
+    auto unlinkText = [&score](TextStyleType textType) {
+        engraving::Text* textItem = score->getText(textType);
         if (textItem) {
             textItem->undoUnlink();
-            textItem->setPlainText(text);
         }
     };
 
-    auto getText = [&score](TextStyleType textType, const QString& defaultText) {
-        if (mu::engraving::Text* t = score->getText(textType)) {
-            return t->plainText().toQString();
-        } else {
-            return defaultText;
-        }
-    };
-
-    setText(TextStyleType::TITLE, getText(TextStyleType::TITLE, ""));
-    setText(TextStyleType::COMPOSER, getText(TextStyleType::COMPOSER, ""));
-    setText(TextStyleType::SUBTITLE, getText(TextStyleType::SUBTITLE, ""));
-    setText(TextStyleType::POET, getText(TextStyleType::POET, ""));
+    unlinkText(TextStyleType::TITLE);
+    unlinkText(TextStyleType::SUBTITLE);
+    unlinkText(TextStyleType::COMPOSER);
+    unlinkText(TextStyleType::LYRICIST);
 }
 
 mu::engraving::Excerpt* ExcerptNotation::excerpt() const
@@ -143,9 +130,38 @@ void ExcerptNotation::setName(const QString& name)
     }
 }
 
-mu::async::Notification ExcerptNotation::nameChanged() const
+void ExcerptNotation::undoSetName(const QString& name)
+{
+    if (name == this->name()) {
+        return;
+    }
+
+    if (!score()) {
+        setName(name);
+        return;
+    }
+
+    undoStack()->prepareChanges();
+
+    score()->undo(new engraving::ChangeExcerptTitle(m_excerpt, name));
+
+    undoStack()->commitChanges();
+    notifyAboutNotationChanged();
+}
+
+muse::async::Notification ExcerptNotation::nameChanged() const
 {
     return m_excerpt->nameChanged();
+}
+
+bool ExcerptNotation::hasFileName() const
+{
+    return m_excerpt->hasFileName();
+}
+
+const muse::String& ExcerptNotation::fileName() const
+{
+    return m_excerpt->fileName();
 }
 
 INotationPtr ExcerptNotation::notation()

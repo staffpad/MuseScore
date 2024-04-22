@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,15 +23,15 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.InstrumentsScene 1.0
 
 Item {
     id: root
 
     property var instrumentsModel
-    property alias navigation: navPanel
+    property alias navigation: instrumentsView.navigation
 
     property alias searching: searchField.hasText
 
@@ -43,25 +43,6 @@ Item {
 
     function focusInstrument(instrumentIndex) {
         instrumentsView.positionViewAtIndex(instrumentIndex, ListView.Beginning)
-    }
-
-    NavigationPanel {
-        id: navPanel
-        name: "InstrumentsView"
-        direction: NavigationPanel.Vertical
-        enabled: root.enabled && root.visible
-
-        onNavigationEvent: function(event) {
-            if (event.type === NavigationEvent.AboutActive) {
-                for (var i = 0; i < instrumentsView.count; ++i) {
-                    var item = instrumentsView.itemAtIndex(i)
-                    if (item.isSelected) {
-                        event.setData("controlIndex", [item.navigation.row, item.navigation.column])
-                        return
-                    }
-                }
-            }
-        }
     }
 
     StyledTextLabel {
@@ -83,8 +64,9 @@ Item {
         anchors.right: parent.right
 
         navigation.name: "SearchInstruments"
-        navigation.panel: navPanel
+        navigation.panel: instrumentsView.navigation
         navigation.row: 1
+        navigation.column: 0
 
         onSearchTextChanged: {
             root.instrumentsModel.setSearchText(searchText)
@@ -102,20 +84,24 @@ Item {
 
         model: root.instrumentsModel
 
+        accessible.name: instrumentsLabel.text
+
         delegate: ListItemBlank {
             id: item
 
+            isSelected: model.isSelected
+
             navigation.name: model.name
-            navigation.panel: navPanel
+            navigation.panel: instrumentsView.navigation
             navigation.row: 2 + model.index
+            navigation.column: 0
             navigation.accessible.name: itemTitleLabel.text
             navigation.accessible.description: model.description
+            navigation.accessible.row: model.index
 
             onNavigationTriggered: {
                 root.addSelectedInstrumentsToScoreRequested()
             }
-
-            isSelected: model.isSelected
 
             StyledTextLabel {
                 id: itemTitleLabel
@@ -142,6 +128,13 @@ Item {
 
             StyledDropdown {
                 id: traitsBox
+
+                navigation.name: "TraitsBox"
+                navigation.panel: instrumentsView.navigation
+                navigation.row: item.navigation.row
+                navigation.column: 1
+                navigation.accessible.name: itemTitleLabel.text + " " + qsTrc("instruments", "traits")
+                navigation.accessible.row: item.itemModel.index
 
                 anchors.right: parent.right
                 anchors.rightMargin: 4

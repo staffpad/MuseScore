@@ -21,14 +21,14 @@
  */
 #include "audiooutputdevicecontroller.h"
 
-#include "async/async.h"
+#include "global/async/async.h"
 
 #include "audiothread.h"
 #include "worker/audioengine.h"
 
 #include "log.h"
 
-using namespace mu::audio;
+using namespace muse::audio;
 
 void AudioOutputDeviceController::init()
 {

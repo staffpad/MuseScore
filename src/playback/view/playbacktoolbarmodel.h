@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -28,7 +28,7 @@
 #include "iplaybackcontroller.h"
 
 namespace mu::playback {
-class PlaybackToolBarModel : public uicomponents::AbstractMenuModel
+class PlaybackToolBarModel : public muse::uicomponents::AbstractMenuModel
 {
     Q_OBJECT
 
@@ -88,19 +88,19 @@ private:
     void setupConnections();
 
     void updateActions();
-    void onActionsStateChanges(const actions::ActionCodeList& codes) override;
+    void onActionsStateChanges(const muse::actions::ActionCodeList& codes) override;
 
-    bool isAdditionalAction(const actions::ActionCode& actionCode) const;
+    bool isAdditionalAction(const muse::actions::ActionCode& actionCode) const;
 
     QTime totalPlayTime() const;
     notation::MeasureBeat measureBeat() const;
 
-    ui::UiAction playAction() const;
+    muse::ui::UiAction playAction() const;
 
     void updatePlayPosition();
     void doSetPlayTime(const QTime& time);
 
-    void rewind(audio::msecs_t milliseconds);
+    void rewind(muse::audio::msecs_t milliseconds);
     void rewindToBeat(const notation::MeasureBeat& beat);
 
     bool m_isToolbarFloating = false;

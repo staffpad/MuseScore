@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -28,11 +28,12 @@
 #include "playback/internal/playbackuiactions.h"
 
 using namespace mu::playback;
-using namespace mu::actions;
-using namespace mu::ui;
-using namespace mu::uicomponents;
 using namespace mu::notation;
-using namespace mu::audio;
+using namespace muse;
+using namespace muse::actions;
+using namespace muse::ui;
+using namespace muse::uicomponents;
+using namespace muse::audio;
 
 static const ActionCode PLAY_ACTION_CODE("play");
 
@@ -128,7 +129,7 @@ void PlaybackToolBarModel::updateActions()
     setItems(result);
 }
 
-void PlaybackToolBarModel::onActionsStateChanges(const actions::ActionCodeList& codes)
+void PlaybackToolBarModel::onActionsStateChanges(const ActionCodeList& codes)
 {
     AbstractMenuModel::onActionsStateChanges(codes);
 
@@ -138,7 +139,7 @@ void PlaybackToolBarModel::onActionsStateChanges(const actions::ActionCodeList& 
     }
 }
 
-bool PlaybackToolBarModel::isAdditionalAction(const actions::ActionCode& actionCode) const
+bool PlaybackToolBarModel::isAdditionalAction(const ActionCode& actionCode) const
 {
     return PlaybackUiActions::loopBoundaryActions().contains(actionCode);
 }

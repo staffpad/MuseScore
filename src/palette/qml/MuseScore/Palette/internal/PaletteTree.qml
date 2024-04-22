@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -20,13 +20,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import QtQuick 2.8
+import QtQuick 2.15
 import QtQuick.Controls 2.1
 import QtQml.Models 2.2
 
 import MuseScore.Palette 1.0
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 
 import "utils.js" as Utils
 
@@ -116,6 +116,7 @@ StyledListView {
             // in search and no cell selected: apply the first found element
             const parentIndex = paletteTreeDelegateModel.modelIndex(0);
             index = paletteModel.index(0, 0, parentIndex);
+            paletteSelectionModel.select(index, ItemSelectionModel.Select);
         }
 
         paletteController.applyPaletteElement(index, Qt.NoModifier);
@@ -278,7 +279,7 @@ StyledListView {
             bottomPadding: expanded ? 4 : 0
             property int rowIndex: index
             property int navigationRow: (index + 1) * 10000 // to make unique
-            property var modelIndex: paletteTree.model.modelIndex(index, 0)
+            property var modelIndex: paletteTree.model.modelIndex(index)
 
             Keys.onShortcutOverride: function(event) {
                 switch (event.key) {
@@ -582,9 +583,10 @@ StyledListView {
                     height: implicitHeight
                     border { width: 1; color: ui.theme.strokeColor }
 
-                    Palette {
+                    PaletteGridView {
                         id: mainPalette
-                        anchors { fill: parent; margins: parent.padding }
+                        anchors.fill: parent
+                        anchors.margins: parent.padding
 
                         navigationPanel: keynavTree
                         navigationRow: control.navigationRow + 1

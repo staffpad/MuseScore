@@ -1,9 +1,9 @@
-#ifndef GPMASTERBAR_H
-#define GPMASTERBAR_H
+#ifndef MU_IMPORTEXPORT_GPMASTERBAR_H
+#define MU_IMPORTEXPORT_GPMASTERBAR_H
 
 #include "gpbar.h"
 
-namespace mu::engraving {
+namespace mu::iex::guitarpro {
 class GPMasterBar
 {
 public:
@@ -14,10 +14,18 @@ public:
         Type type{ Type::None };
         int count{ 1 };
     };
-    enum class KeySig {
-        C_B = -7,
-        G_B, D_B, A_B, E_B, B_B, F,   C,
-        G,   D,   A,   E,   B,   F_S, C_S,
+    struct KeySig {
+        enum class Accidentals {
+            C_B = -7,
+            G_B, D_B, A_B, E_B, B_B, F, C,
+            G, D, A, E, B, F_S, C_S,
+        };
+        enum class Mode {
+            Major,
+            Minor
+        };
+        Accidentals accidentalCount{ Accidentals::C };
+        Mode mode{ Mode::Major };
     };
     enum class TripletFeelType {
         Triplet8th,
@@ -55,7 +63,7 @@ public:
         };
 
         Type type = Type::Repeat;
-        String name;
+        muse::String name;
     };
 
     ~GPMasterBar() = default;
@@ -63,8 +71,9 @@ public:
     void addGPBar(std::unique_ptr<GPBar>&& b) { _bars.push_back(std::move(b)); }
     void setTimeSig(const GPMasterBar::TimeSig& sig) { _timeSig = sig; }
     TimeSig timeSig() const { return _timeSig; }
+    bool useFlats() const { return _useFlats; }
 
-    void setKeySig(GPMasterBar::KeySig sig) { _keySig = sig; }
+    void setKeySig(GPMasterBar::KeySig sig, bool useFlats = false) { _keySig = sig; _useFlats = useFlats; }
     KeySig keySig() const { return _keySig; }
 
     void setFermatas(std::vector<Fermata>&& f) { _fermatas.swap(f); }
@@ -85,8 +94,8 @@ public:
     void setAlternativeEnding(std::vector<int>&& r) { _alternateEndings.swap(r); }
     const std::vector<int>& alternateEnding() const { return _alternateEndings; }
 
-    void setSection(std::pair<String, String>&& s) { _section.swap(s); }
-    const std::pair<String, String>& section() const { return _section; }
+    void setSection(std::pair<muse::String, muse::String>&& s) { _section.swap(s); }
+    const std::pair<muse::String, muse::String>& section() const { return _section; }
 
     void setDirections(std::vector<Direction>&& d) { _directions.swap(d); }
     const std::vector<Direction>& directions() const { return _directions; }
@@ -104,14 +113,15 @@ private:
     std::vector<Direction> _directions;
     TimeSig _timeSig;
     KeySig _keySig;
+    bool _useFlats = false;
     Repeat _repeat;
     std::vector<int> _alternateEndings;
     TripletFeelType _tripletFeel = TripletFeelType::None;
     BarlineType _barlineType = BarlineType::NORMAL;
     bool _freeTime = false;
-    std::pair<String, String> _section;
+    std::pair<muse::String, muse::String> _section;
     Direction _direction;
 };
-}
+} // namespace mu::iex::guitarpro
 
-#endif // GPMASTERBAR_H
+#endif // MU_IMPORTEXPORT_GPMASTERBAR_H

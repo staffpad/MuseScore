@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -24,6 +24,7 @@
 
 #include <string>
 #include <optional>
+
 #include "modularity/imoduleinterface.h"
 
 namespace mu::iex::imagesexport {
@@ -40,12 +41,17 @@ public:
 
     // Png
     virtual float exportPngDpiResolution() const = 0;
+    virtual void setExportPngDpiResolution(float dpi) = 0;
 
     //! NOTE Maybe set from command line
-    virtual void setExportPngDpiResolution(std::optional<float> dpi) = 0;
+    virtual void setExportPngDpiResolutionOverride(std::optional<float> dpi) = 0;
 
     virtual bool exportPngWithTransparentBackground() const = 0;
     virtual void setExportPngWithTransparentBackground(bool transparent) = 0;
+
+    // Svg
+    virtual bool exportSvgWithTransparentBackground() const = 0;
+    virtual void setExportSvgWithTransparentBackground(bool transparent) = 0;
 
     virtual int trimMarginPixelSize() const = 0;
     virtual void setTrimMarginPixelSize(std::optional<int> pixelSize) = 0;

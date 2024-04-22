@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,8 +22,8 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.Palette 1.0
 
 Item {
@@ -117,7 +117,7 @@ Item {
         navigation.panel: navPanel
         navigation.order: 1
 
-        text: qsTrc("palette", "Add Palettes")
+        text: qsTrc("palette", "Add palettes")
         visible: !root.isSearchOpened
         enabled: visible
 
@@ -157,7 +157,7 @@ Item {
         navigation.panel: navPanel
         navigation.order: 2
 
-        toolTipTitle: qsTrc("palette", "Search Palettes")
+        toolTipTitle: qsTrc("palette", "Search palettes")
 
         icon: IconCode.SEARCH
         visible: !root.isSearchOpened
@@ -190,5 +190,7 @@ Item {
         visible: root.isSearchOpened
 
         Keys.onEscapePressed: root.endSearch()
+
+        onAccepted: applyCurrentPaletteElement()
     }
 }

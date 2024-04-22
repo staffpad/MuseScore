@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<museScore version="4.00">
+<museScore version="4.40">
   <Score>
-    <LayerTag id="0" tag="default"></LayerTag>
-    <currentLayer>0</currentLayer>
     <Division>480</Division>
     <Style>
       <defaultsVersion>301</defaultsVersion>
@@ -18,7 +16,6 @@
     <metaTag name="lyricist"></metaTag>
     <metaTag name="movementNumber"></metaTag>
     <metaTag name="movementTitle"></metaTag>
-    <metaTag name="poet"></metaTag>
     <metaTag name="source"></metaTag>
     <metaTag name="translator"></metaTag>
     <metaTag name="workNumber"></metaTag>
@@ -173,7 +170,6 @@
       <Measure>
         <measureRepeatCount>1</measureRepeatCount>
         <LayoutBreak>
-          <linkedMain/>
           <subtype>nobreak</subtype>
           </LayoutBreak>
         <voice>
@@ -188,7 +184,6 @@
       <Measure>
         <measureRepeatCount>2</measureRepeatCount>
         <LayoutBreak>
-          <linkedMain/>
           <subtype>nobreak</subtype>
           </LayoutBreak>
         <voice>
@@ -202,7 +197,6 @@
       <Measure>
         <measureRepeatCount>1</measureRepeatCount>
         <LayoutBreak>
-          <linkedMain/>
           <subtype>nobreak</subtype>
           </LayoutBreak>
         <voice>
@@ -216,7 +210,6 @@
       <Measure>
         <measureRepeatCount>2</measureRepeatCount>
         <LayoutBreak>
-          <linkedMain/>
           <subtype>nobreak</subtype>
           </LayoutBreak>
         <voice>
@@ -231,7 +224,6 @@
       <Measure>
         <measureRepeatCount>3</measureRepeatCount>
         <LayoutBreak>
-          <linkedMain/>
           <subtype>nobreak</subtype>
           </LayoutBreak>
         <voice>
@@ -245,7 +237,6 @@
       <Measure>
         <measureRepeatCount>4</measureRepeatCount>
         <LayoutBreak>
-          <linkedMain/>
           <subtype>nobreak</subtype>
           </LayoutBreak>
         <voice>
@@ -818,8 +809,7 @@
         </Measure>
       </Staff>
     <Score>
-      <LayerTag id="0" tag="default"></LayerTag>
-      <currentLayer>0</currentLayer>
+      <name>Alto</name>
       <Division>480</Division>
       <Style>
         <Spatium>1.74978</Spatium>
@@ -958,14 +948,6 @@
           </Measure>
         <Measure>
           <measureRepeatCount>1</measureRepeatCount>
-          <LayoutBreak>
-            <linked>
-              <location>
-                <staves>-1</staves>
-                </location>
-              </linked>
-            <subtype>nobreak</subtype>
-            </LayoutBreak>
           <voice>
             <MeasureRepeat>
               <subtype>2</subtype>
@@ -978,14 +960,6 @@
           </Measure>
         <Measure>
           <measureRepeatCount>2</measureRepeatCount>
-          <LayoutBreak>
-            <linked>
-              <location>
-                <staves>-1</staves>
-                </location>
-              </linked>
-            <subtype>nobreak</subtype>
-            </LayoutBreak>
           <voice>
             <Rest>
               <linked>
@@ -997,14 +971,6 @@
           </Measure>
         <Measure>
           <measureRepeatCount>1</measureRepeatCount>
-          <LayoutBreak>
-            <linked>
-              <location>
-                <staves>-1</staves>
-                </location>
-              </linked>
-            <subtype>nobreak</subtype>
-            </LayoutBreak>
           <voice>
             <Rest>
               <linked>
@@ -1016,14 +982,6 @@
           </Measure>
         <Measure>
           <measureRepeatCount>2</measureRepeatCount>
-          <LayoutBreak>
-            <linked>
-              <location>
-                <staves>-1</staves>
-                </location>
-              </linked>
-            <subtype>nobreak</subtype>
-            </LayoutBreak>
           <voice>
             <MeasureRepeat>
               <subtype>4</subtype>
@@ -1036,14 +994,6 @@
           </Measure>
         <Measure>
           <measureRepeatCount>3</measureRepeatCount>
-          <LayoutBreak>
-            <linked>
-              <location>
-                <staves>-1</staves>
-                </location>
-              </linked>
-            <subtype>nobreak</subtype>
-            </LayoutBreak>
           <voice>
             <Rest>
               <linked>
@@ -1055,14 +1005,6 @@
           </Measure>
         <Measure>
           <measureRepeatCount>4</measureRepeatCount>
-          <LayoutBreak>
-            <linked>
-              <location>
-                <staves>-1</staves>
-                </location>
-              </linked>
-            <subtype>nobreak</subtype>
-            </LayoutBreak>
           <voice>
             <Rest>
               <linked>
@@ -1313,11 +1255,9 @@
             </voice>
           </Measure>
         </Staff>
-      <name>Alto</name>
       </Score>
     <Score>
-      <LayerTag id="0" tag="default"></LayerTag>
-      <currentLayer>0</currentLayer>
+      <name>Tenor</name>
       <Division>480</Division>
       <Style>
         <Spatium>1.74978</Spatium>
@@ -1474,14 +1414,6 @@
           </Measure>
         <Measure>
           <measureRepeatCount>1</measureRepeatCount>
-          <LayoutBreak>
-            <linked>
-              <location>
-                <staves>-2</staves>
-                </location>
-              </linked>
-            <subtype>nobreak</subtype>
-            </LayoutBreak>
           <voice>
             <MeasureRepeat>
               <subtype>1</subtype>
@@ -1494,14 +1426,6 @@
           </Measure>
         <Measure>
           <measureRepeatCount>1</measureRepeatCount>
-          <LayoutBreak>
-            <linked>
-              <location>
-                <staves>-2</staves>
-                </location>
-              </linked>
-            <subtype>nobreak</subtype>
-            </LayoutBreak>
           <voice>
             <MeasureRepeat>
               <subtype>2</subtype>
@@ -1514,14 +1438,6 @@
           </Measure>
         <Measure>
           <measureRepeatCount>2</measureRepeatCount>
-          <LayoutBreak>
-            <linked>
-              <location>
-                <staves>-2</staves>
-                </location>
-              </linked>
-            <subtype>nobreak</subtype>
-            </LayoutBreak>
           <voice>
             <Rest>
               <linked>
@@ -1533,14 +1449,6 @@
           </Measure>
         <Measure>
           <measureRepeatCount>1</measureRepeatCount>
-          <LayoutBreak>
-            <linked>
-              <location>
-                <staves>-2</staves>
-                </location>
-              </linked>
-            <subtype>nobreak</subtype>
-            </LayoutBreak>
           <voice>
             <Rest>
               <linked>
@@ -1552,14 +1460,6 @@
           </Measure>
         <Measure>
           <measureRepeatCount>2</measureRepeatCount>
-          <LayoutBreak>
-            <linked>
-              <location>
-                <staves>-2</staves>
-                </location>
-              </linked>
-            <subtype>nobreak</subtype>
-            </LayoutBreak>
           <voice>
             <MeasureRepeat>
               <subtype>4</subtype>
@@ -1572,14 +1472,6 @@
           </Measure>
         <Measure>
           <measureRepeatCount>3</measureRepeatCount>
-          <LayoutBreak>
-            <linked>
-              <location>
-                <staves>-2</staves>
-                </location>
-              </linked>
-            <subtype>nobreak</subtype>
-            </LayoutBreak>
           <voice>
             <Rest>
               <linked>
@@ -1831,7 +1723,6 @@
             </voice>
           </Measure>
         </Staff>
-      <name>Tenor</name>
       </Score>
     </Score>
   </museScore>

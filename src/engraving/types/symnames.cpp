@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -26,6 +26,7 @@
 
 #include "log.h"
 
+using namespace muse;
 using namespace mu;
 using namespace mu::engraving;
 
@@ -43,7 +44,7 @@ const char* SymNames::userNameForSymId(SymId id)
 
 String SymNames::translatedUserNameForSymId(SymId id)
 {
-    return mtrc("engraving/sym", userNameForSymId(id));
+    return muse::mtrc("engraving/sym", userNameForSymId(id));
 }
 
 SymId SymNames::symIdByName(const AsciiStringView& name, SymId def)
@@ -51,7 +52,7 @@ SymId SymNames::symIdByName(const AsciiStringView& name, SymId def)
     if (s_nameToSymIdHash.empty()) {
         loadNameToSymIdHash();
     }
-    return mu::value(s_nameToSymIdHash, name, def);
+    return muse::value(s_nameToSymIdHash, name, def);
 }
 
 SymId SymNames::symIdByName(const String& name, SymId def)
@@ -62,7 +63,7 @@ SymId SymNames::symIdByName(const String& name, SymId def)
 
 SymId SymNames::symIdByOldName(const AsciiStringView& oldName)
 {
-    return mu::value(s_oldNameToSymIdHash, oldName, SymId::noSym);
+    return muse::value(s_oldNameToSymIdHash, oldName, SymId::noSym);
 }
 
 SymId SymNames::symIdByUserName(const String& userName)
@@ -3453,9 +3454,9 @@ constexpr const std::array<const char*, size_t(SymId::lastSym) + 1> SymNames::s_
     QT_TRANSLATE_NOOP("engraving/sym", "Double sharp raised by three syntonic commas"),
     QT_TRANSLATE_NOOP("engraving/sym", "Double sharp lowered by two syntonic commas"),
     QT_TRANSLATE_NOOP("engraving/sym", "Double sharp raised by two syntonic commas"),
-    "Enharmonically reinterpret accidental almost equal to",
-    "Enharmonically reinterpret accidental equals",
-    "Enharmonically reinterpret accidental tilde",
+    QT_TRANSLATE_NOOP("engraving/sym", "Enharmonically reinterpret accidental almost equal to"),
+    QT_TRANSLATE_NOOP("engraving/sym", "Enharmonically reinterpret accidental equals"),
+    QT_TRANSLATE_NOOP("engraving/sym", "Enharmonically reinterpret accidental tilde"),
     "Filled reversed flat and flat",
     "Filled reversed flat and flat with arrow down",
     "Filled reversed flat and flat with arrow up",
@@ -3799,7 +3800,7 @@ constexpr const std::array<const char*, size_t(SymId::lastSym) + 1> SymNames::s_
     "Bridge clef",
     "Buzz roll",
     QT_TRANSLATE_NOOP("engraving/sym", "C clef"),
-    "C clef ottava bassa",
+    QT_TRANSLATE_NOOP("engraving/sym", "C clef ottava bassa"),
     "C clef, arrow down",
     "C clef, arrow up",
     "C clef change",

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,8 +22,8 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.Inspector 1.0
 
 import "../../common"
@@ -47,6 +47,7 @@ Column {
     DropdownPropertyView {
         id: intervalAbove
         visible: root.model ? root.model.isIntervalAboveAvailable : false
+
         titleText: qsTrc("inspector", "Interval above")
         propertyItem: root.model ? root.model.intervalAbove : null
 
@@ -57,12 +58,14 @@ Column {
             { text: qsTrc("inspector", "Auto (diatonic)"), value: OrnamentTypes.TYPE_AUTO_DIATONIC},
             { text: qsTrc("inspector", "Minor second"), value: OrnamentTypes.TYPE_MINOR_SECOND},
             { text: qsTrc("inspector", "Major second"), value: OrnamentTypes.TYPE_MAJOR_SECOND},
+            { text: qsTrc("inspector", "Augmented second"), value: OrnamentTypes.TYPE_AUGMENTED_SECOND},
         ]
     }
 
     DropdownPropertyView {
         id: intervalBelow
         visible: root.model ? root.model.isIntervalBelowAvailable : false
+
         titleText: qsTrc("inspector", "Interval below")
         propertyItem: root.model ? root.model.intervalBelow : null
 
@@ -73,12 +76,14 @@ Column {
             { text: qsTrc("inspector", "Auto (diatonic)"), value: OrnamentTypes.TYPE_AUTO_DIATONIC},
             { text: qsTrc("inspector", "Minor second"), value: OrnamentTypes.TYPE_MINOR_SECOND},
             { text: qsTrc("inspector", "Major second"), value: OrnamentTypes.TYPE_MAJOR_SECOND},
+            { text: qsTrc("inspector", "Augmented second"), value: OrnamentTypes.TYPE_AUGMENTED_SECOND},
         ]
     }
 
     InspectorPropertyView {
         id: interval
         visible: root.model ? root.model.isFullIntervalChoiceAvailable : false
+
         titleText: qsTrc("inspector", "Interval")
         propertyItem: root.model ? root.model.intervalAbove : null
 
@@ -88,11 +93,14 @@ Column {
         }
 
         navigationName: "Interval"
-        navigationRowEnd: intervalType.navigation.row
+        navigationPanel: root.navigationPanel
+        navigationRowStart: intervalBelow.navigationRowEnd + 1
+        navigationRowEnd: intervalStep.navigation.row
 
         function focusOnFirst() {
             intervalType.navigation.requestActive()
         }
+
         Item {
             width: parent.width
             height: childrenRect.height
@@ -107,7 +115,7 @@ Column {
 
                 navigation.name: root.navigationName + " Dropdown"
                 navigation.panel: root.navigationPanel
-                navigation.row: root.navigationRowStart + 1
+                navigation.row: interval.navigationRowStart + 1
                 navigation.accessible.name: root.titleText + " " + currentText
 
                 model: root.model && root.model.isPerfectStep ? [
@@ -118,8 +126,10 @@ Column {
                 ] : [
                     { text: qsTrc("inspector", "Auto (diatonic)"), value: OrnamentTypes.TYPE_AUTO},
                     { text: qsTrc("inspector", "Augmented"), value: OrnamentTypes.TYPE_AUGMENTED},
-                    { text: qsTrc("inspector", "Major"), value: OrnamentTypes.TYPE_MAJOR},
-                    { text: qsTrc("inspector", "Minor"), value: OrnamentTypes.TYPE_MINOR},
+                    //: Interval, not the mode of a key signature
+                    { text: qsTrc("inspector", "Major", "interval quality"), value: OrnamentTypes.TYPE_MAJOR},
+                    //: Interval, not the mode of a key signature
+                    { text: qsTrc("inspector", "Minor", "interval quality"), value: OrnamentTypes.TYPE_MINOR},
                     { text: qsTrc("inspector", "Diminished"), value: OrnamentTypes.TYPE_DIMINISHED},
                 ]
 
@@ -141,7 +151,7 @@ Column {
 
                 navigation.name: root.navigationName + " Dropdown"
                 navigation.panel: root.navigationPanel
-                navigation.row: root.navigationRowStart + 1
+                navigation.row: intervalType.navigation.row + 1
                 navigation.accessible.name: root.titleText + " " + currentText
 
                 model:  [
@@ -167,6 +177,7 @@ Column {
 
     DropdownPropertyView {
         id: showAccidental
+
         titleText: qsTrc("inspector", "Accidental visibility")
         propertyItem: root.model ? root.model.showAccidental : null
 
@@ -180,7 +191,7 @@ Column {
         ]
     }
 
-    CheckBoxPropertyView {
+    PropertyCheckBox {
         id: startOnUpperNote
         visible: false // prepared for future option but not implemented yet
 
@@ -192,15 +203,16 @@ Column {
         propertyItem: root.model ? root.model.startOnUpperNote : null
     }
 
-    DropdownPropertyView {
+    PlacementSection {
         titleText: qsTrc("inspector", "Placement")
         propertyItem: root.model ? root.model.placement : null
 
         navigationPanel: root.navigationPanel
-        navigationRowStart: performanceSection.navigationRowEnd + 1
+        navigationRowStart: startOnUpperNote.navigation.row + 1
+
         model: [
-            { text: qsTrc("inspector", "Above"), value: ArticulationTypes.TYPE_TOP },
             { text: qsTrc("inspector", "Auto"), value: ArticulationTypes.TYPE_AUTO },
+            { text: qsTrc("inspector", "Above"), value: ArticulationTypes.TYPE_TOP },
             { text: qsTrc("inspector", "Below"), value: ArticulationTypes.TYPE_BOTTOM }
         ]
     }

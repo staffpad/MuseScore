@@ -20,28 +20,28 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_AUDIO_REGISTERAUDIOPLUGINSSCENARIO_H
-#define MU_AUDIO_REGISTERAUDIOPLUGINSSCENARIO_H
+#ifndef MUSE_AUDIO_REGISTERAUDIOPLUGINSSCENARIO_H
+#define MUSE_AUDIO_REGISTERAUDIOPLUGINSSCENARIO_H
 
-#include "audio/iregisteraudiopluginsscenario.h"
-#include "async/asyncable.h"
+#include "global/modularity/ioc.h"
+#include "global/iprocess.h"
+#include "global/iglobalconfiguration.h"
+#include "global/iinteractive.h"
+#include "global/async/asyncable.h"
 
-#include "modularity/ioc.h"
-#include "audio/iknownaudiopluginsregister.h"
-#include "audio/iaudiopluginsscannerregister.h"
-#include "audio/iaudiopluginmetareaderregister.h"
-#include "iprocess.h"
-#include "iglobalconfiguration.h"
-#include "iinteractive.h"
+#include "iregisteraudiopluginsscenario.h"
+#include "iknownaudiopluginsregister.h"
+#include "iaudiopluginsscannerregister.h"
+#include "iaudiopluginmetareaderregister.h"
 
-namespace mu::audio {
+namespace muse::audio {
 class RegisterAudioPluginsScenario : public IRegisterAudioPluginsScenario, public async::Asyncable
 {
     INJECT(IKnownAudioPluginsRegister, knownPluginsRegister)
     INJECT(IAudioPluginsScannerRegister, scannerRegister)
     INJECT(IAudioPluginMetaReaderRegister, metaReaderRegister)
-    INJECT(framework::IGlobalConfiguration, globalConfiguration)
-    INJECT(framework::IInteractive, interactive)
+    INJECT(IGlobalConfiguration, globalConfiguration)
+    INJECT(IInteractive, interactive)
     INJECT(IProcess, process)
 
 public:
@@ -55,9 +55,9 @@ private:
     void processPluginsRegistration(const io::paths_t& pluginPaths);
     IAudioPluginMetaReaderPtr metaReader(const io::path_t& pluginPath) const;
 
-    framework::Progress m_progress;
+    Progress m_progress;
     bool m_aborted = false;
 };
 }
 
-#endif // MU_AUDIO_REGISTERAUDIOPLUGINSSCENARIO_H
+#endif // MUSE_AUDIO_REGISTERAUDIOPLUGINSSCENARIO_H

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,8 +22,8 @@
 #include "ornamentsettingsmodel.h"
 #include "inspector/types/ornamenttypes.h"
 
-#include "libmscore/articulation.h"
-#include "libmscore/ornament.h"
+#include "engraving/dom/articulation.h"
+#include "engraving/dom/ornament.h"
 
 #include "log.h"
 #include "translation.h"
@@ -41,58 +41,45 @@ OrnamentSettingsModel::OrnamentSettingsModel(QObject* parent, IElementRepository
     : AbstractInspectorModel(parent, repository)
 {
     setModelType(InspectorModelType::TYPE_ORNAMENT);
-    setTitle(qtrc("inspector", "Ornament"));
-    setIcon(ui::IconCode::Code::ORNAMENT);
+    setTitle(muse::qtrc("inspector", "Ornament"));
+    setIcon(muse::ui::IconCode::Code::ORNAMENT);
     createProperties();
 }
 
 void OrnamentSettingsModel::createProperties()
 {
+    auto onIntervalChanged = [this](const Pid pid, const QVariant& newValue) {
+        OrnamentTypes::BasicInterval basicInterval = OrnamentTypes::BasicInterval(newValue.toInt());
+        OrnamentInterval newInterval;
+
+        switch (basicInterval) {
+        case OrnamentTypes::BasicInterval::TYPE_AUTO_DIATONIC:
+            newInterval.step = IntervalStep::SECOND;
+            newInterval.type = IntervalType::AUTO;
+            break;
+        case OrnamentTypes::BasicInterval::TYPE_MAJOR_SECOND:
+            newInterval.step = IntervalStep::SECOND;
+            newInterval.type = IntervalType::MAJOR;
+            break;
+        case OrnamentTypes::BasicInterval::TYPE_MINOR_SECOND:
+            newInterval.step = IntervalStep::SECOND;
+            newInterval.type = IntervalType::MINOR;
+            break;
+        case OrnamentTypes::BasicInterval::TYPE_AUGMENTED_SECOND:
+            newInterval.step = IntervalStep::SECOND;
+            newInterval.type = IntervalType::AUGMENTED;
+            break;
+        default:
+            break;
+        }
+
+        onPropertyValueChanged(pid, PropertyValue(newInterval).toQVariant());
+    };
+
     m_placement = buildPropertyItem(Pid::ARTICULATION_ANCHOR);
 
-    m_intervalAbove = buildPropertyItem(Pid::INTERVAL_ABOVE, [this](const Pid pid, const QVariant& newValue) {
-        OrnamentTypes::BasicInterval basicInterval = OrnamentTypes::BasicInterval(newValue.toInt());
-        OrnamentInterval newInterval;
-        switch (basicInterval) {
-        case OrnamentTypes::BasicInterval::TYPE_AUTO_DIATONIC:
-            newInterval.step = IntervalStep::SECOND;
-            newInterval.type = IntervalType::AUTO;
-            break;
-        case OrnamentTypes::BasicInterval::TYPE_MAJOR_SECOND:
-            newInterval.step = IntervalStep::SECOND;
-            newInterval.type = IntervalType::MAJOR;
-            break;
-        case OrnamentTypes::BasicInterval::TYPE_MINOR_SECOND:
-            newInterval.step = IntervalStep::SECOND;
-            newInterval.type = IntervalType::MINOR;
-            break;
-        default:
-            break;
-        }
-        onPropertyValueChanged(pid, PropertyValue(newInterval).toQVariant());
-    });
-
-    m_intervalBelow = buildPropertyItem(Pid::INTERVAL_BELOW, [this](const Pid pid, const QVariant& newValue) {
-        OrnamentTypes::BasicInterval basicInterval = OrnamentTypes::BasicInterval(newValue.toInt());
-        OrnamentInterval newInterval;
-        switch (basicInterval) {
-        case OrnamentTypes::BasicInterval::TYPE_AUTO_DIATONIC:
-            newInterval.step = IntervalStep::SECOND;
-            newInterval.type = IntervalType::AUTO;
-            break;
-        case OrnamentTypes::BasicInterval::TYPE_MAJOR_SECOND:
-            newInterval.step = IntervalStep::SECOND;
-            newInterval.type = IntervalType::MAJOR;
-            break;
-        case OrnamentTypes::BasicInterval::TYPE_MINOR_SECOND:
-            newInterval.step = IntervalStep::SECOND;
-            newInterval.type = IntervalType::MINOR;
-            break;
-        default:
-            break;
-        }
-        onPropertyValueChanged(pid, PropertyValue(newInterval).toQVariant());
-    });
+    m_intervalAbove = buildPropertyItem(Pid::INTERVAL_ABOVE, onIntervalChanged);
+    m_intervalBelow = buildPropertyItem(Pid::INTERVAL_BELOW, onIntervalChanged);
 
     m_intervalStep = buildPropertyItem(Pid::INTERVAL_ABOVE, [this](Pid id, const QVariant& newValue) {
         IntervalStep step = IntervalStep(newValue.toInt());
@@ -115,35 +102,28 @@ void OrnamentSettingsModel::requestElements()
 
 void OrnamentSettingsModel::loadProperties()
 {
+    auto convertIntevalValue = [](const QVariant& elementPropertyValue) -> QVariant {
+        PropertyValue propertyValue = PropertyValue::fromQVariant(elementPropertyValue, P_TYPE::ORNAMENT_INTERVAL);
+        OrnamentInterval interval = propertyValue.value<OrnamentInterval>();
+        OrnamentTypes::BasicInterval basicInterval = OrnamentTypes::BasicInterval::TYPE_INVALID;
+
+        if (interval.step == IntervalStep::SECOND && interval.type == IntervalType::AUTO) {
+            basicInterval = OrnamentTypes::BasicInterval::TYPE_AUTO_DIATONIC;
+        } else if (interval.step == IntervalStep::SECOND && interval.type == IntervalType::MAJOR) {
+            basicInterval = OrnamentTypes::BasicInterval::TYPE_MAJOR_SECOND;
+        } else if (interval.step == IntervalStep::SECOND && interval.type == IntervalType::MINOR) {
+            basicInterval = OrnamentTypes::BasicInterval::TYPE_MINOR_SECOND;
+        } else if (interval.step == IntervalStep::SECOND && interval.type == IntervalType::AUGMENTED) {
+            basicInterval = OrnamentTypes::BasicInterval::TYPE_AUGMENTED_SECOND;
+        }
+
+        return static_cast<int>(basicInterval);
+    };
+
     loadPropertyItem(m_placement);
 
-    loadPropertyItem(m_intervalAbove, [](const QVariant& elementPropertyValue) -> QVariant {
-        PropertyValue propertyValue = PropertyValue::fromQVariant(elementPropertyValue, P_TYPE::ORNAMENT_INTERVAL);
-        OrnamentInterval interval = propertyValue.value<OrnamentInterval>();
-        OrnamentTypes::BasicInterval basicInterval = OrnamentTypes::BasicInterval::TYPE_INVALID;
-        if (interval.step == IntervalStep::SECOND && interval.type == IntervalType::AUTO) {
-            basicInterval = OrnamentTypes::BasicInterval::TYPE_AUTO_DIATONIC;
-        } else if (interval.step == IntervalStep::SECOND && interval.type == IntervalType::MAJOR) {
-            basicInterval = OrnamentTypes::BasicInterval::TYPE_MAJOR_SECOND;
-        } else if (interval.step == IntervalStep::SECOND && interval.type == IntervalType::MINOR) {
-            basicInterval = OrnamentTypes::BasicInterval::TYPE_MINOR_SECOND;
-        }
-        return static_cast<int>(basicInterval);
-    });
-
-    loadPropertyItem(m_intervalBelow, [](const QVariant& elementPropertyValue) -> QVariant {
-        PropertyValue propertyValue = PropertyValue::fromQVariant(elementPropertyValue, P_TYPE::ORNAMENT_INTERVAL);
-        OrnamentInterval interval = propertyValue.value<OrnamentInterval>();
-        OrnamentTypes::BasicInterval basicInterval = OrnamentTypes::BasicInterval::TYPE_INVALID;
-        if (interval.step == IntervalStep::SECOND && interval.type == IntervalType::AUTO) {
-            basicInterval = OrnamentTypes::BasicInterval::TYPE_AUTO_DIATONIC;
-        } else if (interval.step == IntervalStep::SECOND && interval.type == IntervalType::MAJOR) {
-            basicInterval = OrnamentTypes::BasicInterval::TYPE_MAJOR_SECOND;
-        } else if (interval.step == IntervalStep::SECOND && interval.type == IntervalType::MINOR) {
-            basicInterval = OrnamentTypes::BasicInterval::TYPE_MINOR_SECOND;
-        }
-        return static_cast<int>(basicInterval);
-    });
+    loadPropertyItem(m_intervalAbove, convertIntevalValue);
+    loadPropertyItem(m_intervalBelow, convertIntevalValue);
 
     loadPropertyItem(m_intervalStep, [](const QVariant& elementPropertyValue) -> QVariant {
         PropertyValue propertyValue = PropertyValue::fromQVariant(elementPropertyValue, P_TYPE::ORNAMENT_INTERVAL);

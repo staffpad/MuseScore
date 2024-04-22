@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -59,6 +59,7 @@
 #include "view/widgets/editstyle.h"
 #include "view/widgets/measureproperties.h"
 #include "view/widgets/editstaff.h"
+#include "view/widgets/editstringdata.h"
 #include "view/widgets/breaksdialog.h"
 #include "view/widgets/pagesettings.h"
 #include "view/widgets/transposedialog.h"
@@ -69,22 +70,27 @@
 #include "view/widgets/timelineview.h"
 #include "view/widgets/realizeharmonydialog.h"
 #include "view/notationcontextmenumodel.h"
+#include "view/abstractelementpopupmodel.h"
 #include "view/internal/undoredomodel.h"
-#include "view/internal/abstractelementpopupmodel.h"
 #include "view/internal/harppedalpopupmodel.h"
+#include "view/internal/caposettingsmodel.h"
+#include "view/internal/stringtuningssettingsmodel.h"
 
 #include "view/styledialog/styleitem.h"
 #include "view/styledialog/notespagemodel.h"
 #include "view/styledialog/restspagemodel.h"
 #include "view/styledialog/beamspagemodel.h"
+#include "view/styledialog/bendstyleselector.h"
+#include "view/styledialog/tieplacementselector.h"
 
 #include "diagnostics/idiagnosticspathsregister.h"
 
 using namespace mu::notation;
-using namespace mu::modularity;
-using namespace mu::ui;
-using namespace mu::actions;
-using namespace mu::uicomponents;
+using namespace muse;
+using namespace muse::modularity;
+using namespace muse::ui;
+using namespace muse::actions;
+using namespace muse::uicomponents;
 
 static void notationscene_init_qrc()
 {
@@ -126,47 +132,22 @@ void NotationModule::resolveImports()
 
     auto ir = ioc()->resolve<IInteractiveUriRegister>(moduleName());
     if (ir) {
-        ir->registerUri(Uri("musescore://notation/style"),
-                        ContainerMeta(ContainerType::QWidgetDialog, qRegisterMetaType<EditStyle>("EditStyle")));
+        ir->registerWidgetUri<EditStyle>(Uri("musescore://notation/style"));
+        ir->registerWidgetUri<PageSettings>(Uri("musescore://notation/pagesettings"));
+        ir->registerWidgetUri<MeasurePropertiesDialog>(Uri("musescore://notation/measureproperties"));
+        ir->registerWidgetUri<BreaksDialog>(Uri("musescore://notation/breaks"));
+        ir->registerWidgetUri<EditStaff>(Uri("musescore://notation/staffproperties"));
+        ir->registerWidgetUri<EditStringData>(Uri("musescore://notation/editstrings"));
+        ir->registerWidgetUri<TransposeDialog>(Uri("musescore://notation/transpose"));
+        ir->registerWidgetUri<SelectNoteDialog>(Uri("musescore://notation/selectnote"));
+        ir->registerWidgetUri<SelectDialog>(Uri("musescore://notation/selectelement"));
+        ir->registerWidgetUri<TupletDialog>(Uri("musescore://notation/othertupletdialog"));
+        ir->registerWidgetUri<StaffTextPropertiesDialog>(Uri("musescore://notation/stafftextproperties"));
+        ir->registerWidgetUri<RealizeHarmonyDialog>(Uri("musescore://notation/realizechordsymbols"));
 
-        ir->registerUri(Uri("musescore://notation/pagesettings"),
-                        ContainerMeta(ContainerType::QWidgetDialog, qRegisterMetaType<PageSettings>("PageSettings")));
-
-        ir->registerUri(Uri("musescore://notation/measureproperties"),
-                        ContainerMeta(ContainerType::QWidgetDialog, qRegisterMetaType<MeasurePropertiesDialog>("MeasurePropertiesDialog")));
-
-        ir->registerUri(Uri("musescore://notation/breaks"),
-                        ContainerMeta(ContainerType::QWidgetDialog, qRegisterMetaType<BreaksDialog>("BreaksDialog")));
-
-        ir->registerUri(Uri("musescore://notation/staffproperties"),
-                        ContainerMeta(ContainerType::QWidgetDialog, EditStaff::metaTypeId()));
-
-        ir->registerUri(Uri("musescore://notation/transpose"),
-                        ContainerMeta(ContainerType::QWidgetDialog, qRegisterMetaType<TransposeDialog>("TransposeDialog")));
-
-        ir->registerUri(Uri("musescore://notation/selectnote"),
-                        ContainerMeta(ContainerType::QWidgetDialog, SelectNoteDialog::metaTypeId()));
-
-        ir->registerUri(Uri("musescore://notation/selectelement"),
-                        ContainerMeta(ContainerType::QWidgetDialog, SelectDialog::metaTypeId()));
-
-        ir->registerUri(Uri("musescore://notation/othertupletdialog"),
-                        ContainerMeta(ContainerType::QWidgetDialog, qRegisterMetaType<TupletDialog>("TupletDialog")));
-
-        ir->registerUri(Uri("musescore://notation/stafftextproperties"),
-                        ContainerMeta(ContainerType::QWidgetDialog, StaffTextPropertiesDialog::static_metaTypeId()));
-
-        ir->registerUri(Uri("musescore://notation/parts"),
-                        ContainerMeta(ContainerType::QmlDialog, "MuseScore/NotationScene/PartsDialog.qml"));
-
-        ir->registerUri(Uri("musescore://notation/selectmeasurescount"),
-                        ContainerMeta(ContainerType::QmlDialog, "MuseScore/NotationScene/SelectMeasuresCountDialog.qml"));
-
-        ir->registerUri(Uri("musescore://notation/editgridsize"),
-                        ContainerMeta(ContainerType::QmlDialog, "MuseScore/NotationScene/EditGridSizeDialog.qml"));
-
-        ir->registerUri(Uri("musescore://notation/realizechordsymbols"),
-                        ContainerMeta(ContainerType::QWidgetDialog, qRegisterMetaType<RealizeHarmonyDialog>("RealizeHarmonyDialog")));
+        ir->registerQmlUri(Uri("musescore://notation/parts"), "MuseScore/NotationScene/PartsDialog.qml");
+        ir->registerQmlUri(Uri("musescore://notation/selectmeasurescount"), "MuseScore/NotationScene/SelectMeasuresCountDialog.qml");
+        ir->registerQmlUri(Uri("musescore://notation/editgridsize"), "MuseScore/NotationScene/EditGridSizeDialog.qml");
     }
 }
 
@@ -197,14 +178,19 @@ void NotationModule::registerUiTypes()
     qmlRegisterUncreatableType<AbstractElementPopupModel>("MuseScore.NotationScene", 1, 0, "Notation",
                                                           "Not creatable as it is an enum type");
     qmlRegisterType<HarpPedalPopupModel>("MuseScore.NotationScene", 1, 0, "HarpPedalPopupModel");
+    qmlRegisterType<CapoSettingsModel>("MuseScore.NotationScene", 1, 0, "CapoSettingsModel");
+    qmlRegisterType<StringTuningsSettingsModel>("MuseScore.NotationScene", 1, 0, "StringTuningsSettingsModel");
 
     qmlRegisterUncreatableType<StyleItem>("MuseScore.NotationScene", 1, 0, "StyleItem", "Cannot create StyleItem from QML");
     qmlRegisterType<NotesPageModel>("MuseScore.NotationScene", 1, 0, "NotesPageModel");
     qmlRegisterType<RestsPageModel>("MuseScore.NotationScene", 1, 0, "RestsPageModel");
     qmlRegisterType<BeamsPageModel>("MuseScore.NotationScene", 1, 0, "BeamsPageModel");
+    qmlRegisterType<BendStyleSelector>("MuseScore.NotationScene", 1, 0, "BendStyleSelector");
+    qmlRegisterType<TiePlacementSelectorModel>("MuseScore.NotationScene", 1, 0, "TiePlacementSelectorModel");
 
     qRegisterMetaType<EditStyle>("EditStyle");
     qRegisterMetaType<EditStaff>("EditStaff");
+    qRegisterMetaType<EditStringData>("EditStringData");
     qRegisterMetaType<SelectNoteDialog>("SelectNoteDialog");
     qRegisterMetaType<SelectDialog>("SelectDialog");
     qRegisterMetaType<StaffTextPropertiesDialog>("StaffTextPropertiesDialog");
@@ -217,9 +203,9 @@ void NotationModule::registerUiTypes()
     }
 }
 
-void NotationModule::onInit(const framework::IApplication::RunMode& mode)
+void NotationModule::onInit(const IApplication::RunMode& mode)
 {
-    if (mode == framework::IApplication::RunMode::AudioPluginRegistration) {
+    if (mode == IApplication::RunMode::AudioPluginRegistration) {
         return;
     }
 
@@ -228,7 +214,7 @@ void NotationModule::onInit(const framework::IApplication::RunMode& mode)
     m_actionController->init();
     m_notationUiActions->init();
 
-    if (mode == framework::IApplication::RunMode::GuiApp) {
+    if (mode == IApplication::RunMode::GuiApp) {
         m_midiInputOutputController->init();
     }
 
@@ -239,12 +225,12 @@ void NotationModule::onInit(const framework::IApplication::RunMode& mode)
         pr->reg("instruments", m_configuration->instrumentListPath());
 
         io::paths_t scoreOrderPaths = m_configuration->scoreOrderListPaths();
-        for (const io::path_t& p : scoreOrderPaths) {
+        for (const muse::io::path_t& p : scoreOrderPaths) {
             pr->reg("scoreOrder", p);
         }
 
         io::paths_t uscoreOrderPaths = m_configuration->userScoreOrderListPaths();
-        for (const io::path_t& p : uscoreOrderPaths) {
+        for (const muse::io::path_t& p : uscoreOrderPaths) {
             pr->reg("user scoreOrder", p);
         }
     }

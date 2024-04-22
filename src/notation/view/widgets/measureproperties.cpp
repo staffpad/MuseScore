@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -26,12 +26,12 @@
 
 #include "translation.h"
 
-#include "engraving/libmscore/masterscore.h"
-#include "engraving/libmscore/measure.h"
-#include "engraving/libmscore/measurerepeat.h"
-#include "engraving/libmscore/range.h"
-#include "engraving/libmscore/sig.h"
-#include "engraving/libmscore/undo.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/measure.h"
+#include "engraving/dom/measurerepeat.h"
+#include "engraving/dom/range.h"
+#include "engraving/dom/sig.h"
+#include "engraving/dom/undo.h"
 
 #include "notation/inotationelements.h"
 
@@ -40,7 +40,7 @@
 #include "ui/view/widgetutils.h"
 
 using namespace mu::notation;
-using namespace mu::ui;
+using namespace muse::ui;
 
 static const int ITEM_ACCESSIBLE_TITLE_ROLE = Qt::UserRole + 1;
 
@@ -79,10 +79,13 @@ MeasurePropertiesDialog::MeasurePropertiesDialog(QWidget* parent)
     qApp->installEventFilter(this);
 }
 
+#ifdef MU_QT5_COMPAT
 MeasurePropertiesDialog::MeasurePropertiesDialog(const MeasurePropertiesDialog& dialog)
     : MeasurePropertiesDialog(dialog.parentWidget())
 {
 }
+
+#endif
 
 void MeasurePropertiesDialog::initMeasure()
 {
@@ -94,6 +97,13 @@ void MeasurePropertiesDialog::initMeasure()
     mu::engraving::Measure* measure = mu::engraving::toMeasure(context.element);
 
     if (!measure) {
+        INotationSelectionPtr selection = m_notation->interaction()->selection();
+        if (selection->isRange()) {
+            measure = selection->range()->measureRange().endMeasure;
+        }
+    }
+
+    IF_ASSERT_FAILED(measure) {
         return;
     }
 
@@ -181,7 +191,7 @@ void MeasurePropertiesDialog::setMeasure(mu::engraving::Measure* measure)
     nextButton->setEnabled(m_measure->nextMeasure() != 0);
     previousButton->setEnabled(m_measure->prevMeasure() != 0);
 
-    setWindowTitle(qtrc("notation/measureproperties", "Measure properties for measure %1").arg(m_measure->no() + 1));
+    setWindowTitle(muse::qtrc("notation/measureproperties", "Measure properties for measure %1").arg(m_measure->no() + 1));
     m_notation->interaction()->clearSelection();
     m_notation->interaction()->select({ m_measure }, mu::engraving::SelectType::ADD, 0);
 
@@ -213,7 +223,8 @@ void MeasurePropertiesDialog::setMeasure(mu::engraving::Measure* measure)
 
     auto itemAccessibleText = [](const QTableWidgetItem* item){
         return item->data(ITEM_ACCESSIBLE_TITLE_ROLE).toString() + ": "
-               + (item->checkState() == Qt::Checked ? qtrc("ui", "checked", "checkstate") : qtrc("ui", "unchecked", "checkstate"));
+               + (item->checkState() == Qt::Checked ? muse::qtrc("ui", "checked", "checkstate") : muse::qtrc("ui", "unchecked",
+                                                                                                             "checkstate"));
     };
 
     for (size_t staffIdx = 0; staffIdx < rows; ++staffIdx) {
@@ -226,14 +237,14 @@ void MeasurePropertiesDialog::setMeasure(mu::engraving::Measure* measure)
         if (rows == 1) {                  // cannot be invisible if only one row
             item->setFlags(item->flags() & ~Qt::ItemIsEnabled);
         }
-        item->setData(ITEM_ACCESSIBLE_TITLE_ROLE, qtrc("notation/measureproperties", "Visible"));
+        item->setData(ITEM_ACCESSIBLE_TITLE_ROLE, muse::qtrc("notation/measureproperties", "Visible"));
         item->setData(Qt::AccessibleTextRole, itemAccessibleText(item));
         staves->setItem(static_cast<int>(staffIdx), 1, item);
 
         item = new QTableWidgetItem();
         item->setFlags(item->flags() | Qt::ItemIsUserCheckable | Qt::ItemIsEnabled);
         item->setCheckState(m_measure->stemless(staffIdx) ? Qt::Checked : Qt::Unchecked);
-        item->setData(ITEM_ACCESSIBLE_TITLE_ROLE, qtrc("notation/measureproperties", "Stemless"));
+        item->setData(ITEM_ACCESSIBLE_TITLE_ROLE, muse::qtrc("notation/measureproperties", "Stemless"));
         item->setData(Qt::AccessibleTextRole, itemAccessibleText(item));
         staves->setItem(static_cast<int>(staffIdx), 2, item);
     }

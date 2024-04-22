@@ -21,28 +21,33 @@
  */
 #include "soundfontrepository.h"
 
-#include "translation.h"
+#include "global/translation.h"
+
+#include "synthesizers/fluidsynth/fluidsoundfontparser.h"
 
 #include "log.h"
 
-using namespace mu::audio;
-using namespace mu::audio::synth;
-using namespace mu::framework;
-using namespace mu::async;
+using namespace muse;
+using namespace muse::audio;
+using namespace muse::audio::synth;
+using namespace muse::async;
 
 void SoundFontRepository::init()
 {
-    loadSoundFontPaths();
+    loadSoundFonts();
     configuration()->soundFontDirectoriesChanged().onReceive(this, [this](const io::paths_t&) {
-        loadSoundFontPaths();
+        loadSoundFonts();
     });
 }
 
-void SoundFontRepository::loadSoundFontPaths()
+void SoundFontRepository::loadSoundFonts()
 {
     TRACEFUNC;
 
     m_soundFontPaths.clear();
+
+    SoundFontsMap oldSoundFonts;
+    m_soundFonts.swap(oldSoundFonts);
 
     static const std::vector<std::string> filters = { "*.sf2",  "*.sf3" };
     io::paths_t dirs = configuration()->soundFontDirectories();
@@ -54,23 +59,50 @@ void SoundFontRepository::loadSoundFontPaths()
             continue;
         }
 
-        m_soundFontPaths.insert(m_soundFontPaths.end(), soundFonts.val.begin(), soundFonts.val.end());
+        for (const SoundFontPath& soundFont : soundFonts.val) {
+            loadSoundFont(soundFont, oldSoundFonts);
+        }
     }
 }
 
-SoundFontPaths SoundFontRepository::soundFontPaths() const
+void SoundFontRepository::loadSoundFont(const SoundFontPath& path, const SoundFontsMap& oldSoundFonts)
+{
+    m_soundFontPaths.push_back(path);
+
+    auto it = oldSoundFonts.find(path);
+    if (it != oldSoundFonts.cend()) {
+        m_soundFonts.insert(*it);
+        return;
+    }
+
+    RetVal<SoundFontMeta> meta = FluidSoundFontParser::parseSoundFont(path);
+
+    if (!meta.ret) {
+        LOGE() << "Failed parse SoundFont presets for " << path << ": " << meta.ret.toString();
+        return;
+    }
+
+    m_soundFonts.insert_or_assign(path, std::move(meta.val));
+}
+
+const SoundFontPaths& SoundFontRepository::soundFontPaths() const
 {
     return m_soundFontPaths;
 }
 
-Notification SoundFontRepository::soundFontPathsChanged() const
+const SoundFontsMap& SoundFontRepository::soundFonts() const
 {
-    return m_soundFontPathsChanged;
+    return m_soundFonts;
 }
 
-mu::Ret SoundFontRepository::addSoundFont(const SoundFontPath& path)
+Notification SoundFontRepository::soundFontsChanged() const
 {
-    std::string title = qtrc("audio", "Do you want to add the SoundFont: %1?")
+    return m_soundFontsChanged;
+}
+
+Ret SoundFontRepository::addSoundFont(const SoundFontPath& path)
+{
+    std::string title = muse::qtrc("audio", "Do you want to add the SoundFont: %1?")
                         .arg(io::filename(path).toQString()).toStdString();
 
     IInteractive::Button btn = interactive()->question(title, "", {
@@ -79,7 +111,7 @@ mu::Ret SoundFontRepository::addSoundFont(const SoundFontPath& path)
     }).standardButton();
 
     if (btn == IInteractive::Button::No) {
-        return mu::make_ret(Ret::Code::Cancel);
+        return muse::make_ret(Ret::Code::Cancel);
     }
 
     RetVal<SoundFontPath> newPath = resolveInstallationPath(path);
@@ -88,9 +120,9 @@ mu::Ret SoundFontRepository::addSoundFont(const SoundFontPath& path)
     }
 
     if (fileSystem()->exists(newPath.val)) {
-        title = trc("audio", "File already exists. Do you want to overwrite it?");
+        title = muse::trc("audio", "File already exists. Do you want to overwrite it?");
 
-        std::string body = qtrc("audio", "File path: %1")
+        std::string body = muse::qtrc("audio", "File path: %1")
                            .arg(newPath.val.toQString()).toStdString();
 
         btn = interactive()->question(title, body, {
@@ -99,25 +131,25 @@ mu::Ret SoundFontRepository::addSoundFont(const SoundFontPath& path)
         }, IInteractive::Button::Yes, IInteractive::WithIcon).standardButton();
 
         if (btn == IInteractive::Button::No) {
-            return mu::make_ret(Ret::Code::Cancel);
+            return muse::make_ret(Ret::Code::Cancel);
         }
     }
 
     Ret ret = fileSystem()->copy(path, newPath.val, true /* replace */);
 
     if (ret) {
-        m_soundFontPaths.push_back(newPath.val);
-        m_soundFontPathsChanged.notify();
+        loadSoundFont(newPath.val);
+        m_soundFontsChanged.notify();
 
-        interactive()->info(trc("audio", "SoundFont installed"),
-                            trc("audio", "You can assign soundfonts to instruments using the mixer panel."),
+        interactive()->info(muse::trc("audio", "SoundFont installed"),
+                            muse::trc("audio", "You can assign soundfonts to instruments using the mixer panel."),
                             {}, 0, IInteractive::Option::WithIcon);
     }
 
     return ret;
 }
 
-mu::RetVal<SoundFontPath> SoundFontRepository::resolveInstallationPath(const SoundFontPath& path) const
+RetVal<SoundFontPath> SoundFontRepository::resolveInstallationPath(const SoundFontPath& path) const
 {
     io::paths_t dirs = configuration()->userSoundFontDirectories();
 

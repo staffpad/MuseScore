@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -31,16 +31,21 @@ DynamicsSettingsModel::DynamicsSettingsModel(QObject* parent, IElementRepository
     : AbstractInspectorModel(parent, repository)
 {
     setModelType(InspectorModelType::TYPE_DYNAMIC);
-    setTitle(qtrc("inspector ", "Dynamics"));
-    setIcon(ui::IconCode::Code::DYNAMIC_FORTE);
+    setTitle(muse::qtrc("inspector ", "Dynamics"));
+    setIcon(muse::ui::IconCode::Code::DYNAMIC_FORTE);
     createProperties();
 }
 
 void DynamicsSettingsModel::createProperties()
 {
     m_avoidBarLines = buildPropertyItem(mu::engraving::Pid::AVOID_BARLINES);
-    m_dynamicSize = buildPropertyItem(mu::engraving::Pid::DYNAMICS_SIZE, [this](const mu::engraving::Pid pid, const QVariant& newValue) {
+    m_dynamicSize = buildPropertyItem(mu::engraving::Pid::DYNAMICS_SIZE,
+                                      [this](const mu::engraving::Pid pid, const QVariant& newValue) {
         onPropertyValueChanged(pid, newValue.toDouble() / 100);
+    },
+                                      [this](const mu::engraving::Sid sid, const QVariant& newValue) {
+        updateStyleValue(sid, newValue.toDouble() / 100);
+        emit requestReloadPropertyItems();
     });
     m_centerOnNotehead = buildPropertyItem(mu::engraving::Pid::CENTER_ON_NOTEHEAD);
     m_placement = buildPropertyItem(mu::engraving::Pid::PLACEMENT);
@@ -65,7 +70,7 @@ void DynamicsSettingsModel::loadProperties()
 {
     loadPropertyItem(m_avoidBarLines);
     loadPropertyItem(m_dynamicSize, [](const QVariant& elementPropertyValue) -> QVariant {
-        return DataFormatter::roundDouble(elementPropertyValue.toDouble()) * 100;
+        return muse::DataFormatter::roundDouble(elementPropertyValue.toDouble()) * 100;
     });
     loadPropertyItem(m_centerOnNotehead);
     loadPropertyItem(m_placement);

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,19 +23,22 @@
 
 #include "ui/view/iconcodes.h"
 #include "context/uicontext.h"
+#include "context/shortcutcontext.h"
 
-#include "view/dockwindow/idockwindow.h"
+#include "dockwindow/idockwindow.h"
 #include "async/notification.h"
 
 #include "log.h"
 
+using namespace muse;
 using namespace mu::appshell;
-using namespace mu::ui;
-using namespace mu::actions;
-using namespace mu::dock;
+using namespace muse::ui;
+using namespace muse::actions;
+using namespace muse::dock;
 
 static const ActionCode FULL_SCREEN_CODE("fullscreen");
-const ActionCode TOGGLE_NAVIGATOR_ACTION_CODE("toggle-navigator");
+static const ActionCode TOGGLE_NAVIGATOR_ACTION_CODE("toggle-navigator");
+static const ActionCode TOGGLE_BRAILLE_ACTION_CODE("toggle-braille-panel");
 
 const UiActionList ApplicationUiActions::m_actions = {
     UiAction("quit",
@@ -59,7 +62,7 @@ const UiActionList ApplicationUiActions::m_actions = {
     UiAction("about-musescore",
              mu::context::UiCtxAny,
              mu::context::CTX_ANY,
-             TranslatableString("action", "&About MuseScore…")
+             TranslatableString("action", "&About MuseScore Studio…")
              ),
     UiAction("about-qt",
              mu::context::UiCtxAny,
@@ -144,11 +147,20 @@ const UiActionList ApplicationUiActions::m_actions = {
              ),
 
     // Navigator
-    UiAction("toggle-navigator",
+    UiAction(TOGGLE_NAVIGATOR_ACTION_CODE,
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_ANY,
              TranslatableString("action", "&Navigator"),
              TranslatableString("action", "Show/hide navigator"),
+             Checkable::Yes
+             ),
+
+    // Braille panel
+    UiAction(TOGGLE_BRAILLE_ACTION_CODE,
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_ANY,
+             TranslatableString("action", "&Braille"),
+             TranslatableString("action", "Show/hide braille panel"),
              Checkable::Yes
              ),
 
@@ -214,6 +226,10 @@ void ApplicationUiActions::init()
         m_actionCheckedChanged.send({ TOGGLE_NAVIGATOR_ACTION_CODE });
     });
 
+    brailleConfiguration()->braillePanelEnabledChanged().onNotify(this, [this]() {
+        m_actionCheckedChanged.send({ TOGGLE_BRAILLE_ACTION_CODE });
+    });
+
     dockWindowProvider()->windowChanged().onNotify(this, [this]() {
         listenOpenedDocksChanged(dockWindowProvider()->window());
     });
@@ -242,7 +258,7 @@ void ApplicationUiActions::listenOpenedDocksChanged(IDockWindow* window)
     });
 }
 
-const mu::ui::UiActionList& ApplicationUiActions::actionsList() const
+const muse::ui::UiActionList& ApplicationUiActions::actionsList() const
 {
     return m_actions;
 }
@@ -273,23 +289,27 @@ bool ApplicationUiActions::actionChecked(const UiAction& act) const
         return configuration()->isNotationNavigatorVisible();
     }
 
+    if (dockName == NOTATION_BRAILLE_PANEL_NAME) {
+        return brailleConfiguration()->braillePanelEnabled();
+    }
+
     const IDockWindow* window = dockWindowProvider()->window();
     return window ? window->isDockOpen(dockName) : false;
 }
 
-mu::async::Channel<mu::actions::ActionCodeList> ApplicationUiActions::actionEnabledChanged() const
+muse::async::Channel<ActionCodeList> ApplicationUiActions::actionEnabledChanged() const
 {
     return m_actionEnabledChanged;
 }
 
-mu::async::Channel<mu::actions::ActionCodeList> ApplicationUiActions::actionCheckedChanged() const
+muse::async::Channel<ActionCodeList> ApplicationUiActions::actionCheckedChanged() const
 {
     return m_actionCheckedChanged;
 }
 
-const QMap<mu::actions::ActionCode, DockName>& ApplicationUiActions::toggleDockActions()
+const QMap<ActionCode, DockName>& ApplicationUiActions::toggleDockActions()
 {
-    static const QMap<mu::actions::ActionCode, DockName> actionsMap {
+    static const QMap<ActionCode, DockName> actionsMap {
         { "toggle-transport", PLAYBACK_TOOLBAR_NAME },
         { "toggle-noteinput", NOTE_INPUT_BAR_NAME },
 
@@ -299,6 +319,7 @@ const QMap<mu::actions::ActionCode, DockName>& ApplicationUiActions::toggleDockA
         { "toggle-selection-filter", SELECTION_FILTERS_PANEL_NAME },
 
         { TOGGLE_NAVIGATOR_ACTION_CODE, NOTATION_NAVIGATOR_PANEL_NAME },
+        { TOGGLE_BRAILLE_ACTION_CODE, NOTATION_BRAILLE_PANEL_NAME },
 
         { "toggle-timeline", TIMELINE_PANEL_NAME },
         { "toggle-mixer", MIXER_PANEL_NAME },

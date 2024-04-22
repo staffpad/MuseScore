@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2022 MuseScore BVBA and others
+ * Copyright (C) 2022 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -33,17 +33,21 @@
 #include "iplaybackconfiguration.h"
 
 namespace mu::playback {
-class SoundProfilesRepository : public ISoundProfilesRepository, public async::Asyncable
+class SoundProfilesRepository : public ISoundProfilesRepository, public muse::async::Asyncable
 {
-    INJECT_STATIC(audio::IPlayback, playback)
+    INJECT_STATIC(muse::audio::IPlayback, playback)
     INJECT_STATIC(IPlaybackConfiguration, config)
 public:
     SoundProfilesRepository() = default;
 
+    void init();
+
     void refresh() override;
 
     const SoundProfile& profile(const SoundProfileName& name) const override;
+    bool containsProfile(const SoundProfileName& name) const override;
     const SoundProfilesMap& availableProfiles() const override;
+
     void addProfile(const SoundProfile& profile) override;
     void removeProfile(const SoundProfileName& name) override;
 

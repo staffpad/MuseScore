@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,13 +22,14 @@
 
 #include "chordarticulationsparser.h"
 
-#include "libmscore/arpeggio.h"
-#include "libmscore/chord.h"
-#include "libmscore/chordline.h"
-#include "libmscore/score.h"
-#include "libmscore/segment.h"
-#include "libmscore/spanner.h"
-#include "libmscore/tremolo.h"
+#include "dom/arpeggio.h"
+#include "dom/chord.h"
+#include "dom/chordline.h"
+#include "dom/score.h"
+#include "dom/segment.h"
+#include "dom/spanner.h"
+#include "dom/tremolosinglechord.h"
+#include "dom/tremolotwochord.h"
 
 #include "playback/utils/arrangementutils.h"
 #include "playback/filters/chordfilter.h"
@@ -42,7 +43,8 @@
 #include "internal/chordlinemetaparser.h"
 
 using namespace mu::engraving;
-using namespace mu::mpe;
+using namespace muse;
+using namespace muse::mpe;
 
 void ChordArticulationsParser::buildChordArticulationMap(const Chord* chord, const RenderingContext& ctx, mpe::ArticulationMap& result)
 {
@@ -85,6 +87,10 @@ void ChordArticulationsParser::doParse(const EngravingItem* item, const Renderin
     parseChordLine(chord, ctx, result);
 
     parseArticulationSymbols(chord, ctx, result);
+
+    if (ctx.profile->contains(ArticulationType::Multibend)) {
+        parseBends(chord, ctx, result);
+    }
 }
 
 void ChordArticulationsParser::parseSpanners(const Chord* chord, const RenderingContext& ctx, mpe::ArticulationMap& result)
@@ -132,6 +138,23 @@ void ChordArticulationsParser::parseSpanners(const Chord* chord, const Rendering
     }
 }
 
+void ChordArticulationsParser::parseBends(const Chord* chord, const RenderingContext& ctx, mpe::ArticulationMap& result)
+{
+    for (const Note* note : chord->notes()) {
+        for (const Spanner* spanner : note->spannerBack()) {
+            if (spanner->isGuitarBend()) {
+                SpannersMetaParser::parse(spanner, ctx, result);
+            }
+        }
+
+        for (const Spanner* spanner : note->spannerFor()) {
+            if (spanner->isGuitarBend()) {
+                SpannersMetaParser::parse(spanner, ctx, result);
+            }
+        }
+    }
+}
+
 void ChordArticulationsParser::parseArticulationSymbols(const Chord* chord, const RenderingContext& ctx, mpe::ArticulationMap& result)
 {
     for (const Articulation* articulation : chord->articulations()) {
@@ -154,13 +177,21 @@ void ChordArticulationsParser::parseAnnotations(const Chord* chord, const Render
 
 void ChordArticulationsParser::parseTremolo(const Chord* chord, const RenderingContext& ctx, mpe::ArticulationMap& result)
 {
-    const Tremolo* tremolo = chord->tremolo();
-
-    if (!tremolo) {
-        return;
+    // single chord
+    {
+        const TremoloSingleChord* tremoloSingle = chord->tremoloSingleChord();
+        if (tremoloSingle && tremoloSingle->playTremolo()) {
+            TremoloSingleMetaParser::parse(tremoloSingle, ctx, result);
+        }
     }
 
-    TremoloMetaParser::parse(tremolo, ctx, result);
+    // two chord
+    {
+        const TremoloTwoChord* tremoloTwo = chord->tremoloTwoChord();
+        if (tremoloTwo && tremoloTwo->playTremolo()) {
+            TremoloTwoMetaParser::parse(tremoloTwo, ctx, result);
+        }
+    }
 }
 
 void ChordArticulationsParser::parseArpeggio(const Chord* chord, const RenderingContext& ctx, mpe::ArticulationMap& result)
@@ -189,7 +220,7 @@ void ChordArticulationsParser::parseChordLine(const Chord* chord, const Renderin
 {
     const ChordLine* chordLine = chord->chordLine();
 
-    if (!chordLine) {
+    if (!chordLine || !chordLine->playChordLine()) {
         return;
     }
 

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -24,11 +24,11 @@
 
 #include "log.h"
 
-#include "libmscore/masterscore.h"
-#include "libmscore/undo.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/undo.h"
 
 using namespace mu::notation;
-using namespace mu::async;
+using namespace muse::async;
 
 NotationUndoStack::NotationUndoStack(IGetScore* getScore, Notification notationChanged)
     : m_getScore(getScore), m_notationChanged(notationChanged)
@@ -51,7 +51,6 @@ void NotationUndoStack::undo(mu::engraving::EditData* editData)
     }
 
     score()->undoRedo(true, editData);
-    masterScore()->setSaved(isStackClean());
 
     notifyAboutNotationChanged();
     notifyAboutUndo();
@@ -79,7 +78,6 @@ void NotationUndoStack::redo(mu::engraving::EditData* editData)
     }
 
     score()->undoRedo(false, editData);
-    masterScore()->setSaved(isStackClean());
 
     notifyAboutNotationChanged();
     notifyAboutRedo();
@@ -115,7 +113,6 @@ void NotationUndoStack::rollbackChanges()
     }
 
     score()->endCmd(true);
-    masterScore()->setSaved(isStackClean());
 }
 
 void NotationUndoStack::commitChanges()
@@ -129,9 +126,17 @@ void NotationUndoStack::commitChanges()
     }
 
     score()->endCmd();
-    masterScore()->setSaved(isStackClean());
 
     notifyAboutStateChanged();
+}
+
+bool NotationUndoStack::isStackClean() const
+{
+    IF_ASSERT_FAILED(undoStack()) {
+        return false;
+    }
+
+    return undoStack()->isClean();
 }
 
 void NotationUndoStack::lock()
@@ -157,14 +162,18 @@ bool NotationUndoStack::isLocked() const
     return undoStack()->locked();
 }
 
-mu::async::Notification NotationUndoStack::stackChanged() const
+muse::async::Notification NotationUndoStack::stackChanged() const
 {
     return m_stackStateChanged;
 }
 
-mu::async::Channel<ChangesRange> NotationUndoStack::changesChannel() const
+muse::async::Channel<ChangesRange> NotationUndoStack::changesChannel() const
 {
-    return score() ? score()->changesChannel() : async::Channel<ChangesRange>();
+    IF_ASSERT_FAILED(score()) {
+        return muse::async::Channel<ChangesRange>();
+    }
+
+    return score()->changesChannel();
 }
 
 mu::engraving::Score* NotationUndoStack::score() const
@@ -200,13 +209,4 @@ void NotationUndoStack::notifyAboutUndo()
 void NotationUndoStack::notifyAboutRedo()
 {
     m_redoNotification.notify();
-}
-
-bool NotationUndoStack::isStackClean() const
-{
-    IF_ASSERT_FAILED(undoStack()) {
-        return false;
-    }
-
-    return undoStack()->isClean();
 }

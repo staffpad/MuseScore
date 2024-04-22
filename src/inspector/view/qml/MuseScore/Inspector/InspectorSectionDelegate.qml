@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,8 +21,8 @@
  */
 import QtQuick 2.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.Inspector 1.0
 
 import "common"
@@ -31,6 +31,7 @@ import "measures"
 import "notation"
 import "text"
 import "score"
+import "parts"
 
 ExpandableBlank {
     id: root
@@ -72,6 +73,7 @@ ExpandableBlank {
             }
         case Inspector.SECTION_SCORE_DISPLAY: return scoreSection
         case Inspector.SECTION_SCORE_APPEARANCE: return scoreAppearanceSection
+        case Inspector.SECTION_PARTS: return partsSection
         }
 
         return undefined
@@ -189,6 +191,25 @@ ExpandableBlank {
         id: scoreAppearanceSection
 
         ScoreAppearanceInspectorView {
+            model: root.sectionModel
+            navigationPanel: root.navigationPanel
+            navigationRowStart: root.navigation.row + 1
+            anchorItem: root.anchorItem
+
+            onEnsureContentVisibleRequested: function(invisibleContentHeight) {
+                root.ensureContentVisibleRequested(-invisibleContentHeight)
+            }
+
+            onPopupOpened: {
+                root.popupOpened(openedPopup, control)
+            }
+        }
+    }
+
+    Component {
+        id: partsSection
+
+        PartsSettings {
             model: root.sectionModel
             navigationPanel: root.navigationPanel
             navigationRowStart: root.navigation.row + 1

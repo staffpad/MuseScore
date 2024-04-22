@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,7 +25,7 @@
 #include "ui/view/widgetstatestore.h"
 
 using namespace mu::notation;
-using namespace mu::ui;
+using namespace muse::ui;
 
 //---------------------------------------------------------
 //   TransposeDialog
@@ -63,10 +63,13 @@ TransposeDialog::TransposeDialog(QWidget* parent)
     setFocus();
 }
 
+#ifdef MU_QT5_COMPAT
 TransposeDialog::TransposeDialog(const TransposeDialog& dialog)
     : TransposeDialog(dialog.parentWidget())
 {
 }
+
+#endif
 
 //---------------------------------------------------------
 //   TransposeDialog slots
@@ -212,16 +215,7 @@ Key TransposeDialog::firstPitchedStaffKey() const
             }
 
             if (staff->isPitchedStaff(startTick)) {
-                key = staff->key(startTick);
-                bool concertPitchEnabled = notation()->style()->styleValue(StyleId::concertPitch).toBool();
-
-                if (!concertPitchEnabled) {
-                    int diff = staff->part()->instrument(startTick)->transpose().chromatic;
-
-                    if (diff) {
-                        key = mu::engraving::transposeKey(key, diff, staff->part()->preferSharpFlat());
-                    }
-                }
+                key = staff->concertKey(startTick);
 
                 break;
             }

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -37,14 +37,14 @@ public:
 
     virtual void setCurrentProject(const project::INotationProjectPtr& project) = 0;
     virtual project::INotationProjectPtr currentProject() const = 0;
-    virtual async::Notification currentProjectChanged() const = 0;
+    virtual muse::async::Notification currentProjectChanged() const = 0;
 
     virtual notation::IMasterNotationPtr currentMasterNotation() const = 0;
-    virtual async::Notification currentMasterNotationChanged() const = 0;
+    virtual muse::async::Notification currentMasterNotationChanged() const = 0;
 
     virtual void setCurrentNotation(const notation::INotationPtr& notation) = 0;
     virtual notation::INotationPtr currentNotation() const = 0;
-    virtual async::Notification currentNotationChanged() const = 0;
+    virtual muse::async::Notification currentNotationChanged() const = 0;
 };
 }
 

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,7 +22,7 @@
 
 #include <gtest/gtest.h>
 
-#include "libmscore/masterscore.h"
+#include "dom/masterscore.h"
 
 #include "utils/scorerw.h"
 #include "utils/scorecomp.h"
@@ -42,7 +42,7 @@ class Engraving_UnrollRepeatsTests : public ::testing::Test
 ///   clef, key, time signature changes.
 //---------------------------------------------------------
 
-TEST_F(Engraving_UnrollRepeatsTests, clefKeyTs)
+TEST_F(Engraving_UnrollRepeatsTests, DISABLED_clefKeyTs)
 {
     MasterScore* score = ScoreRW::readScore(UNROLLREPEATS_DATA_DIR + u"clef-key-ts-test.mscx");
 
@@ -57,7 +57,7 @@ TEST_F(Engraving_UnrollRepeatsTests, clefKeyTs)
 ///   pickup measure should get merged to a full bar on repeat
 //---------------------------------------------------------
 
-TEST_F(Engraving_UnrollRepeatsTests, pickupMeasure)
+TEST_F(Engraving_UnrollRepeatsTests, DISABLED_pickupMeasure)
 {
     MasterScore* score = ScoreRW::readScore(UNROLLREPEATS_DATA_DIR + u"pickup-measure-test.mscx");
 

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,11 +21,11 @@
  */
 
 #include "editstafftype.h"
-#include "libmscore/part.h"
-#include "libmscore/mscore.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/staff.h"
-#include "libmscore/stringdata.h"
+#include "engraving/dom/part.h"
+#include "engraving/dom/mscore.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/staff.h"
+#include "engraving/dom/stringdata.h"
 
 #include "engraving/types/typesconv.h"
 #include "engraving/compat/scoreaccess.h"
@@ -39,7 +39,8 @@
 
 using namespace mu::notation;
 using namespace mu::engraving;
-using namespace mu::ui;
+using namespace muse;
+using namespace muse::ui;
 
 //---------------------------------------------------------
 //   noteHeadSchemes
@@ -145,7 +146,6 @@ EditStaffType::EditStaffType(QWidget* parent)
     connect(showTabFingering,  &QCheckBox::toggled, this, &EditStaffType::updatePreview);
     connect(upsideDown,        &QCheckBox::toggled, this, &EditStaffType::updatePreview);
     connect(numbersRadio,      &QCheckBox::toggled, this, &EditStaffType::updatePreview);
-    connect(showBackTied,      &QCheckBox::toggled, this, &EditStaffType::updatePreview);
 
     connect(templateReset,  &QPushButton::clicked, this, &EditStaffType::resetToTemplateClicked);
     connect(addToTemplates, &QPushButton::clicked, this, &EditStaffType::addToTemplatesClicked);
@@ -188,7 +188,7 @@ void EditStaffType::setInstrument(const Instrument& instrument)
     templateCombo->setCurrentIndex(-1);
 }
 
-mu::Ret EditStaffType::loadScore(mu::engraving::MasterScore* score, const mu::io::path_t& path)
+Ret EditStaffType::loadScore(mu::engraving::MasterScore* score, const muse::io::path_t& path)
 {
     mu::engraving::ScoreLoad sl;
 
@@ -205,7 +205,6 @@ mu::Ret EditStaffType::loadScore(mu::engraving::MasterScore* score, const mu::io
     score->rebuildMidiMapping();
     for (mu::engraving::Score* s : score->scoreList()) {
         s->setPlaylistDirty();
-        s->addLayoutFlags(mu::engraving::LayoutFlag::FIX_PITCH_VELO);
         s->setLayoutAll();
     }
     score->updateChannel();
@@ -284,7 +283,6 @@ void EditStaffType::setValues()
         aboveLinesRadio->setChecked(!staffType.onLines());
         linesThroughRadio->setChecked(staffType.linesThrough());
         linesBrokenRadio->setChecked(!staffType.linesThrough());
-        showBackTied->setChecked(staffType.showBackTied());
 
         idx = durFontName->findText(staffType.durationFontName(), Qt::MatchFixedString);
         if (idx == -1) {
@@ -451,7 +449,6 @@ void EditStaffType::setFromDlg()
     staffType.setFretFontSize(fretFontSize->value());
     staffType.setFretFontUserY(fretY->value());
     staffType.setLinesThrough(linesThroughRadio->isChecked());
-    staffType.setShowBackTied(showBackTied->isChecked());
     staffType.setMinimStyle(minimNoneRadio->isChecked() ? mu::engraving::TablatureMinimStyle::NONE
                             : (minimShortRadio->isChecked() ? mu::engraving::TablatureMinimStyle::SHORTER : mu::engraving::
                                TablatureMinimStyle::
@@ -513,7 +510,6 @@ void EditStaffType::blockSignals(bool block)
     aboveLinesRadio->blockSignals(block);
     linesThroughRadio->blockSignals(block);
     linesBrokenRadio->blockSignals(block);
-    showBackTied->blockSignals(block);
 
     durFontName->blockSignals(block);
     durFontSize->blockSignals(block);

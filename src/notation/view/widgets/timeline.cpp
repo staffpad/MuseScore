@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -31,26 +31,26 @@
 #include "translation.h"
 
 #include "engraving/types/typesconv.h"
-#include "libmscore/barline.h"
-#include "libmscore/chord.h"
-#include "libmscore/jump.h"
-#include "libmscore/key.h"
-#include "libmscore/keysig.h"
-#include "libmscore/marker.h"
-#include "libmscore/measure.h"
-#include "libmscore/measurebase.h"
-#include "libmscore/mscore.h"
-#include "libmscore/page.h"
-#include "libmscore/part.h"
-#include "libmscore/rehearsalmark.h"
-#include "libmscore/rest.h"
-#include "libmscore/score.h"
-#include "libmscore/staff.h"
-#include "libmscore/system.h"
-#include "libmscore/tempo.h"
-#include "libmscore/tempotext.h"
-#include "libmscore/text.h"
-#include "libmscore/timesig.h"
+#include "engraving/dom/barline.h"
+#include "engraving/dom/chord.h"
+#include "engraving/dom/jump.h"
+#include "engraving/dom/key.h"
+#include "engraving/dom/keysig.h"
+#include "engraving/dom/marker.h"
+#include "engraving/dom/measure.h"
+#include "engraving/dom/measurebase.h"
+#include "engraving/dom/mscore.h"
+#include "engraving/dom/page.h"
+#include "engraving/dom/part.h"
+#include "engraving/dom/rehearsalmark.h"
+#include "engraving/dom/rest.h"
+#include "engraving/dom/score.h"
+#include "engraving/dom/staff.h"
+#include "engraving/dom/system.h"
+#include "engraving/dom/tempo.h"
+#include "engraving/dom/tempotext.h"
+#include "engraving/dom/text.h"
+#include "engraving/dom/timesig.h"
 
 #include "log.h"
 
@@ -585,25 +585,25 @@ void TRowLabels::mouseOver(QPointF scenePt)
             QString tooltip;
             switch (mouseOverArrow) {
             case MouseOverValue::COLLAPSE_DOWN_ARROW:
-                tooltip = qtrc("notation/timeline", "Expand meta rows");
+                tooltip = muse::qtrc("notation/timeline", "Expand meta rows");
                 break;
             case MouseOverValue::COLLAPSE_UP_ARROW:
-                tooltip = qtrc("notation/timeline", "Collapse meta rows");
+                tooltip = muse::qtrc("notation/timeline", "Collapse meta rows");
                 break;
             case MouseOverValue::MOVE_DOWN_ARROW:
-                tooltip = qtrc("notation/timeline", "Move meta row down one");
+                tooltip = muse::qtrc("notation/timeline", "Move meta row down one");
                 break;
             case MouseOverValue::MOVE_UP_ARROW:
-                tooltip = qtrc("notation/timeline", "Move meta row up one");
+                tooltip = muse::qtrc("notation/timeline", "Move meta row up one");
                 break;
             case MouseOverValue::MOVE_UP_DOWN_ARROW:
-                tooltip = qtrc("notation/timeline", "Move meta row up/down one");
+                tooltip = muse::qtrc("notation/timeline", "Move meta row up/down one");
                 break;
             case MouseOverValue::OPEN_EYE:
-                tooltip = qtrc("notation/timeline", "Hide instrument in score");
+                tooltip = muse::qtrc("notation/timeline", "Hide instrument in score");
                 break;
             case MouseOverValue::CLOSED_EYE:
-                tooltip = qtrc("notation/timeline", "Show instrument in score");
+                tooltip = muse::qtrc("notation/timeline", "Show instrument in score");
                 break;
             default:
                 tooltip = "";
@@ -765,13 +765,13 @@ Timeline::Timeline(QSplitter* splitter)
     connect(_rowNames, &TRowLabels::swapMeta, this, &Timeline::swapMeta);
     connect(this, &Timeline::moved, _rowNames, &TRowLabels::mouseOver);
 
-    _metas.push_back({ qtrc("notation/timeline", "Tempo"), &Timeline::tempoMeta, true });
-    _metas.push_back({ qtrc("notation/timeline", "Time signature"), &Timeline::timeMeta, true });
-    _metas.push_back({ qtrc("notation/timeline", "Rehearsal mark"), &Timeline::rehearsalMeta, true });
-    _metas.push_back({ qtrc("notation/timeline", "Key signature"), &Timeline::keyMeta, true });
-    _metas.push_back({ qtrc("notation/timeline", "Barlines"), &Timeline::barlineMeta, true });
-    _metas.push_back({ qtrc("notation/timeline", "Jumps and markers"), &Timeline::jumpMarkerMeta, true });
-    _metas.push_back({ qtrc("notation/timeline", "Measures"), &Timeline::measureMeta, true });
+    _metas.push_back({ muse::qtrc("notation/timeline", "Tempo"), &Timeline::tempoMeta, true });
+    _metas.push_back({ muse::qtrc("notation/timeline", "Time signature"), &Timeline::timeMeta, true });
+    _metas.push_back({ muse::qtrc("notation/timeline", "Rehearsal mark"), &Timeline::rehearsalMeta, true });
+    _metas.push_back({ muse::qtrc("notation/timeline", "Key signature"), &Timeline::keyMeta, true });
+    _metas.push_back({ muse::qtrc("notation/timeline", "Barlines"), &Timeline::barlineMeta, true });
+    _metas.push_back({ muse::qtrc("notation/timeline", "Jumps and markers"), &Timeline::jumpMarkerMeta, true });
+    _metas.push_back({ muse::qtrc("notation/timeline", "Measures"), &Timeline::measureMeta, true });
 
     std::tuple<QGraphicsItem*, int, QColor> ohi(nullptr, -1, QColor());
     _oldHoverInfo = ohi;
@@ -1022,7 +1022,7 @@ void Timeline::drawGrid(int globalRows, int globalCols, int startMeasure, int en
 
             setMetaData(graphicsRectItem, row, ElementType::INVALID, currMeasure, false, 0);
 
-            QString translateMeasure = qtrc("notation/timeline", "Measure");
+            QString translateMeasure = muse::qtrc("notation/timeline", "Measure");
             QChar initialLetter = translateMeasure[0];
             QTextDocument doc;
             QString partName = "";
@@ -1106,11 +1106,11 @@ void Timeline::drawGrid(int globalRows, int globalCols, int startMeasure, int en
             // If no initial key signature is found, add key signature
             if (cm == score()->firstMeasure() && noKey
                 && (currSeg->isTimeSigType() || currSeg->isChordRestType())) {
-                if (getMetaRow(qtrc("notation/timeline", "Key signature")) != numMetas) {
+                if (getMetaRow(muse::qtrc("notation/timeline", "Key signature")) != numMetas) {
                     if (_collapsedMeta) {
                         keyMeta(0, &stagger, xPos);
                     } else {
-                        keyMeta(0, &staggerArr[getMetaRow(qtrc("notation/timeline", "Key signature"))], xPos);
+                        keyMeta(0, &staggerArr[getMetaRow(muse::qtrc("notation/timeline", "Key signature"))], xPos);
                     }
                 }
                 noKey = false;
@@ -1131,7 +1131,7 @@ void Timeline::drawGrid(int globalRows, int globalCols, int startMeasure, int en
             }
         }
         // Handle all jumps here
-        if (getMetaRow(qtrc("notation/timeline", "Jumps and markers")) != numMetas) {
+        if (getMetaRow(muse::qtrc("notation/timeline", "Jumps and markers")) != numMetas) {
             ElementList measureElementsList = cm->el();
             for (EngravingItem* element : measureElementsList) {
                 std::get<3>(_repeatInfo) = element;
@@ -1171,7 +1171,7 @@ void Timeline::drawGrid(int globalRows, int globalCols, int startMeasure, int en
 void Timeline::tempoMeta(Segment* seg, int* stagger, int pos)
 {
     // Find position of tempoMeta in metas
-    int row = getMetaRow(qtrc("notation/timeline", "Tempo"));
+    int row = getMetaRow(muse::qtrc("notation/timeline", "Tempo"));
 
     // Add all tempo texts in this segment
     const std::vector<EngravingItem*> annotations = seg->annotations();
@@ -1202,7 +1202,7 @@ void Timeline::timeMeta(Segment* seg, int* stagger, int pos)
     int x = pos + (*stagger) * _spacing;
 
     // Find position of timeMeta in metas
-    int row = getMetaRow(qtrc("notation/timeline", "Time signature"));
+    int row = getMetaRow(muse::qtrc("notation/timeline", "Time signature"));
 
     TimeSig* originalTimeSig = toTimeSig(seg->element(0));
     if (!originalTimeSig) {
@@ -1241,7 +1241,7 @@ void Timeline::timeMeta(Segment* seg, int* stagger, int pos)
 
 void Timeline::rehearsalMeta(Segment* seg, int* stagger, int pos)
 {
-    int row = getMetaRow(qtrc("notation/timeline", "Rehearsal mark"));
+    int row = getMetaRow(muse::qtrc("notation/timeline", "Rehearsal mark"));
 
     for (EngravingItem* element : seg->annotations()) {
         int x = pos + (*stagger) * _spacing;
@@ -1272,7 +1272,7 @@ void Timeline::keyMeta(Segment* seg, int* stagger, int pos)
 
     TRACEFUNC;
 
-    int row = getMetaRow(qtrc("notation/timeline", "Key signature"));
+    int row = getMetaRow(muse::qtrc("notation/timeline", "Key signature"));
     std::map<Key, int> keyFrequencies;
     const std::vector<Staff*>& staves = score()->staves();
 
@@ -1299,24 +1299,21 @@ void Timeline::keyMeta(Segment* seg, int* stagger, int pos)
 
         Key globalKey;
         if (seg) {
-            globalKey = stave->key(seg->tick());
+            globalKey = stave->concertKey(seg->tick());
         } else {
-            globalKey = stave->key(Fraction(0, 1));
+            globalKey = stave->concertKey(Fraction(0, 1));
         }
         if (currKeySig) {
             if (currKeySig->generated()) {
                 return;
             }
-            globalKey = currKeySig->key();
+            globalKey = currKeySig->concertKey();
         }
 
         if (currKeySig && currKeySig->isAtonal()) {
             globalKey = Key::INVALID;
         } else if (currKeySig && currKeySig->isCustom()) {
             globalKey = Key::NUM_OF;
-        } else {
-            const Interval currInterval = stave->part()->instrument()->transpose();
-            globalKey = transposeKey(globalKey, currInterval, stave->part()->preferSharpFlat());
         }
 
         std::map<Key, int>::iterator it = keyFrequencies.find(globalKey);
@@ -1345,15 +1342,15 @@ void Timeline::keyMeta(Segment* seg, int* stagger, int pos)
         tooltip = TConv::translatedUserName(Key::INVALID, true);
     } else if (newKey == Key::NUM_OF) {
         keyText = "?";
-        tooltip = qtrc("notation/timeline", "Custom key signature");
+        tooltip = muse::qtrc("notation/timeline", "Custom key signature");
     } else if (int(newKey) == 0) {
         keyText = "\u266E";
         tooltip = TConv::translatedUserName(Key::C);
     } else if (int(newKey) < 0) {
-        keyText = QString::number(abs(int(newKey))) + "\u266D";
+        keyText = QString::number(std::abs(int(newKey))) + "\u266D";
         tooltip = TConv::translatedUserName(newKey);
     } else {
-        keyText = QString::number(abs(int(newKey))) + "\u266F";
+        keyText = QString::number(std::abs(int(newKey))) + "\u266F";
         tooltip = TConv::translatedUserName(newKey);
     }
 
@@ -1378,7 +1375,7 @@ void Timeline::barlineMeta(Segment* seg, int* stagger, int pos)
     TRACEFUNC;
 
     // Find position of repeat_meta in metas
-    int row = getMetaRow(qtrc("notation/timeline", "Barlines"));
+    int row = getMetaRow(muse::qtrc("notation/timeline", "Barlines"));
 
     QString repeatText = "";
     BarLine* barline = toBarLine(seg->element(0));
@@ -1434,7 +1431,7 @@ void Timeline::jumpMarkerMeta(Segment* seg, int* stagger, int pos)
     TRACEFUNC;
 
     // Find position of repeat_meta in metas
-    int row = getMetaRow(qtrc("notation/timeline", "Jumps and markers"));
+    int row = getMetaRow(muse::qtrc("notation/timeline", "Jumps and markers"));
 
     QString text = "";
     EngravingItem* element = nullptr;
@@ -1518,7 +1515,7 @@ void Timeline::measureMeta(Segment*, int*, int pos)
     }
 
     // Find position of measureMeta in metas
-    int row = getMetaRow(qtrc("notation/timeline", "Measures"));
+    int row = getMetaRow(muse::qtrc("notation/timeline", "Measures"));
 
     // Adjust number
     Measure* currMeasure;
@@ -1560,7 +1557,7 @@ void Timeline::measureMeta(Segment*, int*, int pos)
 unsigned Timeline::getMetaRow(QString targetText)
 {
     if (_collapsedMeta) {
-        if (targetText == qtrc("notation/timeline", "Measures")) {
+        if (targetText == muse::qtrc("notation/timeline", "Measures")) {
             return 1;
         } else {
             return 0;
@@ -2029,7 +2026,7 @@ void Timeline::drawSelection()
         // ws: If style flag Sid::createMultiMeasureRests is not set, then
         // measure->mmRest() is not valid
 
-        if (measure->mmRest() && measure->score()->styleB(Sid::createMultiMeasureRests)) {
+        if (measure->mmRest() && measure->score()->style().styleB(Sid::createMultiMeasureRests)) {
             int mmrestCount = measure->mmRest()->mmRestCount();
             Measure* tmpMeasure = measure;
             for (int mmrestMeasure = 0; mmrestMeasure < mmrestCount; mmrestMeasure++) {
@@ -2055,7 +2052,7 @@ void Timeline::drawSelection()
 
         if (stave == -1 && it != metaLabelsSet.end()) {
             //Make sure the element is correct
-            std::vector<EngravingItem*> elementList = interaction()->selection()->elements();
+            const std::vector<EngravingItem*>& elementList = interaction()->selection()->elements();
             EngravingItem* targetElement = static_cast<EngravingItem*>(graphicsItem->data(4).value<void*>());
             Segment* seg = static_cast<Segment*>(graphicsItem->data(6).value<void*>());
 
@@ -2348,8 +2345,8 @@ void Timeline::mouseMoveEvent(QMouseEvent* event)
     if (state == ViewState::NORMAL) {
         if (event->modifiers() == Qt::ShiftModifier) {
             // Slight wiggle room for selection (Same as score)
-            if (abs(newLoc.x() - _oldLoc.x()) > 2
-                || abs(newLoc.y() - _oldLoc.y()) > 2) {
+            if (std::abs(newLoc.x() - _oldLoc.x()) > 2
+                || std::abs(newLoc.y() - _oldLoc.y()) > 2) {
                 interaction()->clearSelection();
                 updateGrid();
                 state = ViewState::LASSO;
@@ -2368,8 +2365,8 @@ void Timeline::mouseMoveEvent(QMouseEvent* event)
     if (state == ViewState::LASSO) {
         QRect tmp = QRect((_oldLoc.x() < newLoc.x()) ? _oldLoc.x() : newLoc.x(),
                           (_oldLoc.y() < newLoc.y()) ? _oldLoc.y() : newLoc.y(),
-                          abs(newLoc.x() - _oldLoc.x()),
-                          abs(newLoc.y() - _oldLoc.y()));
+                          std::abs(newLoc.x() - _oldLoc.x()),
+                          std::abs(newLoc.y() - _oldLoc.y()));
         _selectionBox->setRect(tmp);
     } else if (state == ViewState::DRAG) {
         int x_offset = int(_oldLoc.x()) - int(newLoc.x());
@@ -2535,13 +2532,13 @@ void Timeline::changeEvent(QEvent* event)
     QGraphicsView::changeEvent(event);
     if (event->type() == QEvent::LanguageChange) {
         _metas.clear();
-        _metas.push_back({ qtrc("notation/timeline", "Tempo"), &Timeline::tempoMeta, true });
-        _metas.push_back({ qtrc("notation/timeline", "Time signature"), &Timeline::timeMeta, true });
-        _metas.push_back({ qtrc("notation/timeline", "Rehearsal mark"), &Timeline::rehearsalMeta, true });
-        _metas.push_back({ qtrc("notation/timeline", "Key signature"), &Timeline::keyMeta, true });
-        _metas.push_back({ qtrc("notation/timeline", "Barlines"), &Timeline::barlineMeta, true });
-        _metas.push_back({ qtrc("notation/timeline", "Jumps and markers"), &Timeline::jumpMarkerMeta, true });
-        _metas.push_back({ qtrc("notation/timeline", "Measures"), &Timeline::measureMeta, true });
+        _metas.push_back({ muse::qtrc("notation/timeline", "Tempo"), &Timeline::tempoMeta, true });
+        _metas.push_back({ muse::qtrc("notation/timeline", "Time signature"), &Timeline::timeMeta, true });
+        _metas.push_back({ muse::qtrc("notation/timeline", "Rehearsal mark"), &Timeline::rehearsalMeta, true });
+        _metas.push_back({ muse::qtrc("notation/timeline", "Key signature"), &Timeline::keyMeta, true });
+        _metas.push_back({ muse::qtrc("notation/timeline", "Barlines"), &Timeline::barlineMeta, true });
+        _metas.push_back({ muse::qtrc("notation/timeline", "Jumps and markers"), &Timeline::jumpMarkerMeta, true });
+        _metas.push_back({ muse::qtrc("notation/timeline", "Measures"), &Timeline::measureMeta, true });
 
         updateGridFull();
     }
@@ -2649,7 +2646,7 @@ void Timeline::updateView()
     for (Measure* currMeasure = score()->firstMeasure(); currMeasure; currMeasure = currMeasure->nextMeasure(), ++measureIndex) {
         System* system = currMeasure->system();
 
-        if (currMeasure->mmRest() && score()->styleB(Sid::createMultiMeasureRests)) {
+        if (currMeasure->mmRest() && score()->style().styleB(Sid::createMultiMeasureRests)) {
             // Handle mmRests
             Measure* mmrestMeasure = currMeasure->mmRest();
             system = mmrestMeasure->system();
@@ -2800,7 +2797,7 @@ std::vector<std::pair<QString, bool> > Timeline::getLabels()
     std::vector<std::pair<QString, bool> > rowLabels;
     if (_collapsedMeta) {
         std::pair<QString, bool> first = std::make_pair("", true);
-        std::pair<QString, bool> second = std::make_pair(qtrc("notation/timeline", "Measures"), true);
+        std::pair<QString, bool> second = std::make_pair(muse::qtrc("notation/timeline", "Measures"), true);
         rowLabels.push_back(first);
         rowLabels.push_back(second);
     } else {
@@ -3051,9 +3048,9 @@ void Timeline::toggleShow(int staff)
 
 void Timeline::contextMenuEvent(QContextMenuEvent* event)
 {
-    QMenu* contextMenu = new QMenu(qtrc("notation/timeline", "Context menu"), this);
+    QMenu* contextMenu = new QMenu(muse::qtrc("notation/timeline", "Context menu"), this);
     if (_rowNames->cursorIsOn() == "instrument") {
-        QAction* edit_instruments = new QAction(qtrc("notation/timeline", "Edit instruments"), this);
+        QAction* edit_instruments = new QAction(muse::qtrc("notation/timeline", "Edit instruments"), this);
         connect(edit_instruments, &QAction::triggered, this, &Timeline::requestInstrumentDialog);
         contextMenu->addAction(edit_instruments);
         contextMenu->exec(QCursor::pos());
@@ -3061,7 +3058,7 @@ void Timeline::contextMenuEvent(QContextMenuEvent* event)
         for (auto it = _metas.begin(); it != _metas.end(); ++it) {
             std::tuple<QString, void (Timeline::*)(Segment*, int*, int), bool> meta = *it;
             QString row_name = std::get<0>(meta);
-            if (row_name != qtrc("notation/timeline", "Measures")) {
+            if (row_name != muse::qtrc("notation/timeline", "Measures")) {
                 QAction* action = new QAction(row_name, this);
                 action->setCheckable(true);
                 action->setChecked(std::get<2>(meta));
@@ -3070,10 +3067,10 @@ void Timeline::contextMenuEvent(QContextMenuEvent* event)
             }
         }
         contextMenu->addSeparator();
-        QAction* hide_all = new QAction(qtrc("notation/timeline", "Hide all"), this);
+        QAction* hide_all = new QAction(muse::qtrc("notation/timeline", "Hide all"), this);
         connect(hide_all, &QAction::triggered, this, &Timeline::toggleMetaRow);
         contextMenu->addAction(hide_all);
-        QAction* show_all = new QAction(qtrc("notation/timeline", "Show all"), this);
+        QAction* show_all = new QAction(muse::qtrc("notation/timeline", "Show all"), this);
         connect(show_all, &QAction::triggered, this, &Timeline::toggleMetaRow);
         contextMenu->addAction(show_all);
         contextMenu->exec(QCursor::pos());
@@ -3093,16 +3090,16 @@ void Timeline::toggleMetaRow()
 
     QString targetText = action->text();
 
-    if (targetText == qtrc("notation/timeline", "Hide all")) {
+    if (targetText == muse::qtrc("notation/timeline", "Hide all")) {
         for (auto it = _metas.begin(); it != _metas.end(); ++it) {
             QString metaText = std::get<0>(*it);
-            if (metaText != qtrc("notation/timeline", "Measures")) {
+            if (metaText != muse::qtrc("notation/timeline", "Measures")) {
                 std::get<2>(*it) = false;
             }
         }
         updateGrid();
         return;
-    } else if (targetText == qtrc("notation/timeline", "Show all")) {
+    } else if (targetText == muse::qtrc("notation/timeline", "Show all")) {
         for (auto it = _metas.begin(); it != _metas.end(); ++it) {
             std::get<2>(*it) = true;
         }
@@ -3197,7 +3194,7 @@ QString Timeline::cursorIsOn(const QPoint& cursorPos)
 
 const TimelineTheme& Timeline::activeTheme() const
 {
-    if (uiConfiguration()->currentTheme().codeKey == ui::DARK_THEME_CODE) {
+    if (uiConfiguration()->currentTheme().codeKey == muse::ui::DARK_THEME_CODE) {
         return _darkTheme;
     }
 

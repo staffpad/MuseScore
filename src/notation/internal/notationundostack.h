@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -37,26 +37,28 @@ namespace mu::notation {
 class NotationUndoStack : public INotationUndoStack
 {
 public:
-    NotationUndoStack(IGetScore* getScore, async::Notification notationChanged);
+    NotationUndoStack(IGetScore* getScore, muse::async::Notification notationChanged);
 
     bool canUndo() const override;
     void undo(mu::engraving::EditData*) override;
-    async::Notification undoNotification() const override;
+    muse::async::Notification undoNotification() const override;
 
     bool canRedo() const override;
     void redo(mu::engraving::EditData*) override;
-    async::Notification redoNotification() const override;
+    muse::async::Notification redoNotification() const override;
 
     void prepareChanges() override;
     void rollbackChanges() override;
     void commitChanges() override;
 
+    bool isStackClean() const override;
+
     void lock() override;
     void unlock() override;
     bool isLocked() const override;
 
-    async::Notification stackChanged() const override;
-    async::Channel<ChangesRange> changesChannel() const override;
+    muse::async::Notification stackChanged() const override;
+    muse::async::Channel<ChangesRange> changesChannel() const override;
 
 private:
     void notifyAboutNotationChanged();
@@ -64,18 +66,16 @@ private:
     void notifyAboutUndo();
     void notifyAboutRedo();
 
-    bool isStackClean() const;
-
     mu::engraving::Score* score() const;
     mu::engraving::MasterScore* masterScore() const;
     mu::engraving::UndoStack* undoStack() const;
 
     IGetScore* m_getScore = nullptr;
 
-    async::Notification m_notationChanged;
-    async::Notification m_stackStateChanged;
-    async::Notification m_undoNotification;
-    async::Notification m_redoNotification;
+    muse::async::Notification m_notationChanged;
+    muse::async::Notification m_stackStateChanged;
+    muse::async::Notification m_undoNotification;
+    muse::async::Notification m_redoNotification;
 };
 }
 

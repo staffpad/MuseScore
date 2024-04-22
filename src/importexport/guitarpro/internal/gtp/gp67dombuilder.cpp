@@ -5,7 +5,9 @@
 #include "global/log.h"
 #include "types/constants.h"
 
-namespace mu::engraving {
+using namespace muse;
+
+namespace mu::iex::guitarpro {
 GP67DomBuilder::GP67DomBuilder()
 {
     _gpDom = std::make_unique<GPDomModel>();
@@ -19,7 +21,6 @@ void GP67DomBuilder::buildGPDomModel(XmlDomElement* domElem)
                masterBars,       bars,             voices,
                beats,            notes,            rhythms;
 
-    // Currently ignored
     XmlDomNode gpversion, encoding;
 
     std::map<String, XmlDomNode*> nodeMap =
@@ -61,7 +62,7 @@ void GP67DomBuilder::buildGPDomModel(XmlDomElement* domElem)
     buildGPScore(&scoreNode);
     buildGPMasterTracks(&masterTrack);
     buildGPAudioTracks(&audioTracks);
-    buildGPTracks(&eachTrack);
+    buildGPTracks(&eachTrack, &gpversion);
 }
 
 std::unique_ptr<GPDomModel> GP67DomBuilder::getGPDomModel()
@@ -142,12 +143,12 @@ void GP67DomBuilder::buildGPAudioTracks(XmlDomNode* audioTrack)
     }
 }
 
-void GP67DomBuilder::buildGPTracks(XmlDomNode* tracksNode)
+void GP67DomBuilder::buildGPTracks(XmlDomNode* tracksNode, XmlDomNode* versionNode)
 {
     std::map<int, std::unique_ptr<GPTrack> > tracks;
     XmlDomNode currentNode = tracksNode->firstChild();
     while (!currentNode.isNull()) {
-        tracks.insert(createGPTrack(&currentNode));
+        tracks.insert(createGPTrack(&currentNode, versionNode));
         currentNode = currentNode.nextSibling();
     }
 
@@ -277,8 +278,8 @@ std::vector<GPMasterTracks::Automation> GP67DomBuilder::readTempoMap(XmlDomNode*
                 tempo.type = GPMasterTracks::Automation::Type::tempo;
                 String str = currentAutomation.firstChildElement("Value").toElement().text();
                 StringList tempoValue = str.split(u' ');
-                tempo.value = tempoValue[0].toInt();
-                tempo.tempoUnit = tempoValue.size() > 1 ? tempoValue.at(1).toInt() : 0;
+                tempo.value = static_cast<int>(tempoValue[0].toDouble());
+                tempo.tempoUnit = tempoValue.size() > 1 ? static_cast<int>(tempoValue[1].toDouble()) : 0;
                 tempo.bar = currentAutomation.firstChildElement("Bar").text().toInt();
                 tempo.position = currentAutomation.firstChildElement("Position").text().toFloat();
                 tempo.linear = (ln.toElement().text() == u"true");
@@ -300,12 +301,6 @@ std::unique_ptr<GPMasterTracks> GP67DomBuilder::createGPMasterTrack(XmlDomNode* 
 {
     UNUSED(metadata);
     return std::make_unique<GPMasterTracks>();
-}
-
-std::unique_ptr<GPAudioTrack> GP67DomBuilder::createGPAudioTrack(XmlDomNode* metadata)
-{
-    UNUSED(metadata);
-    return nullptr;
 }
 
 std::unique_ptr<GPMasterBar> GP67DomBuilder::createGPMasterBar(XmlDomNode* masterBarNode)
@@ -350,7 +345,7 @@ std::unique_ptr<GPMasterBar> GP67DomBuilder::createGPMasterBar(XmlDomNode* maste
         } else if (nodeName == u"AlternateEndings") {
             masterBar->setAlternativeEnding(readEnding(&innerNode));
         } else if (nodeName == u"Key") {
-            masterBar->setKeySig(readKeySig(&innerNode));
+            masterBar->setKeySig(readKeySig(&innerNode), readUseFlats(&innerNode));
         } else if (nodeName == u"Bars") {
             const String& barsElement = innerNode.toElement().text();
             const StringList& bars = barsElement.split(u' ');
@@ -622,6 +617,7 @@ std::pair<int, std::shared_ptr<GPBeat> > GP67DomBuilder::createGPBeat(XmlDomNode
                 note = _notes.at(idx);
                 beat->addGPNote(note);
             }
+            beat->sortGPNotes();
         } else if (nodeName == u"GraceNotes") {
             beat->setGraceNotes(graceNotes(innerNode.toElement().text()));
         } else if (nodeName == u"Arpeggio") {
@@ -856,9 +852,27 @@ GPTrack::RSE GP67DomBuilder::readTrackRSE(XmlDomNode* trackChildNode) const
 GPMasterBar::KeySig GP67DomBuilder::readKeySig(XmlDomNode* keyNode) const
 {
     const auto& accidentalCount = keyNode->firstChildElement("AccidentalCount");
+    const auto& modeNode = keyNode->firstChildElement("Mode");
+
+    String modeName = modeNode.toElement().text();
+
+    GPMasterBar::KeySig::Mode mode = GPMasterBar::KeySig::Mode::Major;
+    if (modeName == "Minor") {
+        mode = GPMasterBar::KeySig::Mode::Minor;
+    }
+
     int keyCount = accidentalCount.toElement().text().toInt();
 
-    return GPMasterBar::KeySig(keyCount);
+    return GPMasterBar::KeySig{ GPMasterBar::KeySig::Accidentals(keyCount), mode };
+}
+
+bool GP67DomBuilder::readUseFlats(XmlDomNode* keyNode) const
+{
+    const auto& transposeAs = keyNode->firstChildElement("TransposeAs");
+    if (transposeAs.isNull()) {
+        return false;
+    }
+    return transposeAs.toElement().text() == "Flats";
 }
 
 GPMasterBar::TimeSig GP67DomBuilder::readTimeSig(XmlDomNode* timeNode) const
@@ -1001,7 +1015,7 @@ void GP67DomBuilder::readBeatXProperties(const XmlDomNode& propertiesNode, GPBea
 
         if (propertyId == 687931393 || propertyId == 687935489) {
             // arpeggio/brush ticks
-            beat->setArpeggioStretch(propertyNode.firstChild().toElement().text().toDouble() / mu::engraving::Constants::division);
+            beat->setArpeggioStretch(propertyNode.firstChild().toElement().text().toDouble() / mu::engraving::Constants::DIVISION);
         } else if (propertyId == 1124204546) {
             int beamData = propertyNode.firstChild().toElement().text().toInt();
 
@@ -1167,7 +1181,7 @@ void GP67DomBuilder::readBeatProperties(const XmlDomNode& propertiesNode, GPBeat
         } else if (propertyName == u"Brush") {
             beat->setBrush(brushType(propertyNode.firstChild().toElement().text()));
         } else if (propertyName == u"VibratoWTremBar") {
-            beat->setVibrato(vibratoType(propertyNode.firstChild().toElement().text()));
+            beat->setVibratoWTremBar(vibratoType(propertyNode.firstChild().toElement().text()));
         } else if (propertyName == u"Rasgueado") {
             beat->setRasgueado(rasgueadoType(propertyNode.firstChild().toElement().text()));
         } else if (propertyName == u"PickStroke") {
@@ -1192,9 +1206,10 @@ void GP67DomBuilder::readBeatProperties(const XmlDomNode& propertiesNode, GPBeat
     }
 }
 
-void GP67DomBuilder::readTrackProperties(XmlDomNode* propertiesNode, GPTrack* track) const
+void GP67DomBuilder::readTrackProperties(XmlDomNode* propertiesNode, GPTrack* track, bool ignoreTuningFlats) const
 {
     GPTrack::StaffProperty property;
+    property.ignoreFlats = ignoreTuningFlats;
 
     auto propertyNode = propertiesNode->firstChild();
 
@@ -1213,6 +1228,9 @@ void GP67DomBuilder::readTrackProperties(XmlDomNode* propertiesNode, GPTrack* tr
                 tunning.push_back(val.toInt());
             }
             property.tunning.swap(tunning);
+            property.useFlats = !propertyNode.firstChildElement("Flat").isNull();
+        } else if (propertyName == u"TuningFlat") {
+            property.useFlats = !propertyNode.firstChildElement("Enable").isNull();
         } else if (propertyName == u"DiagramCollection" || propertyName == u"DiagramWorkingSet") {
             readDiagram(propertyNode.firstChild(), track);
         }
@@ -1393,4 +1411,4 @@ std::vector<GPMasterBar::Direction> GP67DomBuilder::readRepeatsJumps(XmlDomNode*
 
     return repeatsJumps;
 }
-} //end Ms namespace
+} // namespace mu::iex::guitarpro

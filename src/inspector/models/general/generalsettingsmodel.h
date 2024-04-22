@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -36,8 +36,8 @@ class GeneralSettingsModel : public AbstractInspectorModel
     Q_PROPERTY(PropertyItem * isPlayable READ isPlayable CONSTANT)
     Q_PROPERTY(PropertyItem * isSmall READ isSmall CONSTANT)
 
-    Q_PROPERTY(QObject * playbackProxyModel READ playbackProxyModel NOTIFY playbackProxyModelChanged)
-    Q_PROPERTY(QObject * appearanceSettingsModel READ appearanceSettingsModel NOTIFY appearanceSettingsModelChanged)
+    Q_PROPERTY(QObject * playbackProxyModel READ playbackProxyModel CONSTANT)
+    Q_PROPERTY(QObject * appearanceSettingsModel READ appearanceSettingsModel CONSTANT)
 
 public:
     explicit GeneralSettingsModel(QObject* parent, IElementRepositoryService* repository);
@@ -50,13 +50,7 @@ public:
     QObject* playbackProxyModel() const;
     QObject* appearanceSettingsModel() const;
 
-public slots:
-    void setPlaybackProxyModel(mu::inspector::PlaybackProxyModel* playbackProxyModel);
-    void setAppearanceSettingsModel(mu::inspector::AppearanceSettingsModel* appearanceSettingsModel);
-
-signals:
-    void playbackProxyModelChanged(QObject* playbackProxyModel);
-    void appearanceSettingsModelChanged(QObject* appearanceSettingsModel);
+    void onCurrentNotationChanged() override;
 
 private:
     void createProperties() override;

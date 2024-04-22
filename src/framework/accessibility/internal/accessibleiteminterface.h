@@ -19,8 +19,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_ACCESSIBILITY_ACCESSIBLEITEMINTERFACE_H
-#define MU_ACCESSIBILITY_ACCESSIBLEITEMINTERFACE_H
+#ifndef MUSE_ACCESSIBILITY_ACCESSIBLEITEMINTERFACE_H
+#define MUSE_ACCESSIBILITY_ACCESSIBLEITEMINTERFACE_H
 
 #include <QAccessibleInterface>
 
@@ -29,10 +29,11 @@
 #include "modularity/ioc.h"
 #include "ui/iinteractiveprovider.h"
 
-namespace mu::accessibility {
-class AccessibleItemInterface : public QAccessibleInterface, public QAccessibleValueInterface, public QAccessibleTextInterface
+namespace muse::accessibility {
+class AccessibleItemInterface : public QAccessibleInterface, public QAccessibleValueInterface, public QAccessibleTextInterface,
+    public QAccessibleTableCellInterface
 {
-    INJECT(ui::IInteractiveProvider, interactiveProvider)
+    Inject<ui::IInteractiveProvider> interactiveProvider;
 
 public:
     AccessibleItemInterface(AccessibleObject* object);
@@ -84,6 +85,18 @@ public:
     void scrollToSubstring(int startIndex, int endIndex) override;
     QString attributes(int /* offset */, int* startOffset, int* endOffset) const override;
 
+    // Table cell(list view item) Interface
+    bool isSelected() const override;
+
+    QList<QAccessibleInterface*> columnHeaderCells() const override;
+    QList<QAccessibleInterface*> rowHeaderCells() const override;
+    int columnIndex() const override;
+    int rowIndex() const override;
+    int columnExtent() const override;
+    int rowExtent() const override;
+
+    QAccessibleInterface* table() const override;
+
 protected:
     void* interface_cast(QAccessible::InterfaceType t) override;
 
@@ -95,4 +108,4 @@ private:
 };
 }
 
-#endif // MU_ACCESSIBILITY_ACCESSIBLEITEMINTERFACE_H
+#endif // MUSE_ACCESSIBILITY_ACCESSIBLEITEMINTERFACE_H

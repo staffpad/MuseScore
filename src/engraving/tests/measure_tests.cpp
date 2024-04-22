@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,13 +22,13 @@
 
 #include <gtest/gtest.h>
 
-#include "libmscore/engravingitem.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/measure.h"
-#include "libmscore/measurenumber.h"
-#include "libmscore/rest.h"
-#include "libmscore/segment.h"
-#include "libmscore/undo.h"
+#include "dom/engravingitem.h"
+#include "dom/masterscore.h"
+#include "dom/measure.h"
+#include "dom/measurenumber.h"
+#include "dom/rest.h"
+#include "dom/segment.h"
+#include "dom/undo.h"
 
 #include "utils/scorerw.h"
 #include "utils/scorecomp.h"
@@ -49,7 +49,7 @@ TEST_F(Engraving_MeasureTests, DISABLED_insertMeasureMiddle) //TODO: verify prog
 
     score->startCmd();
     Measure* m = score->firstMeasure()->nextMeasure();
-    score->insertMeasure(ElementType::MEASURE, m);
+    score->insertMeasure(m);
     score->endCmd();
 
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measure-1.mscx", MEASURE_DATA_DIR + u"measure-1-ref.mscx"));
@@ -63,7 +63,7 @@ TEST_F(Engraving_MeasureTests, DISABLED_insertMeasureBegin) // TODO: verify prog
 
     score->startCmd();
     Measure* m = score->firstMeasure();
-    score->insertMeasure(ElementType::MEASURE, m);
+    score->insertMeasure(m);
     score->endCmd();
 
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measure-2.mscx", MEASURE_DATA_DIR + u"measure-2-ref.mscx"));
@@ -76,10 +76,23 @@ TEST_F(Engraving_MeasureTests, DISABLED_insertMeasureEnd) // TODO: verify progra
     EXPECT_TRUE(score);
 
     score->startCmd();
-    score->insertMeasure(ElementType::MEASURE, 0);
+    score->insertMeasure(0);
     score->endCmd();
 
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measure-3.mscx", MEASURE_DATA_DIR + u"measure-3-ref.mscx"));
+    delete score;
+}
+
+TEST_F(Engraving_MeasureTests, insertAtBeginning)
+{
+    MasterScore* score = ScoreRW::readScore(MEASURE_DATA_DIR + u"measure-insert_beginning.mscx");
+    EXPECT_TRUE(score);
+    Measure* m = score->firstMeasure();
+    score->startCmd();
+    score->insertMeasure(m);
+    score->endCmd();
+    EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measure-insert_beginning.mscx",
+                                            MEASURE_DATA_DIR + u"measure-insert_beginning-ref.mscx"));
     delete score;
 }
 
@@ -92,7 +105,7 @@ TEST_F(Engraving_MeasureTests, insertBfClefChange)
     Measure* m = score->firstMeasure()->nextMeasure();
     m = m->nextMeasure()->nextMeasure();
     score->startCmd();
-    score->insertMeasure(ElementType::MEASURE, m);
+    score->insertMeasure(m);
     score->endCmd();
 
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measure-insert_bf_clef.mscx", MEASURE_DATA_DIR + u"measure-insert_bf_clef-ref.mscx"));
@@ -103,7 +116,7 @@ TEST_F(Engraving_MeasureTests, insertBfClefChange)
 
     m = score->firstMeasure()->nextMeasure()->nextMeasure()->nextMeasure()->nextMeasure()->nextMeasure();
     score->startCmd();
-    score->insertMeasure(ElementType::MEASURE, m);
+    score->insertMeasure(m);
     score->endCmd();
 
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measure-insert_bf_clef-2.mscx",
@@ -124,7 +137,7 @@ TEST_F(Engraving_MeasureTests, insertBfKeyChange)
     Measure* m = score->firstMeasure()->nextMeasure();
     m = m->nextMeasure()->nextMeasure();
     score->startCmd();
-    score->insertMeasure(ElementType::MEASURE, m);
+    score->insertMeasure(m);
     score->endCmd();
 
     EXPECT_TRUE(score->checkKeys());
@@ -133,11 +146,12 @@ TEST_F(Engraving_MeasureTests, insertBfKeyChange)
     score->undoRedo(true, 0);
 
     EXPECT_TRUE(score->checkKeys());
-    EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measure-insert_bf_key_undo.mscx", MEASURE_DATA_DIR + u"measure-insert_bf_key.mscx"));
+    EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measure-insert_bf_key_undo.mscx",
+                                            MEASURE_DATA_DIR + u"measure-insert_bf_key_undo-ref.mscx"));
 
     m = score->firstMeasure()->nextMeasure()->nextMeasure()->nextMeasure()->nextMeasure()->nextMeasure();
     score->startCmd();
-    score->insertMeasure(ElementType::MEASURE, m);
+    score->insertMeasure(m);
     score->endCmd();
     EXPECT_TRUE(score->checkKeys());
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measure-insert_bf_key-2.mscx",
@@ -146,7 +160,8 @@ TEST_F(Engraving_MeasureTests, insertBfKeyChange)
     score->undoRedo(true, 0);
 
     EXPECT_TRUE(score->checkKeys());
-    EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measure-insert_bf_key_undo.mscx", MEASURE_DATA_DIR + u"measure-insert_bf_key.mscx"));
+    EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measure-insert_bf_key_undo.mscx",
+                                            MEASURE_DATA_DIR + u"measure-insert_bf_key_undo-ref.mscx"));
     delete score;
 }
 
@@ -165,7 +180,7 @@ TEST_F(Engraving_MeasureTests, spanner_a)
 
     Measure* m = score->firstMeasure()->nextMeasure();
     score->startCmd();
-    score->insertMeasure(ElementType::MEASURE, m);
+    score->insertMeasure(m);
     score->endCmd();
 
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measure-4.mscx", MEASURE_DATA_DIR + u"measure-4-ref.mscx"));
@@ -187,7 +202,7 @@ TEST_F(Engraving_MeasureTests, spanner_b)
 
     Measure* m = score->firstMeasure();
     score->startCmd();
-    score->insertMeasure(ElementType::MEASURE, m);
+    score->insertMeasure(m);
     score->endCmd();
 
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measure-5.mscx", MEASURE_DATA_DIR + u"measure-5-ref.mscx"));
@@ -469,7 +484,7 @@ TEST_F(Engraving_MeasureTests, mmrest)
     EXPECT_TRUE(score);
 
     score->startCmd();
-    score->undo(new ChangeStyleVal(score, Sid::createMultiMeasureRests, true));
+    score->undoChangeStyleVal(Sid::createMultiMeasureRests, true);
     score->setLayoutAll();
     score->endCmd();
 
@@ -498,20 +513,20 @@ TEST_F(Engraving_MeasureTests, measureNumbers)
 
     // Place measure numbers below
     score->startCmd();
-    score->undo(new ChangeStyleVal(score, Sid::measureNumberVPlacement, PlacementV::BELOW));
+    score->undoChangeStyleVal(Sid::measureNumberVPlacement, PlacementV::BELOW);
     score->setLayoutAll();
     score->endCmd();
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measurenumber-1.mscx", MEASURE_DATA_DIR + u"measurenumber-1-ref.mscx"));
 
     // center measure numbers
     score->startCmd();
-    score->undo(new ChangeStyleVal(score, Sid::measureNumberHPlacement, PlacementH::CENTER));
+    score->undoChangeStyleVal(Sid::measureNumberHPlacement, PlacementH::CENTER);
     score->setLayoutAll();
     score->endCmd();
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measurenumber-2.mscx", MEASURE_DATA_DIR + u"measurenumber-2-ref.mscx"));
 
     // show on first system too
-    score->undo(new ChangeStyleVal(score, Sid::showMeasureNumberOne, true));
+    score->undoChangeStyleVal(Sid::showMeasureNumberOne, true);
     score->setLayoutAll();
     score->endCmd();
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measurenumber-3.mscx", MEASURE_DATA_DIR + u"measurenumber-3-ref.mscx"));
@@ -520,7 +535,7 @@ TEST_F(Engraving_MeasureTests, measureNumbers)
     score->startCmd();
     // to know whether measure numbers are shown at regular intervals or on every system,
     // musescore simply checks if measure numbers are shown at system or not.
-    score->undo(new ChangeStyleVal(score, Sid::measureNumberSystem, false));
+    score->undoChangeStyleVal(Sid::measureNumberSystem, false);
     score->setLayoutAll();
     score->endCmd();
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measurenumber-4.mscx", MEASURE_DATA_DIR + u"measurenumber-4-ref.mscx"));
@@ -529,14 +544,14 @@ TEST_F(Engraving_MeasureTests, measureNumbers)
     // because they are still placed at regular intervals.
     // Instead of being at 1-6-11-16-21, etc. They should be at 5-10-15-20-25, etc.
     score->startCmd();
-    score->undo(new ChangeStyleVal(score, Sid::showMeasureNumberOne, false));
+    score->undoChangeStyleVal(Sid::showMeasureNumberOne, false);
     score->setLayoutAll();
     score->endCmd();
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measurenumber-5.mscx", MEASURE_DATA_DIR + u"measurenumber-5-ref.mscx"));
 
     // show at every measure (except fist)
     score->startCmd();
-    score->undo(new ChangeStyleVal(score, Sid::measureNumberInterval, 1));
+    score->undoChangeStyleVal(Sid::measureNumberInterval, 1);
     score->setLayoutAll();
     score->endCmd();
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measurenumber-6.mscx", MEASURE_DATA_DIR + u"measurenumber-6-ref.mscx"));
@@ -545,7 +560,7 @@ TEST_F(Engraving_MeasureTests, measureNumbers)
     score->startCmd();
     // to know whether measure numbers are shown at regular intervals or on every system,
     // musescore simply checks if measure numbers are shown at system or not.
-    score->undo(new ChangeStyleVal(score, Sid::showMeasureNumber, false));
+    score->undoChangeStyleVal(Sid::showMeasureNumber, false);
     score->setLayoutAll();
     score->endCmd();
     EXPECT_TRUE(ScoreComp::saveCompareScore(score, u"measurenumber-7.mscx", MEASURE_DATA_DIR + u"measurenumber-7-ref.mscx"));

@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<museScore version="4.00">
+<museScore version="4.10">
   <Score>
-    <LayerTag id="0" tag="default"></LayerTag>
-    <currentLayer>0</currentLayer>
     <Division>480</Division>
     <Style>
       <pageWidth>8.27</pageWidth>
@@ -20,7 +18,6 @@
     <metaTag name="lyricist"></metaTag>
     <metaTag name="movementNumber"></metaTag>
     <metaTag name="movementTitle"></metaTag>
-    <metaTag name="poet"></metaTag>
     <metaTag name="source"></metaTag>
     <metaTag name="translator"></metaTag>
     <metaTag name="workNumber"></metaTag>
@@ -152,7 +149,7 @@
         <irregular>1</irregular>
         <voice>
           <KeySig>
-            <accidental>-1</accidental>
+            <concertKey>-1</concertKey>
             </KeySig>
           <TimeSig>
             <sigN>3</sigN>
@@ -214,7 +211,7 @@
       <Measure>
         <voice>
           <KeySig>
-            <accidental>3</accidental>
+            <concertKey>3</concertKey>
             </KeySig>
           <TimeSig>
             <sigN>6</sigN>
@@ -370,7 +367,7 @@
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-1</accidental>
+            <concertKey>-1</concertKey>
             </KeySig>
           <Chord>
             <dots>1</dots>
@@ -417,7 +414,7 @@
       <Measure>
         <voice>
           <KeySig>
-            <accidental>3</accidental>
+            <concertKey>3</concertKey>
             </KeySig>
           <TimeSig>
             <sigN>6</sigN>
@@ -573,7 +570,7 @@
       <Measure>
         <voice>
           <KeySig>
-            <accidental>1</accidental>
+            <concertKey>1</concertKey>
             </KeySig>
           <Beam>
             <l1>24</l1>
@@ -712,7 +709,7 @@
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-1</accidental>
+            <concertKey>-1</concertKey>
             </KeySig>
           <Chord>
             <dots>1</dots>
@@ -759,7 +756,7 @@
       <Measure>
         <voice>
           <KeySig>
-            <accidental>3</accidental>
+            <concertKey>3</concertKey>
             </KeySig>
           <TimeSig>
             <sigN>6</sigN>
@@ -883,7 +880,7 @@
       <Measure>
         <voice>
           <KeySig>
-            <accidental>1</accidental>
+            <concertKey>1</concertKey>
             </KeySig>
           <TimeSig>
             <sigN>3</sigN>
@@ -924,7 +921,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>-1</accidental>
+            <concertKey>-1</concertKey>
             </KeySig>
           <TimeSig>
             <linkedMain/>
@@ -986,7 +983,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>3</accidental>
+            <concertKey>3</concertKey>
             </KeySig>
           <TimeSig>
             <linkedMain/>
@@ -1034,7 +1031,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>-1</accidental>
+            <concertKey>-1</concertKey>
             </KeySig>
           <Chord>
             <linkedMain/>
@@ -1083,7 +1080,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>3</accidental>
+            <concertKey>3</concertKey>
             </KeySig>
           <TimeSig>
             <linkedMain/>
@@ -1149,7 +1146,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>1</accidental>
+            <concertKey>1</concertKey>
             </KeySig>
           <Chord>
             <linkedMain/>
@@ -1236,7 +1233,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>-1</accidental>
+            <concertKey>-1</concertKey>
             </KeySig>
           <Chord>
             <linkedMain/>
@@ -1285,7 +1282,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>3</accidental>
+            <concertKey>3</concertKey>
             </KeySig>
           <TimeSig>
             <linkedMain/>
@@ -1313,7 +1310,7 @@
         <voice>
           <KeySig>
             <linkedMain/>
-            <accidental>1</accidental>
+            <concertKey>1</concertKey>
             </KeySig>
           <TimeSig>
             <linkedMain/>
@@ -1337,8 +1334,6 @@
         </Measure>
       </Staff>
     <Score>
-      <LayerTag id="0" tag="default"></LayerTag>
-      <currentLayer>0</currentLayer>
       <Division>480</Division>
       <Style>
         <createMultiMeasureRests>1</createMultiMeasureRests>
@@ -1440,7 +1435,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>-1</accidental>
+              <concertKey>-1</concertKey>
               </KeySig>
             <TimeSig>
               <linked>
@@ -1510,7 +1505,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>3</accidental>
+              <concertKey>3</concertKey>
               </KeySig>
             <TimeSig>
               <linked>
@@ -1566,7 +1561,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>-1</accidental>
+              <concertKey>-1</concertKey>
               </KeySig>
             <Chord>
               <linked>
@@ -1621,7 +1616,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>3</accidental>
+              <concertKey>3</concertKey>
               </KeySig>
             <TimeSig>
               <linked>
@@ -1698,7 +1693,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>1</accidental>
+              <concertKey>1</concertKey>
               </KeySig>
             <Chord>
               <linked>
@@ -1799,7 +1794,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>-1</accidental>
+              <concertKey>-1</concertKey>
               </KeySig>
             <Chord>
               <linked>
@@ -1854,7 +1849,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>3</accidental>
+              <concertKey>3</concertKey>
               </KeySig>
             <TimeSig>
               <linked>
@@ -1887,7 +1882,7 @@
             <KeySig>
               <linked>
                 </linked>
-              <accidental>1</accidental>
+              <concertKey>1</concertKey>
               </KeySig>
             <TimeSig>
               <linked>

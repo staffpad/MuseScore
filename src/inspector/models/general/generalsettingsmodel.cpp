@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -31,10 +31,14 @@ GeneralSettingsModel::GeneralSettingsModel(QObject* parent, IElementRepositorySe
 {
     createProperties();
 
-    setTitle(qtrc("inspector", "General"));
+    setTitle(muse::qtrc("inspector", "General"));
     setSectionType(InspectorSectionType::SECTION_GENERAL);
-    setPlaybackProxyModel(new PlaybackProxyModel(this, repository));
-    setAppearanceSettingsModel(new AppearanceSettingsModel(this, repository));
+
+    m_playbackProxyModel = new PlaybackProxyModel(this, repository);
+    m_playbackProxyModel->init();
+
+    m_appearanceSettingsModel = new AppearanceSettingsModel(this, repository);
+    m_appearanceSettingsModel->init();
 }
 
 void GeneralSettingsModel::createProperties()
@@ -102,15 +106,15 @@ void GeneralSettingsModel::onNotationChanged(const PropertyIdSet& changedPropert
 
 void GeneralSettingsModel::loadProperties(const mu::engraving::PropertyIdSet& propertyIdSet)
 {
-    if (mu::contains(propertyIdSet, Pid::VISIBLE)) {
+    if (muse::contains(propertyIdSet, Pid::VISIBLE)) {
         loadPropertyItem(m_isVisible);
     }
 
-    if (mu::contains(propertyIdSet, Pid::AUTOPLACE)) {
+    if (muse::contains(propertyIdSet, Pid::AUTOPLACE)) {
         loadPropertyItem(m_isAutoPlaceAllowed);
     }
 
-    if (mu::contains(propertyIdSet, Pid::PLAY)) {
+    if (muse::contains(propertyIdSet, Pid::PLAY)) {
         bool isMaster = isMasterNotation();
         m_isPlayable->setIsVisible(isMaster);
 
@@ -119,9 +123,17 @@ void GeneralSettingsModel::loadProperties(const mu::engraving::PropertyIdSet& pr
         }
     }
 
-    if (mu::contains(propertyIdSet, Pid::SMALL)) {
+    if (muse::contains(propertyIdSet, Pid::SMALL)) {
         loadPropertyItem(m_isSmall, m_elementsForIsSmallProperty);
     }
+}
+
+void GeneralSettingsModel::onCurrentNotationChanged()
+{
+    AbstractInspectorModel::onCurrentNotationChanged();
+
+    m_appearanceSettingsModel->onCurrentNotationChanged();
+    m_playbackProxyModel->onCurrentNotationChanged();
 }
 
 void GeneralSettingsModel::onVisibleChanged(bool visible)
@@ -166,16 +178,4 @@ QObject* GeneralSettingsModel::playbackProxyModel() const
 QObject* GeneralSettingsModel::appearanceSettingsModel() const
 {
     return m_appearanceSettingsModel;
-}
-
-void GeneralSettingsModel::setPlaybackProxyModel(PlaybackProxyModel* playbackProxyModel)
-{
-    m_playbackProxyModel = playbackProxyModel;
-    emit playbackProxyModelChanged(m_playbackProxyModel);
-}
-
-void GeneralSettingsModel::setAppearanceSettingsModel(AppearanceSettingsModel* appearanceSettingsModel)
-{
-    m_appearanceSettingsModel = appearanceSettingsModel;
-    emit appearanceSettingsModelChanged(m_appearanceSettingsModel);
 }

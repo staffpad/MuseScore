@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -26,10 +26,11 @@
 #include <functional>
 #include <map>
 #include <unordered_set>
-#include <utility>
 
-#include "types/id.h"
-#include "types/string.h"
+#include "global/types/id.h"
+#include "global/types/string.h"
+#include "global/types/translatablestring.h"
+#include "global/types/flags.h"
 
 #include "draw/types/color.h"
 #include "draw/types/geometry.h"
@@ -54,6 +55,10 @@ using system_idx_t = size_t;
 using part_idx_t = size_t;
 using page_idx_t = size_t;
 
+using string_idx_t = size_t;
+
+using semitone_t = int8_t;
+
 //-------------------------------------------------------------------
 ///   The value of this enum determines the "stacking order"
 ///   of elements on the canvas.
@@ -66,7 +71,6 @@ enum class ElementType {
     PART,
     STAFF,
     SCORE,
-    SYMBOL,
     TEXT,
     MEASURE_NUMBER,
     MMREST_RANGE,
@@ -80,10 +84,12 @@ enum class ElementType {
     ARPEGGIO,
     ACCIDENTAL,
     LEDGER_LINE,
-    STEM,                     // list STEM before NOTE: notes in TAB might 'break' stems
-    NOTE,                     // and this requires stems to be drawn before notes
-    CLEF,                     // elements from CLEF to TIMESIG need to be in the order
-    KEYSIG,                   // in which they appear in a measure
+    STEM,   // list STEM before NOTE: notes in TAB might 'break' stems
+    HOOK,   // and this requires stems to be drawn before notes
+    NOTE,   // elements from CLEF to TIMESIG need to be in the order
+    SYMBOL, // in which they appear in a measure
+    CLEF,
+    KEYSIG,
     AMBITUS,
     TIMESIG,
     REST,
@@ -100,9 +106,9 @@ enum class ElementType {
     EXPRESSION,
     BEAM,
     BEAM_SEGMENT,
-    HOOK,
     LYRICS,
     FIGURED_BASS,
+    FIGURED_BASS_ITEM,
     MARKER,
     JUMP,
     FINGERING,
@@ -110,7 +116,10 @@ enum class ElementType {
     TEMPO_TEXT,
     STAFF_TEXT,
     SYSTEM_TEXT,
+    SOUND_FLAG,
     PLAYTECH_ANNOTATION,
+    CAPO,
+    STRING_TUNINGS,
     TRIPLET_FEEL,
     REHEARSAL_MARK,
     INSTRUMENT_CHANGE,
@@ -143,7 +152,6 @@ enum class ElementType {
     STAFF_STATE,
     NOTEHEAD,
     NOTEDOT,
-    TREMOLO,
     IMAGE,
     MEASURE,
     SELECTION,
@@ -189,6 +197,14 @@ enum class ElementType {
     STICKING,
     GRACE_NOTES_GROUP,
     FRET_CIRCLE,
+    GUITAR_BEND,
+    GUITAR_BEND_SEGMENT,
+    GUITAR_BEND_HOLD,
+    GUITAR_BEND_HOLD_SEGMENT,
+    GUITAR_BEND_TEXT,
+    TREMOLO_TWOCHORD,
+    TREMOLO_SINGLECHORD,
+    TIME_TICK_ANCHOR,
 
     ROOT_ITEM,
     DUMMY,
@@ -204,16 +220,28 @@ using ElementTypeSet = std::unordered_set<ElementType>;
 // ========================================
 // PropertyValue
 // ========================================
+// --- Common ---
+using String = muse::String;
+using StringList = muse::StringList;
+using TranslatableString = muse::TranslatableString;
+using Char = muse::Char;
+using AsciiStringView = muse::AsciiStringView;
+using real_t = muse::real_t;
+using ID = muse::ID;
 
 // --- Geometry ---
-using PointF = mu::PointF;              // P_TYPE::POINT
-using SizeF = mu::SizeF;                // P_TYPE::SIZE
-using PainterPath = mu::draw::PainterPath; // P_TYPE::PATH
-using ScaleF = mu::ScaleF;              // P_TYPE::SCALE
-using PairF = mu::PairF;                // P_TYPE::PAIR_REAL
+using Point = muse::Point;
+using PointF = muse::PointF;              // P_TYPE::POINT
+using RectF = muse::RectF;
+using LineF = muse::LineF;
+using SizeF = muse::SizeF;                // P_TYPE::SIZE
+using PainterPath = muse::draw::PainterPath; // P_TYPE::PATH
+using ScaleF = muse::ScaleF;              // P_TYPE::SCALE
+using PairF = muse::PairF;                // P_TYPE::PAIR_REAL
+using PolygonF = muse::PolygonF;
 
 // --- Draw ---
-using Color = draw::Color;              // P_TYPE::COLOR
+using Color = muse::draw::Color;        // P_TYPE::COLOR
 
 enum class OrnamentStyle : char {
     DEFAULT, BAROQUE
@@ -299,13 +327,18 @@ enum class Orientation : signed char {
 
 // P_TYPE::BEAM_MODE
 //! Note: for historical reasons, these have strange names
+//!
 enum class BeamMode : signed char {
     INVALID = -1,
     AUTO,
     NONE,
     BEGIN,
+    // TODO:
+    // strange names aside, mscx files refer to BEGIN16 and BEGIN32 as begin32/begin64, which would describe the 3rd and 4th beams,
+    // which is wildly incorrect.These enum names are CORRECT, but I haven't touched the mscx files yet.
+    // changing this for the save files would necessitate some serious file version / import work. -A
+    BEGIN16,
     BEGIN32,
-    BEGIN64,
     MID,
     END
 };
@@ -488,6 +521,7 @@ enum class NoteHeadGroup : signed char {
 };
 
 // P_TYPE::CLEF_TYPE
+// keep in sync with clefTable in clef.cpp, CLEF_TYPES in typesconv.cpp and CLEF_INFOS in exportxml.cpp
 enum class ClefType : signed char {
     INVALID = -1,
     G = 0,
@@ -525,6 +559,9 @@ enum class ClefType : signed char {
     TAB4,
     TAB_SERIF,
     TAB4_SERIF,
+    // new clefs to be added between here
+    C4_8VB,
+    // and here in oder to not break TAB clef style
     MAX
 };
 
@@ -650,7 +687,7 @@ struct OrnamentInterval
             IntervalStep::FIFTH,
             IntervalStep::OCTAVE
         };
-        return mu::contains(perfectSteps, step);
+        return muse::contains(perfectSteps, step);
     }
 
     bool isPerfect() const
@@ -658,6 +695,8 @@ struct OrnamentInterval
         return isPerfectStep(step);
     }
 };
+
+static const OrnamentInterval DEFAULT_ORNAMENT_INTERVAL = OrnamentInterval(IntervalStep::SECOND, IntervalType::AUTO);
 
 enum class OrnamentShowAccidental {
     DEFAULT,
@@ -679,7 +718,7 @@ enum class TextStyleType {
     TITLE,
     SUBTITLE,
     COMPOSER,
-    POET,
+    LYRICIST,
     TRANSLATOR,
     FRAME,
     INSTRUMENT_EXCERPT,
@@ -721,6 +760,7 @@ enum class TextStyleType {
     LH_GUITAR_FINGERING,
     RH_GUITAR_FINGERING,
     STRING_NUMBER,
+    STRING_TUNINGS,
     HARP_PEDAL_DIAGRAM,
     HARP_PEDAL_TEXT_DIAGRAM,
 
@@ -851,8 +891,8 @@ enum class SlurStyleType {
 };
 
 struct InstrumentTrackId {
-    ID partId = 0;
-    std::string instrumentId;
+    muse::ID partId = 0;
+    String instrumentId;
 
     bool operator ==(const InstrumentTrackId& other) const
     {
@@ -884,6 +924,20 @@ enum class TremoloType : signed char {
     INVALID_TREMOLO = -1,
     R8 = 0, R16, R32, R64, BUZZ_ROLL,    // one note tremolo (repeat)
     C8, C16, C32, C64       // two note tremolo (change)
+};
+
+inline bool isTremoloTwoChord(TremoloType type)
+{
+    return type >= TremoloType::C8;
+}
+
+// only applicable to minim two-note tremolo in non-TAB staves
+enum class TremoloStyle : signed char {
+    DEFAULT = 0, TRADITIONAL, TRADITIONAL_ALTERNATE
+};
+
+enum class TremoloChordType : char {
+    TremoloNone, TremoloSingle, TremoloFirstChord, TremoloSecondChord
 };
 
 enum class BracketType : signed char {
@@ -959,6 +1013,12 @@ enum class SpannerSegmentType {
     SINGLE, BEGIN, MIDDLE, END
 };
 
+enum class TiePlacement {
+    AUTO,
+    INSIDE,
+    OUTSIDE,
+};
+
 //---------------------------------------------------------
 //   Key
 //---------------------------------------------------------
@@ -995,6 +1055,19 @@ static inline bool operator!=(const Key a, const Key b) { return static_cast<int
 static inline Key operator+=(Key& a, const Key& b) { return a = Key(static_cast<int>(a) + static_cast<int>(b)); }
 static inline Key operator-=(Key& a, const Key& b) { return a = Key(static_cast<int>(a) - static_cast<int>(b)); }
 
+struct SwingParameters {
+    int swingUnit = 0;
+    int swingRatio = 0;
+
+    bool isOn() const { return swingUnit != 0; }
+};
+
+struct CapoParams {
+    bool active = false;
+    int fretPosition = 0;
+    std::unordered_set<string_idx_t> ignoredStrings;
+};
+
 struct PartAudioSettingsCompat {
     InstrumentTrackId instrumentId;
     bool mute = false;
@@ -1003,8 +1076,34 @@ struct PartAudioSettingsCompat {
 };
 
 struct SettingsCompat {
-    std::map<ID /*partid*/, PartAudioSettingsCompat> audioSettings;
+    std::map<muse::ID /*partid*/, PartAudioSettingsCompat> audioSettings;
 };
+
+//---------------------------------------------------------
+//   UpdateMode
+//    There is an implied order from least invasive update
+//    to most invasive update. LayoutAll is fallback and
+//    recreates all.
+//---------------------------------------------------------
+
+enum class UpdateMode {
+    DoNothing,
+    Update,             // do screen refresh of RectF "refresh"
+    UpdateAll,          // do complete screen refresh
+    Layout,             // do partial layout for tick range
+};
+
+//---------------------------------------------------------
+//   LayoutFlag bits
+//---------------------------------------------------------
+
+enum class LayoutFlag : char {
+    NO_FLAGS       = 0,
+    PLAY_EVENTS    = 2,
+    REBUILD_MIDI_MAPPING = 4,
+};
+
+typedef muse::Flags<LayoutFlag> LayoutFlags;
 } // mu::engraving
 
 template<>
@@ -1013,7 +1112,7 @@ struct std::hash<mu::engraving::InstrumentTrackId>
     std::size_t operator()(const mu::engraving::InstrumentTrackId& s) const noexcept
     {
         std::size_t h1 = std::hash<int> {}(static_cast<int>(s.partId.toUint64()));
-        std::size_t h2 = std::hash<std::string> {}(s.instrumentId);
+        std::size_t h2 = std::hash<muse::String> {}(s.instrumentId);
         return h1 ^ (h2 << 1);
     }
 };

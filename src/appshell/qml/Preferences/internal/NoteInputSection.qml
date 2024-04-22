@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,8 +22,8 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 
 BaseSection {
     id: root
@@ -32,10 +32,12 @@ BaseSection {
 
     property alias advanceToNextNote: advanceToNextNoteBox.checked
     property alias colorNotes: colorNotesBox.checked
+    property alias warnGuitarBends: warnBendsBox.checked
     property alias delayBetweenNotes: delayBetweenNotesControl.currentValue
 
     signal advanceToNextNoteChangeRequested(bool advance)
     signal colorNotesChangeRequested(bool color)
+    signal warnGuitarBendsChangeRequested(bool warn)
     signal delayBetweenNotesChangeRequested(int delay)
 
     CheckBox {
@@ -68,6 +70,21 @@ BaseSection {
         }
     }
 
+    CheckBox {
+        id: warnBendsBox
+        width: parent.width
+
+        text: qsTrc("appshell/preferences", "Color guitar bends outside of playable range")
+
+        navigation.name: "WarnBendBox"
+        navigation.panel: root.navigation
+        navigation.row: 2
+
+        onClicked: {
+            root.warnGuitarBendsChangeRequested(!checked)
+        }
+    }
+
     IncrementalPropertyControlWithTitle {
         id: delayBetweenNotesControl
 
@@ -80,7 +97,7 @@ BaseSection {
 
         navigation.name: "DelayBetweenNotesControl"
         navigation.panel: root.navigation
-        navigation.row: 2
+        navigation.row: 3
 
         onValueEdited: function(newValue) {
             root.delayBetweenNotesChangeRequested(newValue)

@@ -20,8 +20,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_AUDIO_ISYNTHRESOLVER_H
-#define MU_AUDIO_ISYNTHRESOLVER_H
+#ifndef MUSE_AUDIO_ISYNTHRESOLVER_H
+#define MUSE_AUDIO_ISYNTHRESOLVER_H
 
 #include <memory>
 
@@ -30,7 +30,7 @@
 #include "isynthesizer.h"
 #include "audiotypes.h"
 
-namespace mu::audio::synth {
+namespace muse::audio::synth {
 class ISynthResolver : MODULE_EXPORT_INTERFACE
 {
     INTERFACE_ID(ISynthResolver)
@@ -43,9 +43,10 @@ public:
     public:
         virtual ~IResolver() = default;
 
-        virtual ISynthesizerPtr resolveSynth(const audio::TrackId trackId, const audio::AudioInputParams& params) const = 0;
-        virtual bool hasCompatibleResources(const audio::PlaybackSetupData& setup) const = 0;
-        virtual audio::AudioResourceMetaList resolveResources() const = 0;
+        virtual ISynthesizerPtr resolveSynth(const TrackId trackId, const AudioInputParams& params) const = 0;
+        virtual bool hasCompatibleResources(const PlaybackSetupData& setup) const = 0;
+        virtual AudioResourceMetaList resolveResources() const = 0;
+        virtual SoundPresetList resolveSoundPresets(const AudioResourceMeta& resourceMeta) const = 0;
         virtual void refresh() = 0;
         virtual void clearSources() = 0;
     };
@@ -57,7 +58,8 @@ public:
                                          const PlaybackSetupData& setupData) const = 0;
     virtual ISynthesizerPtr resolveDefaultSynth(const TrackId trackId) const = 0;
     virtual AudioInputParams resolveDefaultInputParams() const = 0;
-    virtual audio::AudioResourceMetaList resolveAvailableResources() const = 0;
+    virtual AudioResourceMetaList resolveAvailableResources() const = 0;
+    virtual SoundPresetList resolveAvailableSoundPresets(const AudioResourceMeta& resourceMeta) const = 0;
     virtual void registerResolver(const AudioSourceType type, IResolverPtr resolver) = 0;
     virtual void clearSources() = 0;
 };
@@ -65,4 +67,4 @@ public:
 using ISynthResolverPtr = std::shared_ptr<ISynthResolver>;
 }
 
-#endif // MU_AUDIO_ISYNTHRESOLVER_H
+#endif // MUSE_AUDIO_ISYNTHRESOLVER_H

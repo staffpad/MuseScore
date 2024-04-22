@@ -20,19 +20,20 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_AUDIO_FLUIDSYNTHCREATOR_H
-#define MU_AUDIO_FLUIDSYNTHCREATOR_H
+#ifndef MUSE_AUDIO_FLUIDSYNTHCREATOR_H
+#define MUSE_AUDIO_FLUIDSYNTHCREATOR_H
 
+#include <optional>
 #include <unordered_map>
 
-#include "async/asyncable.h"
-#include "modularity/ioc.h"
-#include "audio/isoundfontrepository.h"
+#include "global/async/asyncable.h"
+#include "global/modularity/ioc.h"
 
+#include "isoundfontrepository.h"
 #include "isynthresolver.h"
 #include "fluidsynth.h"
 
-namespace mu::audio::synth {
+namespace muse::audio::synth {
 class FluidResolver : public ISynthResolver::IResolver, public async::Asyncable
 {
     INJECT(ISoundFontRepository, soundFontRepository)
@@ -43,6 +44,7 @@ public:
     bool hasCompatibleResources(const audio::PlaybackSetupData& setup) const override;
 
     audio::AudioResourceMetaList resolveResources() const override;
+    audio::SoundPresetList resolveSoundPresets(const AudioResourceMeta& resourceMeta) const override;
 
     void refresh() override;
     void clearSources() override;
@@ -50,8 +52,14 @@ public:
 private:
     FluidSynthPtr createSynth(const audio::AudioResourceId& resourceId) const;
 
-    std::unordered_map<AudioResourceId, io::path_t> m_resourcesCache;
+    struct SoundFontResource {
+        io::path_t path;
+        std::optional<midi::Program> preset = std::nullopt;
+        AudioResourceMeta meta;
+    };
+
+    std::unordered_map<AudioResourceId, SoundFontResource> m_resourcesCache;
 };
 }
 
-#endif // MU_AUDIO_FLUIDSYNTHCREATOR_H
+#endif // MUSE_AUDIO_FLUIDSYNTHCREATOR_H

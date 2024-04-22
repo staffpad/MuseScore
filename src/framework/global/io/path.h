@@ -19,19 +19,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_IO_PATH_H
-#define MU_IO_PATH_H
+#ifndef MUSE_IO_PATH_H
+#define MUSE_IO_PATH_H
 
 #include <string>
 
-#include "types/string.h"
-#include "framework/global/logstream.h"
+#include "global/types/string.h"
+#include "global/logstream.h"
 
 #ifndef NO_QT_SUPPORT
 #include <QString>
+#include <QUrl>
 #endif
 
-namespace mu::io {
+namespace muse::io {
 struct path_t;
 using paths_t = std::vector<path_t>;
 struct path_t {
@@ -71,10 +72,12 @@ struct path_t {
 
 #ifndef NO_QT_SUPPORT
     path_t(const QString& s);
+    explicit path_t(const QUrl& u);
     inline path_t& operator=(const QString& other) { m_path = other.toStdString(); return *this; }
     inline path_t operator+(const QString& other) const { path_t p = *this; p += String::fromQString(other); return p; }
     inline path_t& operator+=(const QString& other) { m_path += other.toStdString(); return *this; }
     QString toQString() const;
+    QUrl toQUrl() const;
     std::wstring toStdWString() const;
 #endif
 
@@ -89,7 +92,7 @@ inline path_t operator+(const char* one, const path_t& other) { return path_t(on
 inline path_t operator+(const QString& one, const path_t& other) { return path_t(one) + other; }
 #endif
 
-inline mu::logger::Stream& operator<<(mu::logger::Stream& s, const mu::io::path_t& p)
+inline muse::logger::Stream& operator<<(muse::logger::Stream& s, const muse::io::path_t& p)
 {
     s << p.toStdString();
     return s;
@@ -109,8 +112,10 @@ bool isAbsolute(const path_t& path);
 bool isAllowedFileName(const path_t& fn);
 path_t escapeFileName(const path_t& fn);
 
+path_t toNativeSeparators(const path_t& path);
+
 paths_t pathsFromString(const std::string& str, const std::string& delim = ";");
 std::string pathsToString(const paths_t& ps, const std::string& delim = ";");
 }
 
-#endif // MU_IO_PATH_H
+#endif // MUSE_IO_PATH_H

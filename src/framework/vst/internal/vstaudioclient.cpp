@@ -22,12 +22,11 @@
 #include "vstaudioclient.h"
 
 #include "log.h"
-#include "audio/synthtypes.h"
 
-using namespace mu;
-using namespace mu::vst;
-using namespace mu::mpe;
-using namespace mu::audio;
+using namespace muse;
+using namespace muse::vst;
+using namespace muse::mpe;
+using namespace muse::audio;
 
 VstAudioClient::~VstAudioClient()
 {
@@ -39,7 +38,7 @@ VstAudioClient::~VstAudioClient()
     m_pluginComponent->terminate();
 }
 
-void VstAudioClient::init(AudioPluginType type, VstPluginPtr plugin, audio::audioch_t&& audioChannelsCount)
+void VstAudioClient::init(AudioPluginType type, VstPluginPtr plugin, muse::audio::audioch_t&& audioChannelsCount)
 {
     IF_ASSERT_FAILED(plugin && type != AudioPluginType::Undefined) {
         return;
@@ -68,22 +67,17 @@ bool VstAudioClient::handleParamChange(const PluginParamInfo& param)
     }
 
     ensureActivity();
-
-    Steinberg::int32 dummyIdx = 0;
-    Steinberg::Vst::IParamValueQueue* queue = m_paramChanges.addParameterData(param.id, dummyIdx);
-    if (queue) {
-        queue->addPoint(0, param.defaultNormalizedValue, dummyIdx);
-    }
+    addParamChange(param);
 
     return true;
 }
 
-void VstAudioClient::setVolumeGain(const audio::gain_t newVolumeGain)
+void VstAudioClient::setVolumeGain(const muse::audio::gain_t newVolumeGain)
 {
     m_volumeGain = newVolumeGain;
 }
 
-audio::samples_t VstAudioClient::process(float* output, audio::samples_t samplesPerChannel)
+muse::audio::samples_t VstAudioClient::process(float* output, samples_t samplesPerChannel)
 {
     IAudioProcessorPtr processor = pluginProcessor();
     if (!processor || !output) {
@@ -133,6 +127,10 @@ void VstAudioClient::flush()
 
     m_eventList.clear();
     m_paramChanges.clearQueue();
+
+    if (m_allNotesOffParam.has_value()) {
+        addParamChange(m_allNotesOffParam.value());
+    }
 }
 
 void VstAudioClient::setBlockSize(unsigned int samples)
@@ -311,9 +309,10 @@ void VstAudioClient::updateProcessSetup()
 
     setUpProcessData();
     flushBuffers();
+    loadAllNotesOffParam();
 }
 
-void VstAudioClient::extractInputSamples(const audio::samples_t& sampleCount, const float* sourceBuffer)
+void VstAudioClient::extractInputSamples(samples_t sampleCount, const float* sourceBuffer)
 {
     if (!m_processData.inputs || !sourceBuffer) {
         return;
@@ -321,14 +320,16 @@ void VstAudioClient::extractInputSamples(const audio::samples_t& sampleCount, co
 
     Steinberg::Vst::AudioBusBuffers& bus = m_processData.inputs[0];
 
-    for (unsigned int i = 0; i < sampleCount; ++i) {
-        for (audio::audioch_t s = 0; s < bus.numChannels; ++s) {
-            bus.channelBuffers32[s][i] = sourceBuffer[i * m_audioChannelsCount + s];
+    for (samples_t sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex) {
+        size_t offset = sampleIndex * m_audioChannelsCount;
+
+        for (audioch_t audioChannelIndex = 0; audioChannelIndex < bus.numChannels; ++audioChannelIndex) {
+            bus.channelBuffers32[audioChannelIndex][sampleIndex] = sourceBuffer[offset + audioChannelIndex];
         }
     }
 }
 
-bool VstAudioClient::fillOutputBuffer(unsigned int samples, float* output)
+bool VstAudioClient::fillOutputBuffer(samples_t sampleCount, float* output)
 {
     bool hasMeaningSamples = false;
 
@@ -336,24 +337,28 @@ bool VstAudioClient::fillOutputBuffer(unsigned int samples, float* output)
         return hasMeaningSamples;
     }
 
+    bool isInstrument = m_type == AudioPluginType::Instrument;
+
     for (const int busIndex : m_activeOutputBusses) {
         Steinberg::Vst::AudioBusBuffers bus = m_processData.outputs[busIndex];
 
-        for (audio::samples_t sampleIndex = 0; sampleIndex < samples; ++sampleIndex) {
-            for (audio::audioch_t audioChannelIndex = 0; audioChannelIndex < bus.numChannels; ++audioChannelIndex) {
+        for (samples_t sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex) {
+            size_t offset = sampleIndex * m_audioChannelsCount;
+
+            for (audioch_t audioChannelIndex = 0; audioChannelIndex < bus.numChannels; ++audioChannelIndex) {
                 float sample = bus.channelBuffers32[audioChannelIndex][sampleIndex];
 
-                if (m_type == AudioPluginType::Instrument) {
-                    output[sampleIndex * m_audioChannelsCount + audioChannelIndex] += sample * m_volumeGain;
+                if (isInstrument) {
+                    output[offset + audioChannelIndex] += sample * m_volumeGain;
                 } else {
-                    output[sampleIndex * m_audioChannelsCount + audioChannelIndex] = sample * m_volumeGain;
+                    output[offset + audioChannelIndex] = sample * m_volumeGain;
                 }
 
                 if (hasMeaningSamples) {
                     continue;
                 }
 
-                if (!RealIsEqual(sample, 0)) {
+                if (!RealIsNull(sample)) {
                     hasMeaningSamples = true;
                 }
             }
@@ -412,5 +417,32 @@ void VstAudioClient::flushBuffers()
                 output.channelBuffers32[audioChannel][i] = 0.f;
             }
         }
+    }
+}
+
+void VstAudioClient::loadAllNotesOffParam()
+{
+    if (m_allNotesOffParam.has_value()) {
+        return;
+    }
+
+    ParamsMapping mapping = paramsMapping({ Steinberg::Vst::kCtrlAllNotesOff });
+    if (mapping.empty()) {
+        return;
+    }
+
+    PluginParamInfo allNotesOff;
+    allNotesOff.id = mapping.begin()->second;
+    allNotesOff.defaultNormalizedValue = 1;
+
+    m_allNotesOffParam = std::move(allNotesOff);
+}
+
+void VstAudioClient::addParamChange(const PluginParamInfo& param)
+{
+    Steinberg::int32 dummyIdx = 0;
+    Steinberg::Vst::IParamValueQueue* queue = m_paramChanges.addParameterData(param.id, dummyIdx);
+    if (queue) {
+        queue->addPoint(0, param.defaultNormalizedValue, dummyIdx);
     }
 }

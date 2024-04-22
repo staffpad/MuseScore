@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,6 +25,9 @@
 
 #include "notation/view/widgets/exampleview.h"
 
+#include "modularity/ioc.h"
+#include "engraving/rendering/isinglerenderer.h"
+
 namespace mu::engraving {
 class Note;
 class Chord;
@@ -35,6 +38,8 @@ namespace mu::palette {
 class NoteGroupsExampleView : public notation::ExampleView
 {
     Q_OBJECT
+
+    INJECT_STATIC(engraving::rendering::ISingleRenderer, engravingRender)
 
 public:
     NoteGroupsExampleView(QWidget* parent = 0);

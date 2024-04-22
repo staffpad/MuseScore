@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -38,8 +38,6 @@
 
 #include "translation.h"
 #include "types/bytearray.h"
-#include "global/deprecated/qzipreader_p.h"
-#include "global/deprecated/qzipwriter_p.h"
 
 #include "actions/actiontypes.h"
 #include "commonscene/commonscenetypes.h"
@@ -47,32 +45,31 @@
 #include "draw/types/color.h"
 #include "draw/types/pen.h"
 
-#include "engraving/rw/400/tread.h"
-#include "engraving/layout/v0/tlayout.h"
-#include "engraving/libmscore/actionicon.h"
-#include "engraving/libmscore/chord.h"
-#include "engraving/libmscore/engravingitem.h"
-#include "engraving/libmscore/fret.h"
-#include "engraving/libmscore/image.h"
-#include "engraving/libmscore/masterscore.h"
-#include "engraving/libmscore/note.h"
-#include "engraving/libmscore/symbol.h"
-#include "engraving/libmscore/factory.h"
+#include "engraving/rw/rwregister.h"
+
+#include "engraving/dom/actionicon.h"
+#include "engraving/dom/chord.h"
+#include "engraving/dom/engravingitem.h"
+#include "engraving/dom/fret.h"
+#include "engraving/dom/image.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/note.h"
+#include "engraving/dom/symbol.h"
+#include "engraving/dom/factory.h"
 #include "engraving/style/defaultstyle.h"
 #include "engraving/style/style.h"
 #include "engraving/compat/dummyelement.h"
-#include "engraving/accessibility/accessibleitem.h"
 
 #include "internal/palettecelliconengine.h"
 
 #include "log.h"
 
 using namespace mu;
-using namespace mu::io;
+using namespace muse::io;
 using namespace mu::palette;
 using namespace mu::engraving;
-using namespace mu::framework;
-using namespace mu::draw;
+using namespace muse::draw;
+using namespace muse::actions;
 
 PaletteWidget::PaletteWidget(QWidget* parent)
     : QWidget(parent)
@@ -179,7 +176,7 @@ PaletteCellPtr PaletteWidget::appendElement(ElementPtr element, const QString& n
     return cell;
 }
 
-PaletteCellPtr PaletteWidget::appendActionIcon(mu::engraving::ActionIconType type, actions::ActionCode code)
+PaletteCellPtr PaletteWidget::appendActionIcon(mu::engraving::ActionIconType type, ActionCode code)
 {
     PaletteCellPtr cell = m_palette->appendActionIcon(type, code);
 
@@ -580,7 +577,7 @@ QRect PaletteWidget::rectForCellAt(int idx) const
 
 QPixmap PaletteWidget::pixmapForCellAt(int paletteIdx) const
 {
-    qreal _spatium = gpaletteScore->spatium();
+    qreal _spatium = gpaletteScore->style().spatium();
     qreal magS     = configuration()->paletteSpatium() * mag() * paletteScaling();
     qreal mag      = magS / _spatium;
 
@@ -597,10 +594,9 @@ QPixmap PaletteWidget::pixmapForCellAt(int paletteIdx) const
         cellMag = 1.0;
     }
 
-    layout::v0::LayoutContext lctx(element->score());
-    layout::v0::TLayout::layoutItem(element.get(), lctx);
+    engravingRender()->layoutItem(element.get());
 
-    RectF r = element->bbox();
+    RectF r = element->ldata()->bbox();
     int w = lrint(r.width() * cellMag);
     int h = lrint(r.height() * cellMag);
 
@@ -612,13 +608,13 @@ QPixmap PaletteWidget::pixmapForCellAt(int paletteIdx) const
     QPixmap pm(w, h);
     pm.fill(configuration()->elementsBackgroundColor());
 
-    mu::draw::Painter painter(&pm, "palette");
+    muse::draw::Painter painter(&pm, "palette");
     painter.setAntialiasing(true);
 
     painter.scale(cellMag, cellMag);
 
     painter.translate(-r.topLeft());
-    PointF pos = element->ipos();
+    PointF pos = element->ldata()->pos();
     element->setPos(0, 0);
 
     QColor color;
@@ -638,7 +634,7 @@ QPixmap PaletteWidget::pixmapForCellAt(int paletteIdx) const
     PaletteCellIconEngine::PaintContext ctx;
     ctx.painter = &painter;
 
-    element->scanElements(&ctx, PaletteCellIconEngine::paintPaletteElement);
+    element->scanElements(&ctx, PaletteCellIconEngine::paintPaletteItem);
 
     element->setPos(pos);
     return pm;
@@ -825,6 +821,9 @@ void PaletteWidget::dragEnterEvent(QDragEnterEvent* event)
                 || suffix == "jpg"
                 || suffix == "jpeg"
                 || suffix == "png"
+                || suffix == "bmp"
+                || suffix == "tif"
+                || suffix == "tiff"
                 ) {
                 event->acceptProposedAction();
             }
@@ -847,7 +846,12 @@ void PaletteWidget::dragMoveEvent(QDragMoveEvent* event)
 {
     if (event->source() == this) {
         if (m_currentIdx != -1 && event->proposedAction() == Qt::MoveAction) {
-            int targetIdx = cellIndexForPoint(event->pos());
+#ifdef MU_QT5_COMPAT
+            QPoint pos = event->pos();
+#else
+            QPoint pos = event->position().toPoint();
+#endif
+            int targetIdx = cellIndexForPoint(pos);
             if (targetIdx != -1 && targetIdx != m_currentIdx) {
                 PaletteCellPtr cell = m_palette->takeCell(m_currentIdx);
                 m_palette->insertCell(targetIdx, cell);
@@ -882,26 +886,25 @@ void PaletteWidget::dropEvent(QDropEvent* event)
         }
     } else if (datap->hasFormat(mu::commonscene::MIME_SYMBOL_FORMAT)) {
         QByteArray dta(event->mimeData()->data(mu::commonscene::MIME_SYMBOL_FORMAT));
-        ByteArray ba = ByteArray::fromQByteArrayNoCopy(dta);
+        muse::ByteArray ba = muse::ByteArray::fromQByteArrayNoCopy(dta);
         XmlReader xml(ba);
-        ReadContext rctx;
         PointF dragOffset;
         Fraction duration;
         ElementType type = EngravingItem::readType(xml, &dragOffset, &duration);
 
         if (type == ElementType::SYMBOL) {
             auto symbol = std::make_shared<Symbol>(gpaletteScore->dummy());
-            rw400::TRead::read(symbol.get(), xml, rctx);
+            rw::RWRegister::reader()->readItem(symbol.get(), xml);
             element = symbol;
         } else {
             element = std::shared_ptr<EngravingItem>(Factory::createItem(type, gpaletteScore->dummy()));
             if (element) {
-                rw400::TRead::readItem(element.get(), xml, rctx);
+                rw::RWRegister::reader()->readItem(element.get(), xml);
                 element->setTrack(0);
 
                 if (element->isActionIcon()) {
                     ActionIcon* icon = toActionIcon(element.get());
-                    const mu::ui::UiAction& actionItem = actionsRegister()->action(icon->actionCode());
+                    const muse::ui::UiAction& actionItem = actionsRegister()->action(icon->actionCode());
                     if (actionItem.isValid()) {
                         icon->setAction(icon->actionCode(), static_cast<char16_t>(actionItem.iconCode));
                     }
@@ -930,7 +933,12 @@ void PaletteWidget::dropEvent(QDropEvent* event)
     }
 
     element->setSelected(false);
-    int i = cellIndexForPoint(event->pos());
+#ifdef MU_QT5_COMPAT
+    QPoint pos = event->pos();
+#else
+    QPoint pos = event->position().toPoint();
+#endif
+    int i = cellIndexForPoint(pos);
     if (i == -1 || cells()[i]) {
         appendElement(element, name);
     } else {
@@ -951,12 +959,12 @@ void PaletteWidget::resizeEvent(QResizeEvent* e)
 
 void PaletteWidget::paintEvent(QPaintEvent* /*event*/)
 {
-    qreal _spatium = gpaletteScore->spatium();
+    qreal _spatium = gpaletteScore->style().spatium();
     qreal magS     = configuration()->paletteSpatium() * mag() * paletteScaling();
     qreal mag      = magS / _spatium;
-    gpaletteScore->setSpatium(SPATIUM20);
+    gpaletteScore->style().setSpatium(SPATIUM20);
 
-    mu::draw::Painter painter(this, "palette");
+    muse::draw::Painter painter(this, "palette");
     painter.setAntialiasing(true);
 
     if (m_paintOptions.backgroundColor.isValid()) {
@@ -1013,10 +1021,10 @@ void PaletteWidget::paintEvent(QPaintEvent* /*event*/)
         }
 
         if (currentCell->focused) {
-            painter.setPen(QColor(uiConfiguration()->currentTheme().values[ui::FONT_PRIMARY_COLOR].toString()));
+            painter.setPen(QColor(uiConfiguration()->currentTheme().values[muse::ui::FONT_PRIMARY_COLOR].toString()));
             painter.setBrush(QColor(Qt::transparent));
 
-            int borderWidth = uiConfiguration()->currentTheme().values[ui::NAVIGATION_CONTROL_BORDER_WIDTH].toInt();
+            int borderWidth = uiConfiguration()->currentTheme().values[muse::ui::NAVIGATION_CONTROL_BORDER_WIDTH].toInt();
             qreal border = borderWidth / 2;
 
             painter.drawRoundedRect(r.adjusted(border, border, -border, -border), borderWidth, borderWidth);
@@ -1024,13 +1032,13 @@ void PaletteWidget::paintEvent(QPaintEvent* /*event*/)
         }
 
         if (idx == m_selectedIdx) {
-            c.setAlphaF(0.5);
+            c.setAlphaF(0.5f);
             painter.fillRect(r, c);
         } else if (idx == m_pressedIndex) {
-            c.setAlphaF(0.75);
+            c.setAlphaF(0.75f);
             painter.fillRect(r, c);
         } else if (idx == m_currentIdx) {
-            c.setAlphaF(0.2);
+            c.setAlphaF(0.2f);
             painter.fillRect(r, c);
         }
 
@@ -1038,12 +1046,12 @@ void PaletteWidget::paintEvent(QPaintEvent* /*event*/)
         if (!tag.isEmpty()) {
             painter.setPen(QColor(Qt::darkGray));
             Font font(painter.font());
-            font.setPixelSize(uiConfiguration()->fontSize(ui::FontSizeType::BODY));
+            font.setPixelSize(uiConfiguration()->fontSize(muse::ui::FontSizeType::BODY));
             painter.setFont(font);
             painter.drawText(rShift, Qt::AlignLeft | Qt::AlignTop, tag);
         }
 
-        draw::Pen pen(linesColor);
+        muse::draw::Pen pen(linesColor);
         pen.setWidthF(engraving::DefaultStyle::defaultStyle().styleS(Sid::staffLineWidth).val() * magS);
         painter.setPen(pen);
 
@@ -1062,8 +1070,7 @@ void PaletteWidget::paintEvent(QPaintEvent* /*event*/)
             cellMag = 1.0;
         }
 
-        layout::v0::LayoutContext lctx(el->score());
-        layout::v0::TLayout::layoutItem(el.get(), lctx);
+        engravingRender()->layoutItem(el.get());
 
         if (drawStaff) {
             qreal y = r.y() + vgridM * .5 - dy + yOffset() * _spatium * cellMag;
@@ -1090,9 +1097,9 @@ void PaletteWidget::paintEvent(QPaintEvent* /*event*/)
         if (drawStaff) {
             sy = gy + gh * .5 - 2.0 * _spatium;
         } else {
-            sy  = gy + (gh - sh) * .5 - el->bbox().y();
+            sy  = gy + (gh - sh) * .5 - el->ldata()->bbox().y();
         }
-        double sx  = gx + (gw - sw) * .5 - el->bbox().x();
+        double sx  = gx + (gw - sw) * .5 - el->ldata()->bbox().x();
 
         sy += yOffset() * _spatium;
 
@@ -1117,7 +1124,7 @@ void PaletteWidget::paintEvent(QPaintEvent* /*event*/)
         ctx.useElementColors = m_paintOptions.useElementColors;
         ctx.colorsInversionEnabled = m_paintOptions.colorsInverionsEnabled;
 
-        el->scanElements(&ctx, PaletteCellIconEngine::paintPaletteElement);
+        el->scanElements(&ctx, PaletteCellIconEngine::paintPaletteItem);
         painter.restore();
     }
 }
@@ -1134,8 +1141,8 @@ void PaletteWidget::contextMenuEvent(QContextMenuEvent* event)
     }
 
     QMenu menu;
-    QAction* deleteCellAction = menu.addAction(mu::qtrc("palette", "Delete"));
-    QAction* contextAction = menu.addAction(mu::qtrc("palette", "Properties…"));
+    QAction* deleteCellAction = menu.addAction(muse::qtrc("palette", "Delete"));
+    QAction* contextAction = menu.addAction(muse::qtrc("palette", "Properties…"));
     deleteCellAction->setEnabled(!m_isReadOnly);
     contextAction->setEnabled(!m_isReadOnly);
 
@@ -1152,16 +1159,16 @@ void PaletteWidget::contextMenuEvent(QContextMenuEvent* event)
     if (action == deleteCellAction) {
         PaletteCellPtr cell = cellAt(i);
         if (cell) {
-            std::string title = mu::trc("palette", "Delete palette cell");
-            std::string question
-                = mu::qtrc("palette", "Are you sure you want to delete palette cell \"%1\"?").arg(cell->name).toStdString();
+            std::string title = muse::trc("palette", "Delete palette cell");
+            std::string question = muse::qtrc("palette", "Are you sure you want to delete palette cell “%1”?")
+                                   .arg(cell->name).toStdString();
 
-            IInteractive::Result result = interactive()->question(title, question, {
-                IInteractive::Button::Yes,
-                IInteractive::Button::No
-            }, IInteractive::Button::Yes);
+            muse::IInteractive::Result result = interactive()->question(title, question, {
+                muse::IInteractive::Button::Yes,
+                muse::IInteractive::Button::No
+            }, muse::IInteractive::Button::Yes);
 
-            if (result.standardButton() != IInteractive::Button::Yes) {
+            if (result.standardButton() != muse::IInteractive::Button::Yes) {
                 return;
             }
             m_palette->takeCell(i);
@@ -1192,9 +1199,9 @@ void PaletteWidget::read(XmlReader& e, bool pasteMode)
     m_palette->read(e, pasteMode);
 }
 
-void PaletteWidget::write(XmlWriter& xml) const
+void PaletteWidget::write(XmlWriter& xml, bool pasteMode) const
 {
-    m_palette->write(xml);
+    m_palette->write(xml, pasteMode);
 }
 
 bool PaletteWidget::readFromFile(const QString& path)

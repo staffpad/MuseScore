@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2022 MuseScore BVBA and others
+ * Copyright (C) 2022 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -30,17 +30,25 @@
 
 using namespace mu::appshell;
 
-NewInstanceLoadingScreenView::NewInstanceLoadingScreenView(const QString& openingFileName)
-    : QWidget(nullptr)
+NewInstanceLoadingScreenView::NewInstanceLoadingScreenView(bool forNewScore, const QString& openingFileName, QWidget* parent)
+    : QWidget(parent)
 {
     setAttribute(Qt::WA_TranslucentBackground);
 
-    if (openingFileName.isEmpty()) {
-        m_message = qtrc("appshell", "Loading new score…\u200e");
+    if (forNewScore) {
+        // When a new instance is being opened because a new score has to be created
+        m_message = muse::qtrc("appshell", "Loading new score…\u200e");
         m_dialogSize = QSize(288, 80);
-    } else {
-        m_message = qtrc("appshell", "Loading \"%1\"…\u200e").arg(openingFileName);
+    } else if (!openingFileName.isEmpty()) {
+        // When a new instance is being opened because a score has to be opened, of which the name is known
+        m_message = muse::qtrc("appshell", "Loading “%1”…\u200e").arg(openingFileName);
         m_dialogSize = QSize(360, 80);
+    } else {
+        // When a new instance is being opened because a score has to be opened, of which the name is not known
+        // This is the case when opening a score from the file manager or from MuseScore.com on non-macOS systems,
+        // because then a new instance is launched by the OS, which doesn't tell MuseScore about the name of the score.
+        m_message = muse::qtrc("appshell", "Loading score…\u200e");
+        m_dialogSize = QSize(288, 80);
     }
 
     resize(m_dialogSize);
@@ -62,24 +70,24 @@ void NewInstanceLoadingScreenView::draw(QPainter* painter)
     painter->setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing | QPainter::SmoothPixmapTransform);
 
     // Draw background
-    QString bgColorStr = uiConfiguration()->currentTheme().values.value(ui::BACKGROUND_PRIMARY_COLOR).toString();
+    QString bgColorStr = uiConfiguration()->currentTheme().values.value(muse::ui::BACKGROUND_PRIMARY_COLOR).toString();
     painter->fillRect(0, 0, width(), height(), QColor(bgColorStr));
 
     // Draw message
     QFont font(QString::fromStdString(uiConfiguration()->fontFamily()));
-    font.setPixelSize(uiConfiguration()->fontSize(ui::FontSizeType::BODY_LARGE));
+    font.setPixelSize(uiConfiguration()->fontSize(muse::ui::FontSizeType::BODY_LARGE));
     font.setBold(true);
 
     painter->setFont(font);
 
-    QString messageColorStr = uiConfiguration()->currentTheme().values.value(ui::FONT_PRIMARY_COLOR).toString();
+    QString messageColorStr = uiConfiguration()->currentTheme().values.value(muse::ui::FONT_PRIMARY_COLOR).toString();
     QPen pen(messageColorStr);
     painter->setPen(pen);
 
     QFontMetrics fontMetrics(font);
-    QRectF messageRect(0, 0, m_dialogSize.width(), m_dialogSize.height());
-    messageRect -= QMargins(8, 8, 8, 8);
+    QRectF messageRectangle(0, 0, m_dialogSize.width(), m_dialogSize.height());
+    messageRectangle -= QMargins(8, 8, 8, 8);
 
-    QString elidedText = fontMetrics.elidedText(m_message, Qt::ElideMiddle, messageRect.width());
-    painter->drawText(messageRect, Qt::AlignCenter | Qt::TextDontClip, elidedText);
+    QString elidedText = fontMetrics.elidedText(m_message, Qt::ElideMiddle, messageRectangle.width());
+    painter->drawText(messageRectangle, Qt::AlignCenter | Qt::TextDontClip, elidedText);
 }

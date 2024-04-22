@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# MuseScore-CLA-applies
+# MuseScore-Studio-CLA-applies
 #
-# MuseScore
+# MuseScore Studio
 # Music Composition & Notation
 #
-# Copyright (C) 2021 MuseScore BVBA and others
+# Copyright (C) 2021 MuseScore Limited
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -18,11 +18,37 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-set(MODULE engraving)
-set(MODULE_QRC engraving.qrc)
+declare_module(engraving)
+set(MODULE_QRC
+    engraving.qrc
+    ${CMAKE_CURRENT_LIST_DIR}/data/fonts/fonts_Smufl.qrc
+)
 
-include(${CMAKE_CURRENT_LIST_DIR}/libmscore/libmscore.cmake)
+set(MODULE_BIG_QRC
+    ${CMAKE_CURRENT_LIST_DIR}/data/fonts/fonts_Bravura.qrc
+    ${CMAKE_CURRENT_LIST_DIR}/data/fonts/fonts_Campania.qrc
+    ${CMAKE_CURRENT_LIST_DIR}/data/fonts/fonts_Edwin.qrc
+    ${CMAKE_CURRENT_LIST_DIR}/data/fonts/fonts_FreeSans.qrc
+    ${CMAKE_CURRENT_LIST_DIR}/data/fonts/fonts_FreeSerif.qrc
+    ${CMAKE_CURRENT_LIST_DIR}/data/fonts/fonts_Gootville.qrc
+    ${CMAKE_CURRENT_LIST_DIR}/data/fonts/fonts_Leland.qrc
+    ${CMAKE_CURRENT_LIST_DIR}/data/fonts/fonts_MScore.qrc
+    ${CMAKE_CURRENT_LIST_DIR}/data/fonts/fonts_MuseJazz.qrc
+    ${CMAKE_CURRENT_LIST_DIR}/data/fonts/fonts_Petaluma.qrc
+    ${CMAKE_CURRENT_LIST_DIR}/data/fonts/fonts_FinaleMaestro.qrc
+    ${CMAKE_CURRENT_LIST_DIR}/data/fonts/fonts_FinaleBroadway.qrc
+    ${CMAKE_CURRENT_LIST_DIR}/data/fonts/fonts_Tabulature.qrc
+    )
+
+include(${CMAKE_CURRENT_LIST_DIR}/dom/dom.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/compat/midi/compatmidi.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/rendering/dev/rendering.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/rendering/stable/rendering.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/rendering/single/single.cmake)
+
+if (MUE_BUILD_ENGRAVING_DEVTOOLS)
+    include(${CMAKE_CURRENT_LIST_DIR}/devtools/devtools.cmake)
+endif()
 
 set(MODULE_SRC
 
@@ -48,20 +74,27 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/infrastructure/ifileinfoprovider.h
     ${CMAKE_CURRENT_LIST_DIR}/infrastructure/localfileinfoprovider.cpp
     ${CMAKE_CURRENT_LIST_DIR}/infrastructure/localfileinfoprovider.h
-    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/paint.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/paint.h
-    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/debugpaint.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/debugpaint.h
-    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/paintdebugger.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/paintdebugger.h
     ${CMAKE_CURRENT_LIST_DIR}/infrastructure/smufl.cpp
     ${CMAKE_CURRENT_LIST_DIR}/infrastructure/smufl.h
     ${CMAKE_CURRENT_LIST_DIR}/infrastructure/rtti.h
+    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/ld_access.h
+    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/shape.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/shape.h
+    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/skyline.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/skyline.h
+    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/eid.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/eid.h
+    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/geteid.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/infrastructure/geteid.h
 
-    ${LIBMSCORE_SRC}
+    ${DOM_SRC}
 
-    ${CMAKE_CURRENT_LIST_DIR}/rw/iscorereader.h
-    ${CMAKE_CURRENT_LIST_DIR}/rw/readoutdata.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/README.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/ireader.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/iwriter.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/rwregister.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/rwregister.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/inoutdata.h
     ${CMAKE_CURRENT_LIST_DIR}/rw/linksindexer.h
     ${CMAKE_CURRENT_LIST_DIR}/rw/xmlreader.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rw/xmlreader.h
@@ -69,34 +102,56 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/rw/xmlwriter.h
     ${CMAKE_CURRENT_LIST_DIR}/rw/mscloader.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rw/mscloader.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/mscsaver.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/mscsaver.h
 
-    ${CMAKE_CURRENT_LIST_DIR}/rw/114/read114.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rw/114/read114.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/write/writer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/write/writer.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/write/writecontext.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/write/writecontext.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/write/twrite.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/write/twrite.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/write/connectorinfowriter.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/write/connectorinfowriter.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/write/staffwrite.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/write/staffwrite.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/write/measurewrite.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/write/measurewrite.h
 
-    ${CMAKE_CURRENT_LIST_DIR}/rw/206/read206.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rw/206/read206.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read114/read114.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read114/read114.h
 
-    ${CMAKE_CURRENT_LIST_DIR}/rw/302/read302.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rw/302/read302.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read206/read206.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read206/read206.h
 
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/read400.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/read400.h
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/staffrw.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/staffrw.h
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/measurerw.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/measurerw.h
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/readcontext.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/readcontext.h
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/writecontext.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/writecontext.h
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/tread.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/tread.h
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/twrite.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/twrite.h
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/connectorinfowriter.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/connectorinfowriter.h
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/connectorinforeader.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rw/400/connectorinforeader.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read302/read302.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read302/read302.h
+
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read400/read400.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read400/read400.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read400/staffrw.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read400/staffrw.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read400/measurerw.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read400/measurerw.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read400/readcontext.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read400/readcontext.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read400/tread.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read400/tread.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read400/connectorinforeader.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read400/connectorinforeader.h
+
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read410/read410.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read410/read410.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read410/staffread.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read410/staffread.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read410/measureread.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read410/measureread.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read410/readcontext.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read410/readcontext.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read410/tread.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read410/tread.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read410/connectorinforeader.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rw/read410/connectorinforeader.h
 
     ${CMAKE_CURRENT_LIST_DIR}/rw/compat/readstyle.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rw/compat/readstyle.h
@@ -104,6 +159,7 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/rw/compat/readchordlisthook.h
     ${CMAKE_CURRENT_LIST_DIR}/rw/compat/compatutils.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rw/compat/compatutils.h
+    ${CMAKE_CURRENT_LIST_DIR}/rw/compat/tremolocompat.h
 
     ${CMAKE_CURRENT_LIST_DIR}/compat/scoreaccess.cpp
     ${CMAKE_CURRENT_LIST_DIR}/compat/scoreaccess.h
@@ -115,6 +171,8 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/compat/writescorehook.h
     ${CMAKE_CURRENT_LIST_DIR}/compat/dummyelement.cpp
     ${CMAKE_CURRENT_LIST_DIR}/compat/dummyelement.h
+    ${CMAKE_CURRENT_LIST_DIR}/compat/engravingcompat.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/compat/engravingcompat.h
 
     ${COMPAT_MIDI_SRC}
 
@@ -145,43 +203,16 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/style/defaultstyle.cpp
     ${CMAKE_CURRENT_LIST_DIR}/style/defaultstyle.h
 
-    ${CMAKE_CURRENT_LIST_DIR}/layout/README.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/ilayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/layoutoptions.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/tlayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/tlayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/layout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/layout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/layoutcontext.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/layoutcontext.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/scorelayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/scorelayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/lyricslayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/lyricslayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/measurelayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/measurelayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/beamlayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/beamlayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/beamtremololayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/beamtremololayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/chordlayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/chordlayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/tupletlayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/tupletlayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/verticalgapdata.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/verticalgapdata.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/systemlayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/systemlayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/harmonylayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/harmonylayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/tremololayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/tremololayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/pagelayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/pagelayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/slurtielayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/slurtielayout.h
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/arpeggiolayout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/layout/v0/arpeggiolayout.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/README.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/iscorerenderer.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/isinglerenderer.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/layoutoptions.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/paddingtable.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/paddingtable.h
+
+    ${RENDERING_DEV_SRC}
+    ${RENDERING_STABLE_SRC}
+    ${RENDERING_SINGLE_SRC}
 
     ${CMAKE_CURRENT_LIST_DIR}/playback/renderingcontext.h
     ${CMAKE_CURRENT_LIST_DIR}/playback/playbackcontext.cpp
@@ -205,6 +236,8 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/playback/renderers/tremolorenderer.h
     ${CMAKE_CURRENT_LIST_DIR}/playback/renderers/chordarticulationsrenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/playback/renderers/chordarticulationsrenderer.h
+    ${CMAKE_CURRENT_LIST_DIR}/playback/renderers/bendsrenderer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/playback/renderers/bendsrenderer.h
     ${CMAKE_CURRENT_LIST_DIR}/playback/metaparsers/internal/symbolsmetaparser.cpp
     ${CMAKE_CURRENT_LIST_DIR}/playback/metaparsers/internal/symbolsmetaparser.h
     ${CMAKE_CURRENT_LIST_DIR}/playback/metaparsers/internal/annotationsmetaparser.cpp
@@ -246,6 +279,8 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/playback/utils/pitchutils.h
     ${CMAKE_CURRENT_LIST_DIR}/playback/utils/expressionutils.h
     ${CMAKE_CURRENT_LIST_DIR}/playback/utils/arrangementutils.h
+
+    ${DEVTOOLS_SRC}
     )
 
 if (ENGRAVING_NO_ACCESSIBILITY)
@@ -262,8 +297,14 @@ else()
 endif()
 
 if (ENGRAVING_NO_INTERNAL)
-    set(MODULE_DEF ${MODULE_DEF} -DENGRAVING_NO_INTERNAL -DENGRAVING_NO_QTEXTDOCUMENT -DENGRAVING_NO_INTERACTIVE)
+    set(MODULE_DEF ${MODULE_DEF}
+        -DENGRAVING_NO_INTERNAL
+        -DENGRAVING_NO_QTEXTDOCUMENT
+        -DENGRAVING_NO_INTERACTIVE
+        -DENGRAVING_NO_API
+    )
 else()
+    include(${CMAKE_CURRENT_LIST_DIR}/api/v1/api_v1.cmake)
     set(MODULE_SRC ${MODULE_SRC}
         ${CMAKE_CURRENT_LIST_DIR}/internal/engravingconfiguration.cpp
         ${CMAKE_CURRENT_LIST_DIR}/internal/engravingconfiguration.h
@@ -273,11 +314,12 @@ else()
         ${CMAKE_CURRENT_LIST_DIR}/internal/engravingfontsprovider.h
         ${CMAKE_CURRENT_LIST_DIR}/internal/engravingfont.cpp
         ${CMAKE_CURRENT_LIST_DIR}/internal/engravingfont.h
+        ${API_V1_SRC}
         )
 endif()
 
 set_source_files_properties( # For these files, Unity Build does not work
-    ${CMAKE_CURRENT_LIST_DIR}/libmscore/chordlist.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/dom/chordlist.cpp
     ${CMAKE_CURRENT_LIST_DIR}/compat/chordlist.cpp
     ${CMAKE_CURRENT_LIST_DIR}/compat/read114.cpp
     ${CMAKE_CURRENT_LIST_DIR}/compat/read206.cpp
@@ -292,20 +334,34 @@ set(MODULE_INCLUDE
 set(MODULE_DEF ${MODULE_DEF} ${ENGRAVING_INFRASTRUCTURE_DEF})
 set(MODULE_LINK
     ${ENGRAVING_INFRASTRUCTURE_LINK}
-    draw
+    muse::draw
 )
 
-if (MUE_ENABLE_ENGRAVING_PAINT_DEBUGGER)
-    set(MODULE_DEF ${MODULE_DEF} -DMUE_ENABLE_ENGRAVING_PAINT_DEBUGGER)
+
+if (MUE_ENABLE_ENGRAVING_RENDER_DEBUG)
+    set(MODULE_DEF ${MODULE_DEF} -DMUE_ENABLE_ENGRAVING_RENDER_DEBUG)
 endif()
 
+if (MUE_ENABLE_ENGRAVING_LD_ACCESS)
+    set(MODULE_DEF ${MODULE_DEF} -DMUE_ENABLE_ENGRAVING_LD_ACCESS)
+endif()
+
+if (MUE_ENABLE_ENGRAVING_LD_PASSES)
+    set(MODULE_DEF ${MODULE_DEF} -DMUE_ENABLE_ENGRAVING_LD_PASSES)
+endif()
+
+if (MUE_BUILD_ENGRAVING_DEVTOOLS)
+    set(MODULE_DEF ${MODULE_DEF} -DMUE_BUILD_ENGRAVING_DEVTOOLS)
+endif()
+
+set(MODULE_ROOT ${CMAKE_CURRENT_LIST_DIR})
 set(MODULE_USE_UNITY_NONE ON)
-include(SetupModule)
+setup_module()
 
 set_property(TARGET ${MODULE} APPEND PROPERTY AUTOMOC_MACRO_NAMES "BEGIN_QT_REGISTERED_ENUM")
 
 #target_compile_options(${MODULE} PUBLIC -Wconversion)
 
-if (MUE_BUILD_UNIT_TESTS)
+if (MUE_BUILD_ENGRAVING_TESTS)
     add_subdirectory(tests)
 endif()

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -28,7 +28,7 @@
 
 using namespace mu::appshell;
 using namespace mu::notation;
-using namespace mu::actions;
+using namespace muse::actions;
 
 NotationPageModel::NotationPageModel(QObject* parent)
     : QObject(parent)
@@ -38,6 +38,11 @@ NotationPageModel::NotationPageModel(QObject* parent)
 bool NotationPageModel::isNavigatorVisible() const
 {
     return configuration()->isNotationNavigatorVisible();
+}
+
+bool NotationPageModel::isBraillePanelVisible() const
+{
+    return brailleConfiguration()->braillePanelEnabled();
 }
 
 void NotationPageModel::init()
@@ -51,6 +56,10 @@ void NotationPageModel::init()
 
     globalContext()->currentNotationChanged().onNotify(this, [this]() {
         onNotationChanged();
+    });
+
+    brailleConfiguration()->braillePanelEnabledChanged().onNotify(this, [this]() {
+        emit isBraillePanelVisibleChanged();
     });
 
     onNotationChanged();
@@ -143,6 +152,12 @@ void NotationPageModel::toggleDock(const QString& name)
         return;
     }
 
+    if (name == NOTATION_BRAILLE_PANEL_NAME) {
+        brailleConfiguration()->setBraillePanelEnabled(!isBraillePanelVisible());
+        emit isBraillePanelVisibleChanged();
+        return;
+    }
+
     dispatcher()->dispatch("dock-toggle", ActionData::make_arg1<QString>(name));
 }
 
@@ -150,7 +165,7 @@ void NotationPageModel::updateDrumsetPanelVisibility()
 {
     TRACEFUNC;
 
-    const dock::IDockWindow* window = dockWindowProvider()->window();
+    const muse::dock::IDockWindow* window = dockWindowProvider()->window();
     if (!window) {
         return;
     }

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,17 +23,15 @@
 #ifndef MU_IMPORTEXPORT_EXPORTXML_H
 #define MU_IMPORTEXPORT_EXPORTXML_H
 
-#include <QString>
 #include "io/iodevice.h"
-
-class QIODevice;
+#include "global/types/string.h"
 
 namespace mu::engraving {
 class Score;
 
-bool saveMxl(Score*, QIODevice*);
-bool saveXml(Score*, QIODevice*);
-bool saveXml(Score*, const QString&);
+bool saveMxl(Score*, muse::io::IODevice*);
+bool saveXml(Score*, muse::io::IODevice*);
+bool saveXml(Score*, const muse::String&);
 }
 
 #endif // MU_IMPORTEXPORT_EXPORTXML_H

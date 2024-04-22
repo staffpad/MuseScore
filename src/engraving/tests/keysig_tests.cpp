@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,11 +22,11 @@
 
 #include <gtest/gtest.h>
 
-#include "libmscore/keysig.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/measure.h"
-#include "libmscore/part.h"
-#include "libmscore/undo.h"
+#include "dom/keysig.h"
+#include "dom/masterscore.h"
+#include "dom/measure.h"
+#include "dom/part.h"
+#include "dom/undo.h"
 
 #include "utils/scorerw.h"
 #include "utils/scorecomp.h"
@@ -63,7 +63,7 @@ TEST_F(Engraving_KeySigTests, keysig)
 
     // add a key signature (D major) in measure 2
     KeySigEvent ke2;
-    ke2.setKey(Key::D);
+    ke2.setConcertKey(Key::D);
     score->startCmd();
     score->undoChangeKeySig(score->staff(0), m2->tick(), ke2);
     score->endCmd();
@@ -71,7 +71,7 @@ TEST_F(Engraving_KeySigTests, keysig)
 
     // change key signature in measure 2 to E flat major
     KeySigEvent ke_3;
-    ke_3.setKey(Key(-3));
+    ke_3.setConcertKey(Key(-3));
     score->startCmd();
     score->undoChangeKeySig(score->staff(0), m2->tick(), ke_3);
     score->endCmd();

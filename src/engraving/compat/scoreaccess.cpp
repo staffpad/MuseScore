@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,7 +21,7 @@
  */
 #include "scoreaccess.h"
 #include "style/defaultstyle.h"
-#include "libmscore/masterscore.h"
+#include "dom/masterscore.h"
 
 using namespace mu::engraving;
 using namespace mu::engraving::compat;
@@ -44,9 +44,4 @@ MasterScore* ScoreAccess::createMasterScoreWithDefaultStyle()
 MasterScore* ScoreAccess::createMasterScore(const MStyle& style)
 {
     return new MasterScore(style);
-}
-
-bool ScoreAccess::exportPart(MscWriter& mscWriter, Score* partScore)
-{
-    return partScore->masterScore()->exportPart(mscWriter, partScore);
 }

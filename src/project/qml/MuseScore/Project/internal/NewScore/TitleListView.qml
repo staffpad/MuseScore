@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,8 +21,8 @@
  */
 import QtQuick 2.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 
 Item {
     id: root
@@ -36,7 +36,7 @@ Item {
     property alias searchText: searchField.searchText
     property alias searching: searchField.hasText
 
-    property alias navigationPanel: navPanel
+    property alias navigationPanel: view.navigation
 
     signal titleClicked(var index)
 
@@ -44,25 +44,6 @@ Item {
 
     function clearSearch() {
         searchField.clear()
-    }
-
-    QtObject {
-        id: prv
-
-        property var currentItemNavigationIndex: []
-    }
-
-    NavigationPanel {
-        id: navPanel
-        name: "TitleListView"
-        direction: NavigationPanel.Vertical
-        enabled: root.enabled && root.visible
-
-        onNavigationEvent: function(event) {
-            if (event.type === NavigationEvent.AboutActive) {
-                event.setData("controlIndex", prv.currentItemNavigationIndex)
-            }
-        }
     }
 
     StyledTextLabel {
@@ -80,7 +61,7 @@ Item {
         anchors.topMargin: 16
 
         navigation.name: "Search"
-        navigation.panel: navPanel
+        navigation.panel: view.navigation
         navigation.row: 1
 
         width: parent.width
@@ -98,19 +79,18 @@ Item {
 
         currentIndex: 0
 
+        accessible.name: title.text
+
         delegate: ListItemBlank {
             id: item
 
             isSelected: view.currentIndex === model.index
 
             navigation.name: modelData
-            navigation.panel: navPanel
+            navigation.panel: view.navigation
             navigation.row: 2 + model.index
             navigation.accessible.name: titleLabel.text
-
-            onNavigationActivated: {
-                prv.currentItemNavigationIndex = [navigation.row, navigation.column]
-            }
+            navigation.accessible.row: model.index
 
             StyledTextLabel {
                 id: titleLabel
@@ -131,5 +111,17 @@ Item {
                 root.doubleClicked(model.index)
             }
         }
+    }
+
+    StyledTextLabel {
+        id: noResultsFoundHint
+
+        anchors.fill: parent
+
+        font: ui.theme.bodyBoldFont
+
+        text: qsTrc("global", "No results found")
+
+        visible: view.count < 1
     }
 }

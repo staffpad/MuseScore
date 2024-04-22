@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,13 +25,12 @@
 #include <cmath>
 #include <QMimeData>
 
-#include "engraving/rw/400/tread.h"
-#include "engraving/layout/v0/tlayout.h"
+#include "engraving/rw/rwregister.h"
 
-#include "libmscore/engravingitem.h"
-#include "libmscore/actionicon.h"
-#include "libmscore/chord.h"
-#include "libmscore/factory.h"
+#include "engraving/dom/engravingitem.h"
+#include "engraving/dom/actionicon.h"
+#include "engraving/dom/chord.h"
+#include "engraving/dom/factory.h"
 
 #include "commonscene/commonscenetypes.h"
 
@@ -58,8 +57,7 @@ void NoteGroupsExampleView::dragEnterEvent(QDragEnterEvent* event)
 
 // LOGD("NoteGroupsExampleView::dragEnterEvent Symbol: <%s>", a.data());
 
-        XmlReader e(ByteArray::fromQByteArrayNoCopy(a));
-        ReadContext rctx;
+        XmlReader e(muse::ByteArray::fromQByteArrayNoCopy(a));
         PointF dragOffset;
         Fraction duration;      // dummy
         ElementType type = EngravingItem::readType(e, &dragOffset, &duration);
@@ -67,9 +65,8 @@ void NoteGroupsExampleView::dragEnterEvent(QDragEnterEvent* event)
         m_dragElement = Factory::createItem(type, m_score->dummy());
         if (m_dragElement) {
             m_dragElement->resetExplicitParent();
-            rw400::TRead::readItem(m_dragElement, e, rctx);
-            layout::v0::LayoutContext lctx(m_dragElement->score());
-            layout::v0::TLayout::layoutItem(m_dragElement, lctx);
+            rw::RWRegister::reader()->readItem(m_dragElement, e);
+            engravingRender()->layoutItem(m_dragElement);
         }
         return;
     }
@@ -108,7 +105,11 @@ void NoteGroupsExampleView::dragMoveEvent(QDragMoveEvent* event)
 
     const EngravingItem* newDropTarget = nullptr;
 
+#ifdef MU_QT5_COMPAT
     PointF position = toLogical(event->posF());
+#else
+    PointF position = toLogical(event->position());
+#endif
     std::vector<EngravingItem*> el = elementsAt(position);
 
     for (const EngravingItem* e : el) {
@@ -150,7 +151,11 @@ void NoteGroupsExampleView::setDropTarget(const EngravingItem* el)
 
 void NoteGroupsExampleView::dropEvent(QDropEvent* event)
 {
+#ifdef MU_QT5_COMPAT
     PointF position = toLogical(event->posF());
+#else
+    PointF position = toLogical(event->position());
+#endif
 
     if (!m_dragElement) {
         return;

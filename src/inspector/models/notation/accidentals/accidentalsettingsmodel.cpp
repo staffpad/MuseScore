@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -29,14 +29,15 @@ AccidentalSettingsModel::AccidentalSettingsModel(QObject* parent, IElementReposi
     : AbstractInspectorModel(parent, repository)
 {
     setModelType(InspectorModelType::TYPE_ACCIDENTAL);
-    setTitle(qtrc("inspector", "Accidental"));
-    setIcon(ui::IconCode::Code::ACCIDENTAL_SHARP);
+    setTitle(muse::qtrc("inspector", "Accidental"));
+    setIcon(muse::ui::IconCode::Code::ACCIDENTAL_SHARP);
     createProperties();
 }
 
 void AccidentalSettingsModel::createProperties()
 {
     m_bracketType = buildPropertyItem(mu::engraving::Pid::ACCIDENTAL_BRACKET);
+    m_isSmall = buildPropertyItem(mu::engraving::Pid::SMALL);
 }
 
 void AccidentalSettingsModel::requestElements()
@@ -47,6 +48,8 @@ void AccidentalSettingsModel::requestElements()
 void AccidentalSettingsModel::loadProperties()
 {
     loadPropertyItem(m_bracketType);
+    loadPropertyItem(m_isSmall);
+    updateIsSmallAvailable();
 }
 
 void AccidentalSettingsModel::resetProperties()
@@ -57,4 +60,37 @@ void AccidentalSettingsModel::resetProperties()
 PropertyItem* AccidentalSettingsModel::bracketType() const
 {
     return m_bracketType;
+}
+
+PropertyItem* AccidentalSettingsModel::isSmall() const
+{
+    return m_isSmall;
+}
+
+bool AccidentalSettingsModel::isSmallAvailable() const
+{
+    return m_isSmallAvailable;
+}
+
+void AccidentalSettingsModel::updateIsSmallAvailable()
+{
+    bool available = true;
+    for (mu::engraving::EngravingItem* item : m_elementList) {
+        mu::engraving::EngravingItem* parent = item ? item->parentItem() : nullptr;
+        if (parent && (parent->isOrnament() || parent->isTrillSegment())) {
+            available = false;
+            break;
+        }
+    }
+    setIsSmallAvailable(available);
+}
+
+void AccidentalSettingsModel::setIsSmallAvailable(bool available)
+{
+    if (m_isSmallAvailable == available) {
+        return;
+    }
+
+    m_isSmallAvailable = available;
+    emit isSmallAvailableChanged(m_isSmallAvailable);
 }

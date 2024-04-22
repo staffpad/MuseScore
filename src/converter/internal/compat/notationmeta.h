@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -26,13 +26,14 @@
 
 namespace mu::engraving {
 class Score;
+class MStyle;
 }
 
 namespace mu::converter {
 class NotationMeta
 {
 public:
-    static RetVal<std::string> metaJson(notation::INotationPtr notation);
+    static muse::RetVal<std::string> metaJson(notation::INotationPtr notation);
 
 private:
     static QString title(const mu::engraving::Score* score);
@@ -42,7 +43,7 @@ private:
     static QString timesig(const mu::engraving::Score* score);
     static std::pair<int, QString> tempo(const mu::engraving::Score* score);
     static QJsonArray partsJsonArray(const mu::engraving::Score* score);
-    static QJsonObject pageFormatJson(const mu::engraving::Score* score);
+    static QJsonObject pageFormatJson(const mu::engraving::MStyle& style);
     static QJsonObject typeDataJson(mu::engraving::Score* score);
 };
 }

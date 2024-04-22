@@ -22,6 +22,8 @@
 
 #include "soundtrackwriter.h"
 
+#include "global/defer.h"
+
 #include "internal/worker/audioengine.h"
 #include "internal/encoders/mp3encoder.h"
 #include "internal/encoders/oggencoder.h"
@@ -30,11 +32,11 @@
 
 #include "audioerrors.h"
 
-#include "defer.h"
+#include "log.h"
 
-using namespace mu;
-using namespace mu::audio;
-using namespace mu::audio::soundtrack;
+using namespace muse;
+using namespace muse::audio;
+using namespace muse::audio::soundtrack;
 
 static constexpr int PREPARE_STEP = 0;
 static constexpr int ENCODE_STEP = 1;
@@ -79,7 +81,7 @@ Ret SoundTrackWriter::write()
     DEFER {
         m_encoderPtr->flush();
 
-        AudioEngine::instance()->setMode(RenderMode::RealTimeMode);
+        AudioEngine::instance()->setMode(RenderMode::IdleMode);
 
         m_source->setSampleRate(AudioEngine::instance()->sampleRate());
         m_source->setIsActive(false);
@@ -87,7 +89,7 @@ Ret SoundTrackWriter::write()
         m_isAborted = false;
     };
 
-    Ret ret = prepareInputBuffer();
+    Ret ret = generateAudioData();
     if (!ret) {
         return ret;
     }
@@ -102,7 +104,7 @@ Ret SoundTrackWriter::write()
         return make_ret(Err::ErrorEncode);
     }
 
-    return make_ok();
+    return muse::make_ok();
 }
 
 void SoundTrackWriter::abort()
@@ -110,7 +112,7 @@ void SoundTrackWriter::abort()
     m_isAborted = true;
 }
 
-framework::Progress SoundTrackWriter::progress()
+Progress SoundTrackWriter::progress()
 {
     return m_progress;
 }
@@ -122,12 +124,17 @@ encode::AbstractAudioEncoderPtr SoundTrackWriter::createEncoder(const SoundTrack
     case SoundTrackType::OGG: return std::make_unique<encode::OggEncoder>();
     case SoundTrackType::FLAC: return std::make_unique<encode::FlacEncoder>();
     case SoundTrackType::WAV: return std::make_unique<encode::WavEncoder>();
-    default: return nullptr;
+    case SoundTrackType::Undefined: break;
     }
+
+    UNREACHABLE;
+    return nullptr;
 }
 
-Ret SoundTrackWriter::prepareInputBuffer()
+Ret SoundTrackWriter::generateAudioData()
 {
+    TRACEFUNC;
+
     size_t inputBufferOffset = 0;
     size_t inputBufferMaxOffset = m_inputBuffer.size();
 
@@ -157,7 +164,7 @@ Ret SoundTrackWriter::prepareInputBuffer()
         return make_ret(Err::NoAudioToExport);
     }
 
-    return make_ok();
+    return muse::make_ok();
 }
 
 void SoundTrackWriter::sendStepProgress(int step, int64_t current, int64_t total)

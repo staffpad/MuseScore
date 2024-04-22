@@ -22,16 +22,16 @@
 
 #include "trackshandler.h"
 
-#include "log.h"
-#include "async/async.h"
-#include "midi/miditypes.h"
+#include "global/async/async.h"
 
 #include "internal/audiothread.h"
 #include "internal/audiosanitizer.h"
 #include "audioerrors.h"
 
-using namespace mu::audio;
-using namespace mu::async;
+#include "log.h"
+
+using namespace muse::audio;
+using namespace muse::async;
 
 TracksHandler::TracksHandler(IGetTrackSequence* getSequence)
     : m_getSequence(getSequence)
@@ -192,6 +192,15 @@ Promise<AudioResourceMetaList> TracksHandler::availableInputResources() const
         ONLY_AUDIO_WORKER_THREAD;
 
         return resolve(resolver()->resolveAvailableResources());
+    }, AudioThread::ID);
+}
+
+Promise<SoundPresetList> TracksHandler::availableSoundPresets(const AudioResourceMeta& resourceMeta) const
+{
+    return Promise<SoundPresetList>([this, resourceMeta](auto resolve, auto /*reject*/) {
+        ONLY_AUDIO_WORKER_THREAD;
+
+        return resolve(resolver()->resolveAvailableSoundPresets(resourceMeta));
     }, AudioThread::ID);
 }
 

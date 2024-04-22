@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -53,18 +53,18 @@ QVariantList ImportPreferencesModel::charsets() const
 
 QVariantList ImportPreferencesModel::shortestNotes() const
 {
-    constexpr int division =  engraving::Constants::division;
+    constexpr int division =  engraving::Constants::DIVISION;
 
     QVariantList result = {
-        QVariantMap { { "title", qtrc("appshell/preferences", "Quarter") }, { "value", division } },
-        QVariantMap { { "title", qtrc("appshell/preferences", "Eighth") }, { "value", division / 2 } },
-        QVariantMap { { "title", qtrc("appshell/preferences", "16th") }, { "value", division / 4 } },
-        QVariantMap { { "title", qtrc("appshell/preferences", "32nd") }, { "value", division / 8 } },
-        QVariantMap { { "title", qtrc("appshell/preferences", "64th") }, { "value", division / 16 } },
-        QVariantMap { { "title", qtrc("appshell/preferences", "128th") }, { "value", division / 32 } },
-        QVariantMap { { "title", qtrc("appshell/preferences", "256th") }, { "value", division / 64 } },
-        QVariantMap { { "title", qtrc("appshell/preferences", "512th") }, { "value", division / 128 } },
-        QVariantMap { { "title", qtrc("appshell/preferences", "1024th") }, { "value", division / 256 } }
+        QVariantMap { { "title", muse::qtrc("appshell/preferences", "Quarter") }, { "value", division } },
+        QVariantMap { { "title", muse::qtrc("appshell/preferences", "Eighth") }, { "value", division / 2 } },
+        QVariantMap { { "title", muse::qtrc("appshell/preferences", "16th") }, { "value", division / 4 } },
+        QVariantMap { { "title", muse::qtrc("appshell/preferences", "32nd") }, { "value", division / 8 } },
+        QVariantMap { { "title", muse::qtrc("appshell/preferences", "64th") }, { "value", division / 16 } },
+        QVariantMap { { "title", muse::qtrc("appshell/preferences", "128th") }, { "value", division / 32 } },
+        QVariantMap { { "title", muse::qtrc("appshell/preferences", "256th") }, { "value", division / 64 } },
+        QVariantMap { { "title", muse::qtrc("appshell/preferences", "512th") }, { "value", division / 128 } },
+        QVariantMap { { "title", muse::qtrc("appshell/preferences", "1024th") }, { "value", division / 256 } }
     };
 
     return result;
@@ -72,17 +72,17 @@ QVariantList ImportPreferencesModel::shortestNotes() const
 
 QStringList ImportPreferencesModel::stylePathFilter() const
 {
-    return { qtrc("appshell/preferences", "MuseScore style file") + " (*.mss)" };
+    return { muse::qtrc("appshell/preferences", "MuseScore style file") + " (*.mss)" };
 }
 
 QString ImportPreferencesModel::styleChooseTitle() const
 {
-    return qtrc("appshell/preferences", "Choose default style for imports");
+    return muse::qtrc("appshell/preferences", "Choose default style for imports");
 }
 
 QString ImportPreferencesModel::fileDirectory(const QString& filePath) const
 {
-    return io::dirpath(filePath.toStdString()).toQString();
+    return muse::io::dirpath(filePath.toStdString()).toQString();
 }
 
 QString ImportPreferencesModel::styleFileImportPath() const
@@ -110,6 +110,11 @@ bool ImportPreferencesModel::needUseDefaultFont() const
     return musicXmlConfiguration()->needUseDefaultFont();
 }
 
+bool ImportPreferencesModel::inferTextType() const
+{
+    return musicXmlConfiguration()->inferTextType();
+}
+
 int ImportPreferencesModel::currentShortestNote() const
 {
     return midiImportExportConfiguration()->midiShortestNote();
@@ -118,6 +123,11 @@ int ImportPreferencesModel::currentShortestNote() const
 bool ImportPreferencesModel::needAskAboutApplyingNewStyle() const
 {
     return musicXmlConfiguration()->needAskAboutApplyingNewStyle();
+}
+
+bool ImportPreferencesModel::meiImportLayout() const
+{
+    return meiConfiguration()->meiImportLayout();
 }
 
 void ImportPreferencesModel::setStyleFileImportPath(QString path)
@@ -170,6 +180,16 @@ void ImportPreferencesModel::setNeedUseDefaultFont(bool value)
     emit needUseDefaultFontChanged(value);
 }
 
+void ImportPreferencesModel::setInferTextType(bool value)
+{
+    if (value == inferTextType()) {
+        return;
+    }
+
+    musicXmlConfiguration()->setInferTextType(value);
+    emit inferTextTypeChanged(value);
+}
+
 void ImportPreferencesModel::setCurrentShortestNote(int note)
 {
     if (note == currentShortestNote()) {
@@ -188,4 +208,14 @@ void ImportPreferencesModel::setNeedAskAboutApplyingNewStyle(bool value)
 
     musicXmlConfiguration()->setNeedAskAboutApplyingNewStyle(value);
     emit needAskAboutApplyingNewStyleChanged(value);
+}
+
+void ImportPreferencesModel::setMeiImportLayout(bool import)
+{
+    if (import == meiImportLayout()) {
+        return;
+    }
+
+    meiConfiguration()->setMeiImportLayout(import);
+    emit meiImportLayoutChanged(import);
 }

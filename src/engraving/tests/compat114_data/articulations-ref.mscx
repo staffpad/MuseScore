@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<museScore version="4.00">
+<museScore version="4.40">
   <Score>
-    <LayerTag id="0" tag="default"></LayerTag>
-    <currentLayer>0</currentLayer>
     <Division>480</Division>
     <Style>
       <minSystemDistance>9.2</minSystemDistance>
@@ -23,7 +21,6 @@
     <metaTag name="lyricist"></metaTag>
     <metaTag name="movementNumber"></metaTag>
     <metaTag name="movementTitle"></metaTag>
-    <metaTag name="poet"></metaTag>
     <metaTag name="source"></metaTag>
     <metaTag name="translator"></metaTag>
     <metaTag name="workNumber"></metaTag>
@@ -74,7 +71,7 @@
             <isHeader>1</isHeader>
             </Clef>
           <KeySig>
-            <accidental>0</accidental>
+            <concertKey>0</concertKey>
             </KeySig>
           <TimeSig>
             <sigN>4</sigN>
@@ -255,7 +252,11 @@
             <durationType>quarter</durationType>
             <Articulation>
               <direction>down</direction>
-              <subtype>articTenutoStaccatoBelow</subtype>
+              <subtype>articStaccatoBelow</subtype>
+              </Articulation>
+            <Articulation>
+              <direction>down</direction>
+              <subtype>articTenutoBelow</subtype>
               </Articulation>
             <Note>
               <pitch>72</pitch>
@@ -270,7 +271,11 @@
             <durationType>quarter</durationType>
             <Articulation>
               <direction>up</direction>
-              <subtype>articTenutoStaccatoAbove</subtype>
+              <subtype>articStaccatoAbove</subtype>
+              </Articulation>
+            <Articulation>
+              <direction>up</direction>
+              <subtype>articTenutoAbove</subtype>
               </Articulation>
             <Note>
               <pitch>72</pitch>

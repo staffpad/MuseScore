@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -31,19 +31,29 @@ TimeSignatureSettingsModel::TimeSignatureSettingsModel(QObject* parent, IElement
     : AbstractInspectorModel(parent, repository)
 {
     setModelType(InspectorModelType::TYPE_TIME_SIGNATURE);
-    setTitle(qtrc("inspector", "Time signature"));
-    setIcon(ui::IconCode::Code::TIME_SIGNATURE);
+    setTitle(muse::qtrc("inspector", "Time signature"));
+    setIcon(muse::ui::IconCode::Code::TIME_SIGNATURE);
     createProperties();
 }
 
 void TimeSignatureSettingsModel::createProperties()
 {
-    m_horizontalScale = buildPropertyItem(mu::engraving::Pid::SCALE, [this](const mu::engraving::Pid pid, const QVariant& newValue) {
+    m_horizontalScale = buildPropertyItem(mu::engraving::Pid::SCALE,
+                                          [this](const mu::engraving::Pid pid, const QVariant& newValue) {
         onPropertyValueChanged(pid, QSizeF(newValue.toDouble() / 100, m_verticalScale->value().toDouble() / 100));
+    },
+                                          [this](const mu::engraving::Sid sid, const QVariant& newValue) {
+        updateStyleValue(sid, QSizeF(newValue.toDouble() / 100, m_verticalScale->value().toDouble() / 100));
+        emit requestReloadPropertyItems();
     });
 
-    m_verticalScale = buildPropertyItem(mu::engraving::Pid::SCALE, [this](const mu::engraving::Pid pid, const QVariant& newValue) {
+    m_verticalScale = buildPropertyItem(mu::engraving::Pid::SCALE,
+                                        [this](const mu::engraving::Pid pid, const QVariant& newValue) {
         onPropertyValueChanged(pid, QSizeF(m_horizontalScale->value().toDouble() / 100, newValue.toDouble() / 100));
+    },
+                                        [this](const mu::engraving::Sid sid, const QVariant& newValue) {
+        updateStyleValue(sid, QSizeF(m_horizontalScale->value().toDouble() / 100, newValue.toDouble() / 100));
+        emit requestReloadPropertyItems();
     });
 
     m_shouldShowCourtesy = buildPropertyItem(mu::engraving::Pid::SHOW_COURTESY);
@@ -57,11 +67,11 @@ void TimeSignatureSettingsModel::requestElements()
 void TimeSignatureSettingsModel::loadProperties()
 {
     loadPropertyItem(m_horizontalScale, [](const QVariant& elementPropertyValue) -> QVariant {
-        return DataFormatter::roundDouble(elementPropertyValue.value<QSizeF>().width()) * 100;
+        return muse::DataFormatter::roundDouble(elementPropertyValue.value<QSizeF>().width()) * 100;
     });
 
     loadPropertyItem(m_verticalScale, [](const QVariant& elementPropertyValue) -> QVariant {
-        return DataFormatter::roundDouble(elementPropertyValue.value<QSizeF>().height()) * 100;
+        return muse::DataFormatter::roundDouble(elementPropertyValue.value<QSizeF>().height()) * 100;
     });
 
     loadPropertyItem(m_shouldShowCourtesy);

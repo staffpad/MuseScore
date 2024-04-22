@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -31,6 +31,8 @@ class SlurAndTieSettingsModel : public AbstractInspectorModel
 
     Q_PROPERTY(PropertyItem * lineStyle READ lineStyle CONSTANT)
     Q_PROPERTY(PropertyItem * direction READ direction CONSTANT)
+    Q_PROPERTY(PropertyItem * tiePlacement READ tiePlacement CONSTANT)
+    Q_PROPERTY(bool isTiePlacementAvailable READ isTiePlacementAvailable NOTIFY isTiePlacementAvailableChanged)
 
 public:
     enum ElementType {
@@ -42,16 +44,27 @@ public:
 
     PropertyItem* lineStyle() const;
     PropertyItem* direction() const;
+    PropertyItem* tiePlacement() const;
+
+    bool isTiePlacementAvailable() const;
 
     Q_INVOKABLE QVariantList possibleLineStyles() const;
+
+signals:
+    void isTiePlacementAvailableChanged(bool available);
 
 private:
     void createProperties() override;
     void loadProperties() override;
     void resetProperties() override;
 
+    void updateIsTiePlacementAvailable();
+
     PropertyItem* m_lineStyle = nullptr;
     PropertyItem* m_direction = nullptr;
+    PropertyItem* m_tiePlacement = nullptr;
+
+    bool m_isTiePlacementAvailable = false;
 };
 }
 

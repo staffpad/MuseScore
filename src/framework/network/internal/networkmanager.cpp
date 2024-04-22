@@ -30,9 +30,8 @@
 #include "log.h"
 #include "networkerrors.h"
 
-using namespace mu;
-using namespace mu::network;
-using namespace mu::framework;
+using namespace muse;
+using namespace muse::network;
 
 static constexpr int NET_TIMEOUT_MS = 60000;
 
@@ -67,6 +66,11 @@ Ret NetworkManager::post(const QUrl& url, OutgoingDevice* outgoingData, Incoming
 Ret NetworkManager::put(const QUrl& url, OutgoingDevice* outgoingData, IncomingDevice* incomingData, const RequestHeaders& headers)
 {
     return execRequest(PUT_REQUEST, url, incomingData, outgoingData, headers);
+}
+
+Ret NetworkManager::patch(const QUrl& url, OutgoingDevice* outgoingData, IncomingDevice* incomingData, const RequestHeaders& headers)
+{
+    return execRequest(PATCH_REQUEST, url, incomingData, outgoingData, headers);
 }
 
 Ret NetworkManager::del(const QUrl& url, IncomingDevice* incomingData, const RequestHeaders& headers)
@@ -141,6 +145,14 @@ QNetworkReply* NetworkManager::receiveReply(RequestType requestType, const QNetw
             return m_manager->put(request, outgoingData->device());
         } else if (outgoingData->multiPart()) {
             return m_manager->put(request, outgoingData->multiPart());
+        }
+        break;
+    }
+    case PATCH_REQUEST: {
+        if (outgoingData->device()) {
+            return m_manager->sendCustomRequest(request, "PATCH", outgoingData->device());
+        } else if (outgoingData->multiPart()) {
+            return m_manager->sendCustomRequest(request, "PATCH", outgoingData->multiPart());
         }
         break;
     }
@@ -272,7 +284,7 @@ Ret NetworkManager::errorFromReply(const QNetworkReply* reply) const
         return make_ret(Err::NetworkError);
     }
 
-    Ret ret = make_ok();
+    Ret ret = muse::make_ok();
 
     if (reply->error() != QNetworkReply::NoError) {
         ret.setCode(static_cast<int>(Err::NetworkError));

@@ -27,8 +27,9 @@
 
 #include "log.h"
 
-using namespace mu::ui;
-using namespace mu::accessibility;
+using namespace muse;
+using namespace muse::ui;
+using namespace muse::accessibility;
 
 AccessibleItem::AccessibleItem(QObject* parent)
     : QObject(parent)
@@ -355,14 +356,19 @@ int AccessibleItem::accessibleCharacterCount() const
     return text().size();
 }
 
-mu::async::Channel<IAccessible::Property, mu::Val> AccessibleItem::accessiblePropertyChanged() const
+async::Channel<IAccessible::Property, Val> AccessibleItem::accessiblePropertyChanged() const
 {
     return m_accessiblePropertyChanged;
 }
 
-mu::async::Channel<IAccessible::State, bool> AccessibleItem::accessibleStateChanged() const
+async::Channel<IAccessible::State, bool> AccessibleItem::accessibleStateChanged() const
 {
     return m_accessibleStateChanged;
+}
+
+int AccessibleItem::accessibleRowIndex() const
+{
+    return m_row;
 }
 
 void AccessibleItem::classBegin()
@@ -438,6 +444,11 @@ int AccessibleItem::selectionEnd() const
 int AccessibleItem::cursorPosition() const
 {
     return m_cursorPosition;
+}
+
+int AccessibleItem::row() const
+{
+    return m_row;
 }
 
 bool AccessibleItem::ignored() const
@@ -619,6 +630,16 @@ void AccessibleItem::setCursorPosition(int cursorPosition)
     m_cursorPosition = cursorPosition;
     emit cursorPositionChanged();
     m_accessiblePropertyChanged.send(IAccessible::Property::TextCursor, Val());
+}
+
+void AccessibleItem::setRow(int row)
+{
+    if (m_row == row) {
+        return;
+    }
+
+    m_row = row;
+    emit rowChanged();
 }
 
 void AccessibleItem::setIgnored(bool ignored)

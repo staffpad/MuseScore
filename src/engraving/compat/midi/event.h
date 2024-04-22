@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -26,8 +26,7 @@
 #include <map>
 #include <vector>
 
-#include <compat/midi/midiinstrumenteffects.h>
-
+#include "midiinstrumenteffects.h"
 #include "midicoreevent.h"
 
 namespace mu::engraving {
@@ -165,7 +164,7 @@ public:
 
 //---------------------------------------------------------
 //   EventList
-//   EventMap
+//   EventsHolder
 //---------------------------------------------------------
 
 class EventList : public std::vector<Event>
@@ -176,19 +175,18 @@ public:
     void insertNote(int channel, Note*);
 };
 
-class EventMap : public std::multimap<int, NPlayEvent>
+class EventsHolder
 {
-    OBJECT_ALLOCATOR(engraving, EventMap)
+    OBJECT_ALLOCATOR(engraving, EventsHolder)
 
-    int _highestChannel = 15;
+    using events_multimap_t = std::multimap<int, NPlayEvent>;
+    std::vector<events_multimap_t> _channels;
 public:
+    [[nodiscard]] size_t size() const { return _channels.size(); }
+    events_multimap_t& operator[](std::size_t idx);
+    const events_multimap_t& operator[](std::size_t idx) const;
+    void mergePitchWheelEvents(EventsHolder& pitchWheelEvents);
     void fixupMIDI();
-    void registerChannel(int c)
-    {
-        if (c > _highestChannel) {
-            _highestChannel = c;
-        }
-    }
 };
 
 typedef EventList::iterator iEvent;

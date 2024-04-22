@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -23,9 +23,7 @@
 
 #include <QScreen>
 
-#include "engraving/libmscore/score.h"
-#include "engraving/infrastructure/paint.h"
-#include "engraving/infrastructure/debugpaint.h"
+#include "engraving/dom/score.h"
 
 #include "notation.h"
 #include "notationinteraction.h"
@@ -35,7 +33,7 @@
 using namespace mu;
 using namespace mu::notation;
 using namespace mu::engraving;
-using namespace mu::draw;
+using namespace muse::draw;
 
 NotationPainting::NotationPainting(Notation* notation)
     : m_notation(notation)
@@ -60,6 +58,7 @@ void NotationPainting::setViewMode(const ViewMode& viewMode)
     score()->setLayoutMode(viewMode);
     score()->doLayout();
 
+    m_viewModeChanged.notify();
     m_notation->notifyAboutNotationChanged();
 }
 
@@ -70,6 +69,11 @@ ViewMode NotationPainting::viewMode() const
     }
 
     return score()->layoutMode();
+}
+
+muse::async::Notification NotationPainting::viewModeChanged() const
+{
+    return m_viewModeChanged;
 }
 
 int NotationPainting::pageCount() const
@@ -83,18 +87,12 @@ int NotationPainting::pageCount() const
 
 SizeF NotationPainting::pageSizeInch() const
 {
-    if (!score()) {
-        return SizeF();
-    }
+    return scoreRenderer()->pageSizeInch(score());
+}
 
-    //! NOTE If now it is not PAGE view mode,
-    //! then the page sizes will differ from the standard sizes (in PAGE view mode)
-    if (score()->npages() > 0) {
-        const mu::engraving::Page* page = score()->pages().front();
-        return SizeF(page->bbox().width() / mu::engraving::DPI, page->bbox().height() / mu::engraving::DPI);
-    }
-
-    return SizeF(score()->styleD(mu::engraving::Sid::pageWidth), score()->styleD(mu::engraving::Sid::pageHeight));
+SizeF NotationPainting::pageSizeInch(const Options& opt) const
+{
+    return scoreRenderer()->pageSizeInch(score(), opt);
 }
 
 bool NotationPainting::isPaintPageBorder() const
@@ -112,7 +110,7 @@ bool NotationPainting::isPaintPageBorder() const
     return false;
 }
 
-void NotationPainting::doPaint(draw::Painter* painter, const Options& opt)
+void NotationPainting::doPaint(Painter* painter, const Options& opt)
 {
     TRACEFUNC;
     if (!score()) {
@@ -121,20 +119,18 @@ void NotationPainting::doPaint(draw::Painter* painter, const Options& opt)
 
     Options myopt = opt;
     bool printPageBackground = myopt.printPageBackground;
-    myopt.onPaintPageSheet
-        = [this, printPageBackground](draw::Painter* painter, const RectF& pageRect, const RectF& pageContentRect, bool isOdd) {
-        paintPageSheet(painter, pageRect, pageContentRect, isOdd, printPageBackground);
+    myopt.onPaintPageSheet = [this, printPageBackground](Painter* painter, const Page* page, const RectF& pageRect) {
+        paintPageSheet(painter, page, pageRect, printPageBackground);
     };
 
-    engraving::Paint::paintScore(painter, score(), myopt);
+    scoreRenderer()->paintScore(painter, score(), myopt);
 
     if (!myopt.isPrinting) {
         static_cast<NotationInteraction*>(m_notation->interaction().get())->paint(painter);
     }
 }
 
-void NotationPainting::paintPageSheet(Painter* painter, const RectF& pageRect, const RectF& pageContentRect, bool isOdd,
-                                      bool printPageBackground) const
+void NotationPainting::paintPageSheet(Painter* painter, const Page* page, const RectF& pageRect, bool printPageBackground) const
 {
     TRACEFUNC;
     if (score()->printing()) {
@@ -171,11 +167,13 @@ void NotationPainting::paintPageSheet(Painter* painter, const RectF& pageRect, c
         return;
     }
 
+    RectF pageContentRect = page->ldata()->bbox().adjusted(page->lm(), page->tm(), -page->rm(), -page->bm());
+
     painter->setBrush(BrushStyle::NoBrush);
     painter->setPen(engravingConfiguration()->formattingMarksColor());
     painter->drawRect(pageContentRect);
 
-    if (!isOdd) {
+    if (!page->isOdd()) {
         painter->drawLine(pageContentRect.right(), 0.0, pageContentRect.right(), pageContentRect.bottom());
     }
 }
@@ -191,7 +189,7 @@ void NotationPainting::paintView(Painter* painter, const RectF& frameRect, bool 
     doPaint(painter, opt);
 }
 
-void NotationPainting::paintPdf(draw::Painter* painter, const Options& opt)
+void NotationPainting::paintPdf(Painter* painter, const Options& opt)
 {
     Q_ASSERT(opt.deviceDpi > 0);
     Options myopt = opt;
@@ -201,7 +199,7 @@ void NotationPainting::paintPdf(draw::Painter* painter, const Options& opt)
     doPaint(painter, myopt);
 }
 
-void NotationPainting::paintPrint(draw::Painter* painter, const Options& opt)
+void NotationPainting::paintPrint(Painter* painter, const Options& opt)
 {
     Q_ASSERT(opt.deviceDpi > 0);
     Options myopt = opt;

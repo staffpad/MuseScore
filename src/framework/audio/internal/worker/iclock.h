@@ -20,18 +20,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_AUDIO_ICLOCK_H
-#define MU_AUDIO_ICLOCK_H
+#ifndef MUSE_AUDIO_ICLOCK_H
+#define MUSE_AUDIO_ICLOCK_H
 
 #include <memory>
 
-#include "types/ret.h"
-#include "async/channel.h"
-#include "async/notification.h"
+#include "global/types/ret.h"
+#include "global/async/channel.h"
+#include "global/async/notification.h"
 
 #include "../../audiotypes.h"
 
-namespace mu::audio {
+namespace muse::audio {
 class IClock
 {
 public:
@@ -63,4 +63,4 @@ public:
 using IClockPtr = std::shared_ptr<IClock>;
 }
 
-#endif // MU_AUDIO_ICLOCK_H
+#endif // MUSE_AUDIO_ICLOCK_H

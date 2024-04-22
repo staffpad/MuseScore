@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,7 +22,7 @@
 import QtQuick 2.15
 
 import MuseScore.Inspector 1.0
-import MuseScore.UiComponents 1.0
+import Muse.UiComponents 1.0
 
 import "../../../common"
 
@@ -32,6 +32,8 @@ ExpandableBlank {
     property QtObject model: null
 
     property int navigationRowEnd: contentItem.navigationRowEnd
+
+    readonly property bool isHarpGliss: model ? model.isHarpGliss : false
 
     enabled: model ? !model.isEmpty : false
 
@@ -49,12 +51,17 @@ ExpandableBlank {
         titleText: qsTrc("inspector", "Style")
         propertyItem: root.model ? root.model.styleType : null
 
-        model: [
-            { text: qsTrc("inspector", "Chromatic"), value: Glissando.STYLE_CHROMATIC },
-            { text: qsTrc("inspector", "White keys"), value: Glissando.STYLE_WHITE_KEYS },
-            { text: qsTrc("inspector", "Black keys"), value: Glissando.STYLE_BLACK_KEYS },
-            { text: qsTrc("inspector", "Diatonic"), value: Glissando.STYLE_DIATONIC },
-            { text: qsTrc("inspector", "Portamento"), value: Glissando.STYLE_PORTAMENTO }
-        ]
+        model: root.isHarpGliss
+               ? [
+                     { text: qsTrc("inspector", "Default (Diatonic)"), value: Glissando.STYLE_DIATONIC },
+                     { text: qsTrc("inspector", "Chromatic"), value: Glissando.STYLE_CHROMATIC }
+                 ]
+               : [
+                     { text: qsTrc("inspector", "Chromatic"), value: Glissando.STYLE_CHROMATIC },
+                     { text: qsTrc("inspector", "White keys"), value: Glissando.STYLE_WHITE_KEYS },
+                     { text: qsTrc("inspector", "Black keys"), value: Glissando.STYLE_BLACK_KEYS },
+                     { text: qsTrc("inspector", "Diatonic"), value: Glissando.STYLE_DIATONIC },
+                     { text: qsTrc("inspector", "Portamento"), value: Glissando.STYLE_PORTAMENTO }
+                 ]
     }
 }

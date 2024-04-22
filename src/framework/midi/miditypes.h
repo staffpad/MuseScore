@@ -20,22 +20,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_MIDI_MIDITYPES_H
-#define MU_MIDI_MIDITYPES_H
+#ifndef MUSE_MIDI_MIDITYPES_H
+#define MUSE_MIDI_MIDITYPES_H
 
 #include <string>
-#include <sstream>
 #include <cstdint>
 #include <vector>
 #include <map>
-#include <functional>
-#include <set>
-#include <cassert>
+
 #include "async/channel.h"
 #include "types/retval.h"
 #include "midievent.h"
 
-namespace mu::midi {
+namespace muse::midi {
 using track_t = int32_t;
 using program_t = int32_t;
 using bank_t = int32_t;
@@ -59,6 +56,19 @@ struct Program {
     {
         return bank == other.bank
                && program == other.program;
+    }
+
+    bool operator<(const Program& other) const
+    {
+        if (bank < other.bank) {
+            return true;
+        }
+
+        if (bank == other.bank) {
+            return program < other.program;
+        }
+
+        return false;
     }
 };
 using Programs = std::vector<midi::Program>;
@@ -152,4 +162,4 @@ inline std::vector<int> splitDeviceId(const MidiDeviceID& deviceId)
 }
 }
 
-#endif // MU_MIDI_MIDITYPES_H
+#endif // MUSE_MIDI_MIDITYPES_H

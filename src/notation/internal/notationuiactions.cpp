@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,11 +25,13 @@
 
 #include "types/translatablestring.h"
 #include "ui/view/iconcodes.h"
+#include "context/shortcutcontext.h"
 
 using namespace mu;
 using namespace mu::notation;
-using namespace mu::ui;
-using namespace mu::actions;
+using namespace muse;
+using namespace muse::ui;
+using namespace muse::actions;
 
 static const ActionCode NOTE_INPUT_ACTION_CODE("note-input");
 
@@ -37,6 +39,7 @@ static const ActionCode SHOW_INVISIBLE_CODE("show-invisible");
 static const ActionCode SHOW_UNPRINTABLE_CODE("show-unprintable");
 static const ActionCode SHOW_FRAMES_CODE("show-frames");
 static const ActionCode SHOW_PAGEBORDERS_CODE("show-pageborders");
+static const ActionCode SHOW_SOUND_FLAGS("show-soundflags");
 static const ActionCode SHOW_IRREGULAR_CODE("show-irregular");
 
 static const ActionCode TOGGLE_CONCERT_PITCH_CODE("concert-pitch");
@@ -178,67 +181,61 @@ const UiActionList NotationUiActions::m_actions = {
              ),
     UiAction("next-track",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_OPENED,
+             mu::context::CTX_NOTATION_FOCUSED,
              TranslatableString("action", "Next staff or voice"),
              TranslatableString("action", "Go to next staff or voice")
              ),
     UiAction("prev-track",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_OPENED,
+             mu::context::CTX_NOTATION_FOCUSED,
              TranslatableString("action", "Previous staff or voice"),
              TranslatableString("action", "Go to previous staff or voice")
              ),
     UiAction("next-frame",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_OPENED,
+             mu::context::CTX_NOTATION_FOCUSED,
              TranslatableString("action", "Next frame"),
              TranslatableString("action", "Go to next frame")
              ),
     UiAction("prev-frame",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_OPENED,
+             mu::context::CTX_NOTATION_FOCUSED,
              TranslatableString("action", "Previous frame"),
              TranslatableString("action", "Go to previous frame")
              ),
     UiAction("next-system",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_OPENED,
+             mu::context::CTX_NOTATION_FOCUSED,
              TranslatableString("action", "Next system"),
              TranslatableString("action", "Go to next system")
              ),
     UiAction("prev-system",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_OPENED,
+             mu::context::CTX_NOTATION_FOCUSED,
              TranslatableString("action", "Previous system"),
              TranslatableString("action", "Go to previous system")
              ),
-    UiAction("toggle-insert-mode",
-             mu::context::UiCtxNotationOpened,
-             mu::context::CTX_ANY,
-             TranslatableString("action", "Toggle 'insert mode'"),
-             TranslatableString("action", "Note input: toggle ‘insert’ mode")
-             ),
     UiAction("select-next-chord",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Add next chord to selection"),
              TranslatableString("action", "Add to selection: next note/rest")
              ),
     UiAction("select-prev-chord",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Add previous chord to selection"),
              TranslatableString("action", "Add to selection: previous note/rest")
              ),
     UiAction("move-left",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_FOCUSED,
              TranslatableString("action", "Move chord/rest left"),
              TranslatableString("action", "Move chord/rest left")
              ),
     UiAction("move-right",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_FOCUSED,
              TranslatableString("action", "Move chord/rest right"),
              TranslatableString("action", "Move chord/rest right")
              ),
@@ -343,7 +340,7 @@ const UiActionList NotationUiActions::m_actions = {
              ),
     UiAction("notation-select-all",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_FOCUSED,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Select &all"),
              TranslatableString("action", "Select all")
              ),
@@ -449,7 +446,7 @@ const UiActionList NotationUiActions::m_actions = {
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Toggle rhythmic sl&ash notation"),
-             TranslatableString("action", "Toggle ‘rhythmic slash notation’")
+             TranslatableString("action", "Toggle rhythmic slash notation")
              ),
     UiAction("pitch-spell",
              mu::context::UiCtxNotationOpened,
@@ -501,6 +498,13 @@ const UiActionList NotationUiActions::m_actions = {
              TranslatableString("action", "Display page view"),
              IconCode::Code::PAGE_VIEW
              ),
+    UiAction("view-mode-float",
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_NOTATION_OPENED,
+             TranslatableString("action", "Floating"),
+             TranslatableString("action", "Floating"),
+             IconCode::Code::PAGE_VIEW // TODO, Icon needed?
+             ),
     UiAction("view-mode-continuous",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
@@ -518,7 +522,7 @@ const UiActionList NotationUiActions::m_actions = {
     UiAction("find",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_ANY,
-             TranslatableString("action", "&Find / Go To"),
+             TranslatableString("action", "&Find / Go to"),
              TranslatableString("action", "Find / Go to")
              ),
     UiAction("staff-properties",
@@ -775,7 +779,7 @@ const UiActionList NotationUiActions::m_actions = {
              mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "No beam"),
              TranslatableString("action", "No beam"),
-             IconCode::Code::NOTE_HEAD_EIGHTH
+             IconCode::Code::BEAM_NONE
              ),
     UiAction("beam-break-left",
              mu::context::UiCtxNotationOpened,
@@ -1067,29 +1071,11 @@ const UiActionList NotationUiActions::m_actions = {
              TranslatableString("action", "Rest"),
              TranslatableString("action", "Enter rest")
              ),
-    UiAction("rest-1",
+    UiAction("rest-TAB",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_ANY,
-             TranslatableString("action", "Whole rest"),
-             TranslatableString("action", "Enter rest: whole")
-             ),
-    UiAction("rest-2",
-             mu::context::UiCtxNotationOpened,
-             mu::context::CTX_ANY,
-             TranslatableString("action", "Half rest"),
-             TranslatableString("action", "Enter rest: half")
-             ),
-    UiAction("rest-4",
-             mu::context::UiCtxNotationOpened,
-             mu::context::CTX_ANY,
-             TranslatableString("action", "Quarter rest"),
-             TranslatableString("action", "Enter rest: quarter")
-             ),
-    UiAction("rest-8",
-             mu::context::UiCtxNotationOpened,
-             mu::context::CTX_ANY,
-             TranslatableString("action", "Eighth rest"),
-             TranslatableString("action", "Enter rest: eighth")
+             mu::context::CTX_NOTATION_NOTE_INPUT_STAFF_TAB,
+             X_TAB.arg(TranslatableString("action", "Rest")),
+             X_TAB.arg(TranslatableString("action", "Enter rest"))
              ),
     UiAction("fret-0",
              mu::context::UiCtxNotationOpened,
@@ -1425,6 +1411,12 @@ const UiActionList NotationUiActions::m_actions = {
              TranslatableString("action", "Reset shapes and &positions"),
              TranslatableString("action", "Reset shapes and positions")
              ),
+    UiAction("reset-to-default-layout",
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_ANY,
+             TranslatableString("action", "Reset entire score to default layout"),
+             TranslatableString("action", "Reset entire score to default layout")
+             ),
     UiAction("zoomin",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_ANY,
@@ -1625,67 +1617,67 @@ const UiActionList NotationUiActions::m_actions = {
              ),
     UiAction("next-beat-TEXT",
              mu::context::UiCtxNotationFocused,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Next beat (Chord symbol)"),
              TranslatableString("action", "Advance cursor: next beat (chord symbols)")
              ),
     UiAction("prev-beat-TEXT",
              mu::context::UiCtxNotationFocused,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Previous beat (Chord symbol)"),
              TranslatableString("action", "Advance cursor: previous beat (chord symbols)")
              ),
     UiAction("advance-longa",
              mu::context::UiCtxNotationFocused,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Advance longa (F.B./Chord symbol)"),
              TranslatableString("action", "Advance cursor: longa (figured bass/chord symbols)")
              ),
     UiAction("advance-breve",
              mu::context::UiCtxNotationFocused,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Advance breve (F.B./Chord symbol)"),
              TranslatableString("action", "Advance cursor: breve (figured bass/chord symbols)")
              ),
     UiAction("advance-1",
              mu::context::UiCtxNotationFocused,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Advance whole note (F.B./Chord symbol)"),
              TranslatableString("action", "Advance cursor: whole note (figured bass/chord symbols)")
              ),
     UiAction("advance-2",
              mu::context::UiCtxNotationFocused,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Advance half note (F.B./Chord symbol)"),
              TranslatableString("action", "Advance cursor: half note (figured bass/chord symbols)")
              ),
     UiAction("advance-4",
              mu::context::UiCtxNotationFocused,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Advance quarter note (F.B./Chord symbol)"),
              TranslatableString("action", "Advance cursor: quarter note (figured bass/chord symbols)")
              ),
     UiAction("advance-8",
              mu::context::UiCtxNotationFocused,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Advance eighth note (F.B./Chord symbol)"),
              TranslatableString("action", "Advance cursor: eighth note (figured bass/chord symbols)")
              ),
     UiAction("advance-16",
              mu::context::UiCtxNotationFocused,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Advance 16th note (F.B./Chord symbol)"),
              TranslatableString("action", "Advance cursor: 16th note (figured bass/chord symbols)")
              ),
     UiAction("advance-32",
              mu::context::UiCtxNotationFocused,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Advance 32nd note (F.B./Chord symbol)"),
              TranslatableString("action", "Advance cursor: 32nd note (figured bass/chord symbols)")
              ),
     UiAction("advance-64",
              mu::context::UiCtxNotationFocused,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Advance 64th note (F.B./Chord symbol)"),
              TranslatableString("action", "Advance cursor: 64th note (figured bass/chord symbols)")
              ),
@@ -1715,27 +1707,27 @@ const UiActionList NotationUiActions::m_actions = {
              ),
     UiAction("add-lyric-verse",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Add lyric verse"),
              TranslatableString("action", "Add lyric verse")
              ),
     UiAction("text-b",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Bold face"),
              TranslatableString("action", "Format text: bold"),
              Checkable::Yes
              ),
     UiAction("text-i",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Italic"),
              TranslatableString("action", "Format text: italic"),
              Checkable::Yes
              ),
     UiAction("text-u",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_ANY,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Underline"),
              TranslatableString("action", "Format text: underline"),
              Checkable::Yes
@@ -1745,6 +1737,20 @@ const UiActionList NotationUiActions::m_actions = {
              mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Strikethrough"),
              TranslatableString("action", "Format text: strikethrough"),
+             Checkable::Yes
+             ),
+    UiAction("text-sub",
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_NOTATION_OPENED,
+             TranslatableString("action", "Subscript"),
+             TranslatableString("action", "Format text: subscript"),
+             Checkable::Yes
+             ),
+    UiAction("text-sup",
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_NOTATION_OPENED,
+             TranslatableString("action", "Superscript"),
+             TranslatableString("action", "Format text: superscript"),
              Checkable::Yes
              ),
     UiAction("pitch-up-diatonic",
@@ -1847,13 +1853,13 @@ const UiActionList NotationUiActions::m_actions = {
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Transpose up"),
-             TranslatableString("action", "Transpose up half a step")
+             TranslatableString("action", "Transpose up a semitone")
              ),
     UiAction("transpose-down",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Transpose down"),
-             TranslatableString("action", "Transpose down half a step")
+             TranslatableString("action", "Transpose down a semitone")
              ),
     UiAction("pitch-up-diatonic-alterations",
              mu::context::UiCtxNotationOpened,
@@ -1876,13 +1882,13 @@ const UiActionList NotationUiActions::m_actions = {
     UiAction("toggle-mmrest",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_ANY,
-             TranslatableString("action", "Toggle 'Create multimeasure rest'"),
-             TranslatableString("action", "Toggle multimeasure rest")
+             TranslatableString("action", "Toggle multimeasure rests"),
+             TranslatableString("action", "Toggle multimeasure rests")
              ),
     UiAction("toggle-hide-empty",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "Toggle 'Hide empty staves'"),
+             TranslatableString("action", "Toggle empty staves"),
              TranslatableString("action", "Show/hide empty staves")
              ),
     UiAction("set-visible",
@@ -1900,14 +1906,14 @@ const UiActionList NotationUiActions::m_actions = {
     UiAction("toggle-autoplace",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_ANY,
-             TranslatableString("action", "Toggle 'automatic placement' for selected elements"),
+             TranslatableString("action", "Toggle automatic placement for selected elements"),
              TranslatableString("action", "Toggle automatic placement for selected elements")
              ),
     UiAction("autoplace-enabled",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
-             TranslatableString("action", "Toggle 'automatic placement' (whole score)"),
-             TranslatableString("action", "Toggle ‘automatic placement’ (whole score)")
+             TranslatableString("action", "Toggle automatic placement for entire score"),
+             TranslatableString("action", "Toggle automatic placement for entire score")
              ),
     UiAction("string-above",
              mu::context::UiCtxNotationOpened,
@@ -1925,50 +1931,56 @@ const UiActionList NotationUiActions::m_actions = {
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_ANY,
              TranslatableString("action", "Note input"),
-             TranslatableString("action", "Note input: toggle note input mode"),
+             TranslatableString("action", "Toggle note input mode"),
              IconCode::Code::EDIT,
              Checkable::Yes
+             ),
+    UiAction("toggle-insert-mode",
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_ANY,
+             TranslatableString("action", "Insert/overwrite"),
+             TranslatableString("action", "Toggle note input mode: insert/overwrite")
              ),
     UiAction("note-input-steptime",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Default (step time)"),
-             TranslatableString("action", "Note input: toggle ‘default (step-time)’ mode"),
+             TranslatableString("action", "Toggle note input mode: default (step-time)"),
              IconCode::Code::EDIT
              ),
     UiAction("note-input-rhythm",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Rhythm only (not pitch)"),
-             TranslatableString("action", "Note input: toggle ‘rhythm only (not pitch)’ mode"),
+             TranslatableString("action", "Toggle note input mode: rhythm only (not pitch)"),
              IconCode::Code::RHYTHM_ONLY
              ),
     UiAction("note-input-repitch",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_ANY,
              TranslatableString("action", "Re-pitch existing notes"),
-             TranslatableString("action", "Note input: toggle ‘re-pitch existing notes’ mode"),
+             TranslatableString("action", "Toggle note input mode: re-pitch existing notes"),
              IconCode::Code::RE_PITCH
              ),
     UiAction("note-input-realtime-auto",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Real-time (metronome)"),
-             TranslatableString("action", "Note input: toggle ‘real-time (metronome)’ mode"),
+             TranslatableString("action", "Toggle note input mode: real-time (metronome)"),
              IconCode::Code::METRONOME
              ),
     UiAction("note-input-realtime-manual",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Real-time (foot pedal)"),
-             TranslatableString("action", "Note input: toggle ‘real-time (foot pedal)’ mode"),
+             TranslatableString("action", "Toggle note input mode: real-time (foot pedal)"),
              IconCode::Code::FOOT_PEDAL
              ),
     UiAction("note-input-timewise",
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Insert"),
-             TranslatableString("action", "Note input: toggle ‘insert’ mode (increases measure duration)"),
+             TranslatableString("action", "Toggle note input mode: insert (increases measure duration)"),
              IconCode::Code::NOTE_PLUS
              ),
     UiAction("realtime-advance",
@@ -2148,7 +2160,7 @@ const UiActionList NotationUiActions::m_actions = {
              ),
     UiAction("pad-dot",
              mu::context::UiCtxNotationOpened,
-             mu::context::CTX_NOTATION_NOT_NOTE_INPUT_STAFF_TAB,
+             mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Augmentation dot"),
              TranslatableString("action", "Toggle duration dot"),
              IconCode::Code::NOTE_DOTTED
@@ -2178,6 +2190,7 @@ const UiActionList NotationUiActions::m_actions = {
              mu::context::UiCtxNotationOpened,
              mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Rest"),
+             TranslatableString("action", "Toggle rest"),
              IconCode::Code::REST
              ),
     UiAction("next-segment-element",
@@ -2323,7 +2336,35 @@ const UiActionList NotationUiActions::m_actions = {
     UiAction("notation-popup-menu",
              mu::context::UiCtxNotationFocused,
              mu::context::CTX_NOTATION_FOCUSED
-             )
+             ),
+    UiAction("standard-bend",
+             mu::context::UiCtxNotationFocused,
+             mu::context::CTX_ANY,
+             TranslatableString("action", "Standard bend"),
+             TranslatableString("action", "Standard bend"),
+             IconCode::Code::GUITAR_BEND_REGULAR
+             ),
+    UiAction("pre-bend",
+             mu::context::UiCtxNotationFocused,
+             mu::context::CTX_ANY,
+             TranslatableString("action", "Pre-bend"),
+             TranslatableString("action", "Pre-bend"),
+             IconCode::Code::GUITAR_PRE_BEND
+             ),
+    UiAction("grace-note-bend",
+             mu::context::UiCtxNotationFocused,
+             mu::context::CTX_ANY,
+             TranslatableString("action", "Grace note bend"),
+             TranslatableString("action", "Grace note bend"),
+             IconCode::Code::GUITAR_GRACE_NOTE_BEND
+             ),
+    UiAction("slight-bend",
+             mu::context::UiCtxNotationFocused,
+             mu::context::CTX_ANY,
+             TranslatableString("action", "Slight bend"),
+             TranslatableString("action", "Slight bend"),
+             IconCode::Code::GUITAR_SLIGHT_BEND
+             ),
 };
 
 const UiActionList NotationUiActions::m_scoreConfigActions = {
@@ -2353,6 +2394,13 @@ const UiActionList NotationUiActions::m_scoreConfigActions = {
              mu::context::CTX_NOTATION_OPENED,
              TranslatableString("action", "Show page &margins"),
              TranslatableString("action", "Show/hide page margins"),
+             Checkable::Yes
+             ),
+    UiAction(SHOW_SOUND_FLAGS,
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_NOTATION_OPENED,
+             TranslatableString("action", "Show sound flags"), // todo &
+             TranslatableString("action", "Show/hide sound flags"),
              Checkable::Yes
              ),
     UiAction(SHOW_IRREGULAR_CODE,
@@ -2406,6 +2454,10 @@ const UiActionList NotationUiActions::m_engravingDebuggingActions = {
              mu::context::CTX_NOTATION_OPENED,
              TranslatableString::untranslatable("Show corrupted measures"),
              Checkable::Yes
+             ),
+    UiAction("edit-strings",
+             mu::context::UiCtxNotationOpened,
+             mu::context::CTX_NOTATION_OPENED
              )
 };
 
@@ -2421,7 +2473,7 @@ void NotationUiActions::init()
     });
 
     m_controller->currentNotationChanged().onNotify(this, [this]() {
-        actions::ActionCodeList actions;
+        ActionCodeList actions;
         for (const UiAction& action : m_scoreConfigActions) {
             actions.push_back(action.code);
         }
@@ -2434,7 +2486,8 @@ void NotationUiActions::init()
                     { ScoreConfigType::ShowUnprintableElements, SHOW_UNPRINTABLE_CODE },
                     { ScoreConfigType::ShowFrames, SHOW_FRAMES_CODE },
                     { ScoreConfigType::ShowPageMargins, SHOW_PAGEBORDERS_CODE },
-                    { ScoreConfigType::MarkIrregularMeasures, SHOW_IRREGULAR_CODE }
+                    { ScoreConfigType::MarkIrregularMeasures, SHOW_IRREGULAR_CODE },
+                    { ScoreConfigType::ShowSoundFlags, SHOW_SOUND_FLAGS },
                 };
 
                 m_actionCheckedChanged.send({ configActions.at(configType) });
@@ -2448,7 +2501,7 @@ void NotationUiActions::init()
     });
 
     engravingConfiguration()->debuggingOptionsChanged().onNotify(this, [this]() {
-        actions::ActionCodeList actions;
+        ActionCodeList actions;
         for (const UiAction& action : m_engravingDebuggingActions) {
             actions.push_back(action.code);
         }
@@ -2476,7 +2529,7 @@ bool NotationUiActions::actionEnabled(const UiAction& act) const
     return true;
 }
 
-bool NotationUiActions::isScoreConfigAction(const actions::ActionCode& code) const
+bool NotationUiActions::isScoreConfigAction(const ActionCode& code) const
 {
     for (const UiAction& a : m_scoreConfigActions) {
         if (a.code == code) {
@@ -2486,7 +2539,7 @@ bool NotationUiActions::isScoreConfigAction(const actions::ActionCode& code) con
     return false;
 }
 
-bool NotationUiActions::isScoreConfigChecked(const actions::ActionCode& code, const ScoreConfig& cfg) const
+bool NotationUiActions::isScoreConfigChecked(const ActionCode& code, const ScoreConfig& cfg) const
 {
     if (SHOW_INVISIBLE_CODE == code) {
         return cfg.isShowInvisibleElements;
@@ -2499,6 +2552,9 @@ bool NotationUiActions::isScoreConfigChecked(const actions::ActionCode& code, co
     }
     if (SHOW_PAGEBORDERS_CODE == code) {
         return cfg.isShowPageMargins;
+    }
+    if (SHOW_SOUND_FLAGS == code) {
+        return cfg.isShowSoundFlags;
     }
     if (SHOW_IRREGULAR_CODE == code) {
         return cfg.isMarkIrregularMeasures;
@@ -2538,19 +2594,19 @@ bool NotationUiActions::actionChecked(const UiAction& act) const
     return false;
 }
 
-mu::async::Channel<mu::actions::ActionCodeList> NotationUiActions::actionEnabledChanged() const
+muse::async::Channel<ActionCodeList> NotationUiActions::actionEnabledChanged() const
 {
     return m_actionEnabledChanged;
 }
 
-mu::async::Channel<mu::actions::ActionCodeList> NotationUiActions::actionCheckedChanged() const
+muse::async::Channel<ActionCodeList> NotationUiActions::actionCheckedChanged() const
 {
     return m_actionCheckedChanged;
 }
 
 DurationType NotationUiActions::actionDurationType(const ActionCode& actionCode)
 {
-    static QMap<actions::ActionCode, DurationType> durations = {
+    static QMap<ActionCode, DurationType> durations = {
         { "note-longa", DurationType::V_LONG },
         { "note-breve", DurationType::V_BREVE },
         { "pad-note-1", DurationType::V_WHOLE },
@@ -2576,7 +2632,7 @@ DurationType NotationUiActions::actionDurationType(const ActionCode& actionCode)
 
 AccidentalType NotationUiActions::actionAccidentalType(const ActionCode& actionCode)
 {
-    static QMap<actions::ActionCode, AccidentalType> accidentals = {
+    static QMap<ActionCode, AccidentalType> accidentals = {
         { "flat2", AccidentalType::FLAT2 },
         { "flat", AccidentalType::FLAT },
         { "nat", AccidentalType::NATURAL },
@@ -2594,7 +2650,7 @@ AccidentalType NotationUiActions::actionAccidentalType(const ActionCode& actionC
 
 int NotationUiActions::actionDotCount(const ActionCode& actionCode)
 {
-    static QMap<actions::ActionCode, int> dots = {
+    static QMap<ActionCode, int> dots = {
         { "pad-dot", 1 },
         { "pad-dot2", 2 },
         { "pad-dot3", 3 },
@@ -2611,7 +2667,7 @@ int NotationUiActions::actionDotCount(const ActionCode& actionCode)
 
 int NotationUiActions::actionVoice(const ActionCode& actionCode)
 {
-    QMap<actions::ActionCode, int> voices {
+    QMap<ActionCode, int> voices {
         { "voice-1", 0 },
         { "voice-2", 1 },
         { "voice-3", 2 },
@@ -2628,7 +2684,7 @@ int NotationUiActions::actionVoice(const ActionCode& actionCode)
 
 SymbolId NotationUiActions::actionArticulationSymbolId(const ActionCode& actionCode)
 {
-    static QMap<actions::ActionCode, SymbolId> articulations {
+    static QMap<ActionCode, SymbolId> articulations {
         { "add-marcato", SymbolId::articMarcatoAbove },
         { "add-sforzato", SymbolId::articAccentAbove },
         { "add-tenuto", SymbolId::articTenutoAbove },
@@ -2643,7 +2699,7 @@ SymbolId NotationUiActions::actionArticulationSymbolId(const ActionCode& actionC
     return symbolId;
 }
 
-const mu::ui::ToolConfig& NotationUiActions::defaultNoteInputBarConfig()
+const muse::ui::ToolConfig& NotationUiActions::defaultNoteInputBarConfig()
 {
     static ToolConfig config;
     if (!config.isValid()) {

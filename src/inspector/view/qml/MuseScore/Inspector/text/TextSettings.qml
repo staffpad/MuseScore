@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,8 +21,8 @@
  */
 import QtQuick 2.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.Inspector 1.0
 
 import "../common"
@@ -47,18 +47,18 @@ Column {
         height: childrenRect.height
         width: parent.width
 
-        CheckBoxPropertyView {
+        PropertyCheckBox {
             id: matchStaffSize
             anchors.left: parent.left
             anchors.right: subscriptOptionsButtonList.left
             anchors.rightMargin: 8
             anchors.verticalCenter: subscriptOptionsButtonList.verticalCenter
 
-            navigation.name: "Match staff size"
+            navigation.name: "Follow staff size"
             navigation.panel: root.navigationPanel
             navigation.row: root.navigationRowStart + 1
 
-            text: qsTrc("inspector", "Match staff size")
+            text: qsTrc("inspector", "Follow staff size")
             propertyItem: root.model ? root.model.isSizeSpatiumDependent : null
         }
 
@@ -107,12 +107,12 @@ Column {
         navigationPanel: root.navigationPanel
         navigationRowStart: subscriptOptionsButtonList.navigationRowEnd + 1
 
-        frameTypePropertyItem: root.model ? root.model.frameType : null
-        frameBorderColorPropertyItem: root.model ? root.model.frameBorderColor : null
-        frameFillColorPropertyItem: root.model ? root.model.frameFillColor : null
-        frameThicknessPropertyItem: root.model ? root.model.frameThickness : null
-        frameMarginPropertyItem: root.model ? root.model.frameMargin : null
-        frameCornerRadiusPropertyItem: root.model ? root.model.frameCornerRadius : null
+        frameType: root.model ? root.model.frameType : null
+        frameBorderColor: root.model ? root.model.frameBorderColor : null
+        frameFillColor: root.model ? root.model.frameFillColor : null
+        frameThickness: root.model ? root.model.frameThickness : null
+        frameMargin: root.model ? root.model.frameMargin : null
+        frameCornerRadius: root.model ? root.model.frameCornerRadius : null
     }
 
     SeparatorLine { anchors.margins: -12 }

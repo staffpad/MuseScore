@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,19 +21,21 @@
  */
 #include "projectmigrator.h"
 
-#include "engraving/libmscore/score.h"
-#include "engraving/libmscore/excerpt.h"
-#include "engraving/libmscore/undo.h"
+#include <QVersionNumber>
 
-#include "rw/compat/readstyle.h"
+#include "engraving/types/constants.h"
+#include "engraving/dom/score.h"
+#include "engraving/dom/excerpt.h"
+#include "engraving/dom/undo.h"
+#include "engraving/rw/compat/readstyle.h"
 
 #include "log.h"
 
-#include <QVersionNumber>
-
 using namespace mu;
 using namespace mu::project;
+using namespace mu::engraving;
 using namespace mu::engraving::compat;
+using namespace muse;
 
 static const Uri MIGRATION_DIALOG_URI("musescore://project/migration");
 static const QString LELAND_STYLE_PATH(":/engraving/styles/migration-306-style-Leland.mss");
@@ -102,7 +104,7 @@ Ret ProjectMigrator::askAboutMigration(MigrationOptions& out, const QString& app
     }
 
     QVariantMap vals = rv.val.toQVariant().toMap();
-    out.appVersion = mu::engraving::MSCVERSION;
+    out.appVersion = mu::engraving::Constants::MSC_VERSION;
     out.isApplyMigration = vals.value("isApplyMigration").toBool();
     out.isAskAgain = vals.value("isAskAgain").toBool();
     out.isApplyLeland = vals.value("isApplyLeland").toBool();
@@ -116,7 +118,7 @@ void ProjectMigrator::resetStyleSettings(mu::engraving::MasterScore* score)
     // there are a few things that need to be updated no matter which version the score is from (#10499)
     // primarily, the differences made concerning barline thickness and distance
     // these updates take place no matter whether or not the other migration options are checked
-    qreal sp = score->spatium();
+    qreal sp = score->style().spatium();
     mu::engraving::MStyle* style = &score->style();
     style->set(mu::engraving::Sid::dynamicsFontSize, 10.0);
     qreal doubleBarDistance = style->styleMM(mu::engraving::Sid::doubleBarDistance);
@@ -130,6 +132,12 @@ void ProjectMigrator::resetStyleSettings(mu::engraving::MasterScore* score)
     repeatBarlineDotSeparation -= (style->styleMM(mu::engraving::Sid::barWidth) + dotWidth) / 2;
     style->set(mu::engraving::Sid::repeatBarlineDotSeparation, repeatBarlineDotSeparation / sp);
     score->resetStyleValue(mu::engraving::Sid::measureSpacing);
+}
+
+bool ProjectMigrator::resetCrossBeams(engraving::MasterScore* score)
+{
+    score->setResetCrossBeams();
+    return true;
 }
 
 Ret ProjectMigrator::migrateProject(engraving::EngravingProjectPtr project, const MigrationOptions& opt)
@@ -158,14 +166,18 @@ Ret ProjectMigrator::migrateProject(engraving::EngravingProjectPtr project, cons
         ok = resetAllElementsPositions(score);
     }
 
-    if (ok && score->mscVersion() != mu::engraving::MSCVERSION) {
-        score->undo(new mu::engraving::ChangeMetaText(score, u"mscVersion", String::fromAscii(MSC_VERSION)));
+    if (ok && score->mscVersion() <= 206) {
+        ok = resetCrossBeams(score);
+    }
+
+    if (ok && score->mscVersion() != mu::engraving::Constants::MSC_VERSION) {
+        score->undo(new mu::engraving::ChangeMetaText(score, u"mscVersion", String::fromAscii(mu::engraving::Constants::MSC_VERSION_STR)));
     }
 
     if (ok && m_resetStyleSettings) {
         resetStyleSettings(score);
+        score->setLayoutAll();
     }
-    score->setResetDefaults(); // some defaults need to be reset on first layout
     score->endCmd();
 
     return ok ? make_ret(Ret::Code::Ok) : make_ret(Ret::Code::InternalError);

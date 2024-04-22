@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,18 +22,18 @@
 
 #include <gtest/gtest.h>
 
-#include "libmscore/chord.h"
-#include "libmscore/excerpt.h"
-#include "libmscore/factory.h"
-#include "libmscore/glissando.h"
-#include "libmscore/layoutbreak.h"
-#include "libmscore/line.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/measure.h"
-#include "libmscore/part.h"
-#include "libmscore/staff.h"
-#include "libmscore/system.h"
-#include "libmscore/undo.h"
+#include "dom/chord.h"
+#include "dom/excerpt.h"
+#include "dom/factory.h"
+#include "dom/glissando.h"
+#include "dom/layoutbreak.h"
+#include "dom/line.h"
+#include "dom/masterscore.h"
+#include "dom/measure.h"
+#include "dom/part.h"
+#include "dom/staff.h"
+#include "dom/system.h"
+#include "dom/undo.h"
 
 #include "utils/scorerw.h"
 #include "utils/scorecomp.h"
@@ -256,7 +256,7 @@ TEST_F(Engraving_SpannersTests, spanners04)
     newStaff->setDefaultClefType(ClefTypeList(ClefType::G));
 
     KeySigEvent ke;
-    ke.setKey(Key::C);
+    ke.setConcertKey(Key::C);
     newStaff->setKey(Fraction(0, 1), ke);
 
     score->undoInsertStaff(newStaff, 1, false);
@@ -569,7 +569,7 @@ TEST_F(Engraving_SpannersTests, spanners15)
     for (auto it = score->spanner().cbegin(); it != score->spanner().cend(); ++it) {
         Spanner* spanner = (*it).second;
         SLine* sl = static_cast<SLine*>(spanner);
-        sl->setProperty(Pid::COLOR, mu::draw::Color(255, 0, 0, 255));
+        sl->setProperty(Pid::COLOR, Color(255, 0, 0, 255));
         for (auto ss : sl->spannerSegments()) {
             ss->setProperty(Pid::MIN_DISTANCE, 0.0);
             ss->setPropertyFlags(Pid::MIN_DISTANCE, PropertyFlags::UNSTYLED);

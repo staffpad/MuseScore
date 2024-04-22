@@ -26,13 +26,13 @@
 
 #define PICOJSON_USE_LOCALE 1
 #define PICOJSON_ASSERT assert
-#include "thirdparty/picojson/picojson.h"
+#include "../thirdparty/picojson/picojson.h"
 
 #include "log.h"
 
-using namespace mu;
+using namespace muse;
 
-struct mu::JsonData
+struct muse::JsonData
 {
     picojson::value val;
 };
@@ -611,7 +611,7 @@ bool JsonObject::contains(const std::string& key) const
     return o.find(key) != o.cend();
 }
 
-JsonValue JsonObject::value(const std::string& key) const
+JsonValue JsonObject::value(const std::string& key, JsonValue def) const
 {
     const picojson::object& o = object_const(m_data);
     auto it = o.find(key);
@@ -620,7 +620,7 @@ JsonValue JsonObject::value(const std::string& key) const
         d->val = it->second;
         return JsonValue(d);
     }
-    return JsonValue();
+    return def;
 }
 
 JsonObject& JsonObject::set(const std::string& key, bool v)
@@ -716,6 +716,11 @@ JsonDocument::JsonDocument(std::shared_ptr<JsonData> d)
 
 JsonDocument::JsonDocument(JsonObject o)
     : m_data(o.m_data)
+{
+}
+
+JsonDocument::JsonDocument(JsonArray a)
+    : m_data(a.m_data)
 {
 }
 

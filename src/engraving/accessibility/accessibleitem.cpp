@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,15 +22,15 @@
 #include "accessibleitem.h"
 
 #include "accessibleroot.h"
-#include "../libmscore/score.h"
-#include "../libmscore/measure.h"
+#include "../dom/score.h"
+#include "../dom/measure.h"
 
 #include "translation.h"
 #include "log.h"
 
 using namespace mu;
 using namespace mu::engraving;
-using namespace mu::accessibility;
+using namespace muse::accessibility;
 using namespace mu::engraving;
 
 bool AccessibleItem::enabled = true;
@@ -84,6 +84,10 @@ AccessibleRoot* AccessibleItem::accessibleRoot() const
 {
     if (!m_element) {
         return nullptr;
+    }
+
+    if (m_element->isType(ElementType::ROOT_ITEM)) {
+        return dynamic_cast<AccessibleRoot*>(m_element->accessible().get());
     }
 
     Score* score = m_element->score();
@@ -194,9 +198,9 @@ QString AccessibleItem::accessibleName() const
                    .arg(!commandInfo.isEmpty() ? (commandInfo + "; ") : "")
                    .arg(!staffInfo.isEmpty() ? (staffInfo + "; ") : "")
                    .arg(m_element->screenReaderInfo().toQString())
-                   .arg(m_element->visible() ? "" : " " + qtrc("engraving", "invisible"))
+                   .arg(m_element->visible() ? "" : " " + muse::qtrc("engraving", "invisible"))
                    .arg(!barsAndBeats.isEmpty() ? ("; " + barsAndBeats) : "")
-                   .arg(root->isRangeSelection() ? ("; " + qtrc("engraving", "selected")) : "");
+                   .arg(root->isRangeSelection() ? ("; " + muse::qtrc("engraving", "selected")) : "");
 
     return readable(name);
 }
@@ -276,7 +280,7 @@ QString AccessibleItem::accessibleText(int startOffset, int endOffset) const
 
     TextCursor* textCursor = new TextCursor(toTextBase(m_element));
     auto startCoord = textCursor->positionToLocalCoord(startOffset);
-    if (startCoord.first == mu::nidx || startCoord.second == mu::nidx) {
+    if (startCoord.first == muse::nidx || startCoord.second == muse::nidx) {
         return QString();
     }
 
@@ -316,7 +320,7 @@ QString AccessibleItem::accessibleTextAtOffset(int offset, TextBoundaryType boun
 
     TextCursor* textCursor = new TextCursor(toTextBase(m_element));
     auto startCoord = textCursor->positionToLocalCoord(offset);
-    if (startCoord.first == mu::nidx || startCoord.second == mu::nidx) {
+    if (startCoord.first == muse::nidx || startCoord.second == muse::nidx) {
         return QString();
     }
 
@@ -366,6 +370,12 @@ int AccessibleItem::accessibleCharacterCount() const
 
     TextBase* text = toTextBase(m_element);
     return static_cast<int>(text->plainText().size());
+}
+
+int AccessibleItem::accessibleRowIndex() const
+{
+    NOT_IMPLEMENTED;
+    return 0;
 }
 
 bool AccessibleItem::accessibleState(State st) const
@@ -419,12 +429,12 @@ bool AccessibleItem::accessibleIgnored() const
     return false;
 }
 
-mu::async::Channel<IAccessible::Property, mu::Val> AccessibleItem::accessiblePropertyChanged() const
+muse::async::Channel<IAccessible::Property, muse::Val> AccessibleItem::accessiblePropertyChanged() const
 {
     return m_accessiblePropertyChanged;
 }
 
-mu::async::Channel<IAccessible::State, bool> AccessibleItem::accessibleStateChanged() const
+muse::async::Channel<IAccessible::State, bool> AccessibleItem::accessibleStateChanged() const
 {
     return m_accessibleStateChanged;
 }

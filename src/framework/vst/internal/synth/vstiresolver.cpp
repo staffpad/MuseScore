@@ -24,16 +24,16 @@
 
 #include "log.h"
 
-using namespace mu::vst;
-using namespace mu::audio;
-using namespace mu::audio::synth;
+using namespace muse::vst;
+using namespace muse::audio;
+using namespace muse::audio::synth;
 
-ISynthesizerPtr VstiResolver::resolveSynth(const audio::TrackId trackId, const audio::AudioInputParams& params) const
+ISynthesizerPtr VstiResolver::resolveSynth(const muse::audio::TrackId trackId, const muse::audio::AudioInputParams& params) const
 {
     return createSynth(trackId, params);
 }
 
-bool VstiResolver::hasCompatibleResources(const audio::PlaybackSetupData& /*setup*/) const
+bool VstiResolver::hasCompatibleResources(const muse::audio::PlaybackSetupData& /*setup*/) const
 {
     return true;
 }
@@ -43,23 +43,26 @@ void VstiResolver::refresh()
     pluginModulesRepo()->refresh();
 }
 
-VstSynthPtr VstiResolver::createSynth(const audio::TrackId trackId, const audio::AudioInputParams& params) const
+VstSynthPtr VstiResolver::createSynth(const muse::audio::TrackId trackId, const muse::audio::AudioInputParams& params) const
 {
     if (!pluginModulesRepo()->exists(params.resourceMeta.id)) {
         return nullptr;
     }
 
-    VstPluginPtr pluginPtr = std::make_shared<VstPlugin>(params.resourceMeta.id);
-    pluginsRegister()->registerInstrPlugin(trackId, pluginPtr);
+    auto synth = std::make_shared<VstSynthesiser>(trackId, params);
+    synth->init();
 
-    pluginPtr->load();
-
-    return std::make_shared<VstSynthesiser>(std::move(pluginPtr), params);
+    return synth;
 }
 
 AudioResourceMetaList VstiResolver::resolveResources() const
 {
     return pluginModulesRepo()->instrumentModulesMeta();
+}
+
+SoundPresetList VstiResolver::resolveSoundPresets(const muse::audio::AudioResourceMeta&) const
+{
+    return SoundPresetList();
 }
 
 void VstiResolver::clearSources()

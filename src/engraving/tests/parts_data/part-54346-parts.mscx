@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<museScore version="4.00">
+<museScore version="4.40">
   <Score>
-    <LayerTag id="0" tag="default"></LayerTag>
-    <currentLayer>0</currentLayer>
     <Division>480</Division>
     <Style>
       <concertPitch>1</concertPitch>
@@ -18,7 +16,6 @@
     <metaTag name="lyricist"></metaTag>
     <metaTag name="movementNumber"></metaTag>
     <metaTag name="movementTitle"></metaTag>
-    <metaTag name="poet"></metaTag>
     <metaTag name="source"></metaTag>
     <metaTag name="translator"></metaTag>
     <metaTag name="workNumber"></metaTag>
@@ -142,6 +139,10 @@
       <Measure len="1/4">
         <irregular>1</irregular>
         <voice>
+          <KeySig>
+            <linkedMain/>
+            <concertKey>0</concertKey>
+            </KeySig>
           <TimeSig>
             <linkedMain/>
             <sigN>4</sigN>
@@ -270,8 +271,7 @@
         </Measure>
       </Staff>
     <Score>
-      <LayerTag id="0" tag="default"></LayerTag>
-      <currentLayer>0</currentLayer>
+      <name>B♭ Trumpet</name>
       <Division>480</Division>
       <Style>
         <Spatium>1.74978</Spatium>
@@ -356,7 +356,10 @@
           <irregular>1</irregular>
           <voice>
             <KeySig>
-              <accidental>2</accidental>
+              <linked>
+                </linked>
+              <concertKey>0</concertKey>
+              <actualKey>2</actualKey>
               </KeySig>
             <TimeSig>
               <linked>
@@ -443,11 +446,9 @@
             </voice>
           </Measure>
         </Staff>
-      <name>B♭ Trumpet</name>
       </Score>
     <Score>
-      <LayerTag id="0" tag="default"></LayerTag>
-      <currentLayer>0</currentLayer>
+      <name>C Trumpet</name>
       <Division>480</Division>
       <Style>
         <Spatium>1.74978</Spatium>
@@ -610,7 +611,6 @@
             </voice>
           </Measure>
         </Staff>
-      <name>C Trumpet</name>
       </Score>
     </Score>
   </museScore>

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2022 MuseScore BVBA and others
+ * Copyright (C) 2022 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,27 +22,27 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.NotationScene 1.0
+
+import MuseScore.Playback 1.0
 
 Item {
     id: container
 
-    width: 0
+    property var popup: loader.item
+    property bool isPopupOpened: Boolean(popup) && popup.isOpened
 
-    height: 0
 
-    anchors.fill: parent
-    property var openedPopup: null
-    property bool isPopupOpened: Boolean(openedPopup) && openedPopup.isOpened
+    property NavigationSection notationViewNavigationSection: null
+    property int navigationOrderStart: 0
+    property int navigationOrderEnd: Boolean(loader.item)
+                                        ? loader.item.navigationOrderEnd
+                                        : navigationOrderStart
 
     signal opened()
     signal closed()
-
-    property NavigationSection navigationSection: null
-    property int navigationOrderStart: 0
-    property int navigationOrderEnd: Boolean(loader.item) ? loader.item.navigationOrderEnd : 0
 
     QtObject {
         id: prv
@@ -50,54 +50,79 @@ Item {
         function componentByType(type) {
             switch (type) {
             case Notation.TYPE_HARP_DIAGRAM: return harpPedalComp
+            case Notation.TYPE_CAPO: return capoComp
+            case Notation.TYPE_STRING_TUNINGS: return stringTuningsComp
+            case Notation.TYPE_SOUND_FLAG: return soundFlagComp
             }
 
             return null
         }
 
-        function openPopup(popup) {
-            if (Boolean(popup)) {
-                openedPopup = popup
-                container.opened()
-                popup.open()
-            }
+        function loadPopup() {
+            loader.active = true
         }
 
-        function closeOpenedPopup() {
-            if (isPopupOpened) {
-                openedPopup.close()
-                resetOpenedPopup()
-            }
+        function unloadPopup() {
+            loader.sourceComponent = undefined
+            loader.active = false
+
+            Qt.callLater(container.closed)
         }
 
-        function resetOpenedPopup() {
-            container.closed(false)
-            openedPopup = null
+        function updateContainerPosition(elementRect) {
+            container.x = elementRect.x
+            container.y = elementRect.y
+            container.height = elementRect.height
+            container.width = elementRect.width
+
+            loader.item.updatePosition()
         }
     }
 
-    function show(elementType, viewPos, size) {
-        if (isPopupOpened) {
-            prv.closeOpenedPopup()
-            return
-        }
-        opened()
-        var popup = loader.createPopup(prv.componentByType(elementType), viewPos, size)
-        prv.openPopup(popup)
+    function show(elementType, elementRect) {
+        prv.unloadPopup()
+        prv.loadPopup()
+
+        var popup = loader.createPopup(prv.componentByType(elementType), elementRect)
+        popup.open()
+
+        popup.opened.connect(function() {
+            container.opened()
+        })
+
+        popup.closed.connect(function() {
+            prv.unloadPopup()
+        })
     }
 
     function close() {
-        closed()
-        prv.closeOpenedPopup()
+        if (Boolean(container.popup) && container.popup.isOpened) {
+            container.popup.close()
+        }
     }
 
     Loader {
         id: loader
 
-        function createPopup(comp, pos, size) {
+        anchors.fill: parent
+        active: false
+
+        function createPopup(comp, elementRect) {
             loader.sourceComponent = comp
             loader.item.parent = container
-            loader.item.updatePosition(pos, size)
+
+            prv.updateContainerPosition(elementRect)
+            loader.item.elementRectChanged.connect(function(elementRect) {
+                prv.updateContainerPosition(elementRect)
+            })
+
+            //! NOTE: All navigation panels in popups must be in the notation view section.
+            //        This is necessary so that popups do not activate navigation in the new section,
+            //        but at the same time, when clicking on the component (text input), the focus in popup's window should be activated
+            loader.item.navigationSection = null
+
+            loader.item.notationViewNavigationSection = container.notationViewNavigationSection
+            loader.item.navigationOrderStart = container.navigationOrderStart
 
             return loader.item
         }
@@ -106,13 +131,24 @@ Item {
     Component {
         id: harpPedalComp
         HarpPedalPopup {
-            navigationSection: container.navigationSection
-            navigationOrderStart: container.navigationOrderStart
+        }
+    }
 
-            onClosed: {
-                prv.resetOpenedPopup()
-                loader.sourceComponent = null
-            }
+    Component {
+        id: capoComp
+        CapoPopup {
+        }
+    }
+
+    Component {
+        id: stringTuningsComp
+        StringTuningsPopup {
+        }
+    }
+
+    Component {
+        id: soundFlagComp
+        SoundFlagPopup {
         }
     }
 }

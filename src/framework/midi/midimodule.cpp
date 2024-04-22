@@ -32,9 +32,9 @@
 
 #include "log.h"
 
-using namespace mu::midi;
+using namespace muse::midi;
 
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
 #include "internal/platform/lin/alsamidioutport.h"
 #include "internal/platform/lin/alsamidiinport.h"
 #elif defined(Q_OS_WIN)
@@ -57,7 +57,7 @@ void MidiModule::registerExports()
 {
     m_configuration = std::make_shared<MidiConfiguration>();
 
-    #ifdef Q_OS_LINUX
+    #if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
     m_midiOutPort = std::make_shared<AlsaMidiOutPort>();
     m_midiInPort = std::make_shared<AlsaMidiInPort>();
     #elif defined(Q_OS_WIN)
@@ -78,14 +78,14 @@ void MidiModule::registerExports()
 
 void MidiModule::registerUiTypes()
 {
-    qmlRegisterType<MidiPortDevModel>("MuseScore.Midi", 1, 0, "MidiPortDevModel");
+    qmlRegisterType<MidiPortDevModel>("Muse.Midi", 1, 0, "MidiPortDevModel");
 }
 
-void MidiModule::onInit(const framework::IApplication::RunMode& mode)
+void MidiModule::onInit(const IApplication::RunMode& mode)
 {
     m_configuration->init();
 
-    if (mode == framework::IApplication::RunMode::GuiApp) {
+    if (mode == IApplication::RunMode::GuiApp) {
         m_midiOutPort->init();
         m_midiInPort->init();
     }

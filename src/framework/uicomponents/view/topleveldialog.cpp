@@ -26,7 +26,7 @@
 #include <QKeyEvent>
 #include <QWindow>
 
-using namespace mu::uicomponents;
+using namespace muse::uicomponents;
 
 TopLevelDialog::TopLevelDialog(QWidget* parent)
     : QDialog(parent)
@@ -60,10 +60,13 @@ TopLevelDialog::TopLevelDialog(QWidget* parent)
 #endif
 }
 
+#ifdef MU_QT5_COMPAT
 TopLevelDialog::TopLevelDialog(const TopLevelDialog& dialog)
     : QDialog(dialog.parentWidget())
 {
 }
+
+#endif
 
 bool TopLevelDialog::event(QEvent* e)
 {

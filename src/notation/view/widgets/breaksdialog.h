@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -41,7 +41,9 @@ class BreaksDialog : public QDialog, public Ui::BreaksDialog
 
 public:
     BreaksDialog(QWidget* parent = nullptr);
+#ifdef MU_QT5_COMPAT
     BreaksDialog(const BreaksDialog& dialog);
+#endif
 
 private slots:
     void accept() override;
@@ -52,7 +54,5 @@ private:
     bool _allSelected = false;
 };
 }
-
-Q_DECLARE_METATYPE(mu::notation::BreaksDialog)
 
 #endif // MU_NOTATION_BREAKSDIALOG_H

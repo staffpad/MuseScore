@@ -34,20 +34,25 @@
 #include "accessibleobject.h"
 #include "accessiblestub.h"
 #include "accessibleiteminterface.h"
-#include "async/async.h"
 
 #include "log.h"
 
-#ifdef MUE_ENABLE_ACCESSIBILITY_TRACE
+#ifdef MUSE_MODULE_ACCESSIBILITY_TRACE
 #define MYLOG() LOGI()
 #else
 #define MYLOG() LOGN()
 #endif
 
-using namespace mu::accessibility;
+using namespace muse;
+using namespace muse::modularity;
+using namespace muse::accessibility;
 
 AccessibleObject* s_rootObject = nullptr;
 std::shared_ptr<IQAccessibleInterfaceRegister> accessibleInterfaceRegister = nullptr;
+
+static void updateHandlerNoop(QAccessibleEvent*)
+{
+}
 
 AccessibilityController::~AccessibilityController()
 {
@@ -62,7 +67,7 @@ QAccessibleInterface* AccessibilityController::accessibleInterface(QObject*)
 static QAccessibleInterface* muAccessibleFactory(const QString& classname, QObject* object)
 {
     if (!accessibleInterfaceRegister) {
-        accessibleInterfaceRegister = mu::modularity::ioc()->resolve<IQAccessibleInterfaceRegister>("accessibility");
+        accessibleInterfaceRegister = ioc()->resolve<IQAccessibleInterfaceRegister>("accessibility");
     }
 
     auto interfaceGetter = accessibleInterfaceRegister->interfaceGetter(classname);
@@ -136,6 +141,10 @@ void AccessibilityController::unreg(IAccessible* aitem)
         m_lastFocused = nullptr;
     }
 
+    if (m_itemForRestoreFocus == item.item) {
+        m_itemForRestoreFocus = nullptr;
+    }
+
     if (m_children.contains(aitem)) {
         m_children.removeOne(aitem);
     }
@@ -165,6 +174,15 @@ QString AccessibilityController::currentPanelAccessibleName() const
 {
     const IAccessible* focusedItemPanel = panel(m_lastFocused);
     return focusedItemPanel ? focusedItemPanel->accessibleName() : "";
+}
+
+void AccessibilityController::setIgnoreQtAccessibilityEvents(bool ignore)
+{
+    if (ignore) {
+        QAccessible::installUpdateHandler(updateHandlerNoop);
+    } else {
+        QAccessible::installUpdateHandler(nullptr);
+    }
 }
 
 void AccessibilityController::propertyChanged(IAccessible* item, IAccessible::Property property, const Val& value)
@@ -270,8 +288,8 @@ void AccessibilityController::stateChanged(IAccessible* aitem, State state, bool
             cancelPreviousReading();
             savePanelAccessibleName(m_lastFocused, item.item);
 
-            QAccessibleEvent ev(item.object, QAccessible::Focus);
-            sendEvent(&ev);
+            QAccessibleEvent ev2(item.object, QAccessible::Focus);
+            sendEvent(&ev2);
             m_lastFocused = item.item;
         }
     }
@@ -279,7 +297,7 @@ void AccessibilityController::stateChanged(IAccessible* aitem, State state, bool
 
 void AccessibilityController::sendEvent(QAccessibleEvent* ev)
 {
-#ifdef MUE_ENABLE_ACCESSIBILITY_TRACE
+#ifdef MUSE_MODULE_ACCESSIBILITY_TRACE
     AccessibleObject* obj = qobject_cast<AccessibleObject*>(ev->object());
     MYLOG() << "object: " << obj->item()->accessibleName() << ", event: " << int(ev->type());
 #endif
@@ -320,6 +338,7 @@ void AccessibilityController::savePanelAccessibleName(const IAccessible* oldItem
 }
 
 #ifndef Q_OS_MAC
+
 void AccessibilityController::triggerRevoicingOfChangedName(IAccessible* item)
 {
     if (!configuration()->active()) {
@@ -348,12 +367,15 @@ void AccessibilityController::triggerRevoicingOfChangedName(IAccessible* item)
     m_itemForRestoreFocus = item;
 
     //! NOTE: Restore the focused element after some delay(this value was found experimentally)
-    QTimer::singleShot(200, [=]() {
+    QTimer::singleShot(100, [=]() {
         if (m_lastFocused) {
             m_lastFocused->setState(State::Focused, false);
         }
 
-        m_itemForRestoreFocus->setState(State::Focused, true);
+        if (m_itemForRestoreFocus) {
+            m_itemForRestoreFocus->setState(State::Focused, true);
+        }
+
         m_ignorePanelChangingVoice = false;
     });
 }
@@ -405,7 +427,7 @@ IAccessible* AccessibilityController::findSiblingItem(const IAccessible* item, c
     return nullptr;
 }
 
-mu::async::Channel<QAccessibleEvent*> AccessibilityController::eventSent() const
+async::Channel<QAccessibleEvent*> AccessibilityController::eventSent() const
 {
     return m_eventSent;
 }
@@ -643,13 +665,18 @@ int AccessibilityController::accessibleCharacterCount() const
     return 0;
 }
 
-mu::async::Channel<IAccessible::Property, mu::Val> AccessibilityController::accessiblePropertyChanged() const
+int AccessibilityController::accessibleRowIndex() const
+{
+    return 0;
+}
+
+async::Channel<IAccessible::Property, Val> AccessibilityController::accessiblePropertyChanged() const
 {
     static async::Channel<IAccessible::Property, Val> ch;
     return ch;
 }
 
-mu::async::Channel<IAccessible::State, bool> AccessibilityController::accessibleStateChanged() const
+async::Channel<IAccessible::State, bool> AccessibilityController::accessibleStateChanged() const
 {
     static async::Channel<IAccessible::State, bool> ch;
     return ch;

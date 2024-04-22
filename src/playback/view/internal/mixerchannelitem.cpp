@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -27,7 +27,8 @@
 #include "log.h"
 
 using namespace mu::playback;
-using namespace mu::audio;
+using namespace muse;
+using namespace muse::audio;
 
 static constexpr volume_dbfs_t MAX_DISPLAYED_DBFS = 0.f; // 100%
 static constexpr volume_dbfs_t MIN_DISPLAYED_DBFS = -60.f; // 0%
@@ -36,8 +37,8 @@ static constexpr float BALANCE_SCALING_FACTOR = 100.f;
 
 static constexpr int OUTPUT_RESOURCE_COUNT_LIMIT = 4;
 
-static const std::string VSTFX_EDITOR_URI("musescore://vstfx/editor?sync=false&modal=false&floating=true");
-static const std::string VSTI_EDITOR_URI("musescore://vsti/editor?sync=false&modal=false&floating=true");
+static const std::string VSTFX_EDITOR_URI("muse://vstfx/editor?sync=false&modal=false&floating=true");
+static const std::string VSTI_EDITOR_URI("muse://vsti/editor?sync=false&modal=false&floating=true");
 
 static const std::string TRACK_ID_KEY("trackId");
 static const std::string RESOURCE_ID_KEY("resourceId");
@@ -58,7 +59,7 @@ MixerChannelItem::MixerChannelItem(QObject* parent, Type type, bool outputOnly, 
     m_panel = new ui::NavigationPanel(this);
     m_panel->setDirection(ui::NavigationPanel::Vertical);
     m_panel->setName("MixerChannelPanel " + QString::number(m_trackId));
-    m_panel->accessible()->setName(qtrc("playback", "Mixer channel panel %1").arg(m_trackId));
+    m_panel->accessible()->setName(muse::qtrc("playback", "Mixer channel panel %1").arg(m_trackId));
     m_panel->componentComplete();
 
     connect(this, &MixerChannelItem::mutedChanged, this, [this]() {
@@ -118,22 +119,22 @@ int MixerChannelItem::balance() const
     return m_outParams.balance * BALANCE_SCALING_FACTOR;
 }
 
+bool MixerChannelItem::solo() const
+{
+    return m_outParams.solo;
+}
+
 bool MixerChannelItem::muted() const
 {
     return m_outParams.muted;
 }
 
-bool MixerChannelItem::mutedManually() const
+bool MixerChannelItem::forceMute() const
 {
-    return m_soloMuteState.mute;
+    return m_outParams.forceMute;
 }
 
-bool MixerChannelItem::solo() const
-{
-    return m_soloMuteState.solo;
-}
-
-mu::ui::NavigationPanel* MixerChannelItem::panel() const
+muse::ui::NavigationPanel* MixerChannelItem::panel() const
 {
     return m_panel;
 }
@@ -143,7 +144,7 @@ void MixerChannelItem::setPanelOrder(int panelOrder)
     m_panel->setOrder(panelOrder);
 }
 
-void MixerChannelItem::setPanelSection(mu::ui::INavigationSection* section)
+void MixerChannelItem::setPanelSection(muse::ui::INavigationSection* section)
 {
     m_panel->setSection(section);
 }
@@ -216,7 +217,7 @@ void MixerChannelItem::removeBlankSlotsFromEnd(size_t count)
     }
 }
 
-void MixerChannelItem::loadInputParams(AudioInputParams&& newParams)
+void MixerChannelItem::loadInputParams(const AudioInputParams& newParams)
 {
     if (m_outputOnly) {
         return;
@@ -230,21 +231,31 @@ void MixerChannelItem::loadInputParams(AudioInputParams&& newParams)
     m_inputResourceItem->setParams(newParams);
 }
 
-void MixerChannelItem::loadOutputParams(AudioOutputParams&& newParams)
+void MixerChannelItem::loadOutputParams(const AudioOutputParams& newParams)
 {
-    if (m_outParams.volume != newParams.volume) {
+    if (!muse::RealIsEqual(m_outParams.volume, newParams.volume)) {
         m_outParams.volume = newParams.volume;
         emit volumeLevelChanged(newParams.volume);
     }
 
-    if (m_outParams.balance != newParams.balance) {
+    if (!muse::RealIsEqual(m_outParams.balance, newParams.balance)) {
         m_outParams.balance = newParams.balance;
         emit balanceChanged(newParams.balance);
+    }
+
+    if (m_outParams.solo != newParams.solo) {
+        m_outParams.solo = newParams.solo;
+        emit soloChanged();
     }
 
     if (m_outParams.muted != newParams.muted) {
         m_outParams.muted = newParams.muted;
         emit mutedChanged();
+    }
+
+    if (m_outParams.forceMute != newParams.forceMute) {
+        m_outParams.forceMute = newParams.forceMute;
+        emit forceMuteChanged();
     }
 
     loadOutputResourceItems(newParams.fxChain);
@@ -318,27 +329,37 @@ void MixerChannelItem::loadAuxSendItems(const AuxSendsParams& auxSends)
         return;
     }
 
-    qDeleteAll(m_auxSendItems);
-    m_auxSendItems.clear();
+    QMap<aux_channel_idx_t, AuxSendItem*> newItems;
 
     for (aux_channel_idx_t i = 0; i < auxSends.size(); ++i) {
-        if (configuration()->isAuxSendVisible(i)) {
-            m_auxSendItems.insert(i, buildAuxSendItem(i, m_outParams.auxSends[i]));
+        if (!configuration()->isAuxSendVisible(i)) {
+            continue;
+        }
+
+        auto it = m_auxSendItems.find(i);
+
+        if (it != m_auxSendItems.end()) {
+            newItems.insert(it.key(), it.value());
+        } else {
+            newItems.insert(i, buildAuxSendItem(i, auxSends[i]));
         }
     }
 
-    emit auxSendItemListChanged();
+    if (m_auxSendItems != newItems) {
+        m_auxSendItems = std::move(newItems);
+        emit auxSendItemListChanged();
+    }
 }
 
-void MixerChannelItem::loadSoloMuteState(project::IProjectAudioSettings::SoloMuteState&& newState)
+void MixerChannelItem::loadSoloMuteState(const notation::INotationSoloMuteState::SoloMuteState& newState)
 {
-    if (m_soloMuteState.mute != newState.mute) {
-        m_soloMuteState.mute = newState.mute;
+    if (m_outParams.muted != newState.mute) {
+        m_outParams.muted = newState.mute;
         emit mutedChanged();
     }
 
-    if (m_soloMuteState.solo != newState.solo) {
-        m_soloMuteState.solo = newState.solo;
+    if (m_outParams.solo != newState.solo) {
+        m_outParams.solo = newState.solo;
         emit soloChanged();
     }
 }
@@ -417,26 +438,50 @@ void MixerChannelItem::setBalance(int balance)
     emit outputParamsChanged(m_outParams);
 }
 
-void MixerChannelItem::setMutedManually(bool isMuted)
-{
-    if (m_soloMuteState.mute == isMuted) {
-        return;
-    }
-
-    m_soloMuteState.mute = isMuted;
-    emit soloMuteStateChanged(m_soloMuteState);
-    emit mutedChanged();
-}
-
 void MixerChannelItem::setSolo(bool solo)
 {
-    if (m_soloMuteState.solo == solo) {
+    if (m_outParams.solo == solo) {
         return;
     }
 
-    m_soloMuteState.solo = solo;
-    emit soloMuteStateChanged(m_soloMuteState);
+    m_outParams.solo = solo;
+
+    notation::INotationSoloMuteState::SoloMuteState soloMuteState;
+    soloMuteState.mute = m_outParams.muted;
+    soloMuteState.solo = m_outParams.solo;
+
+    emit soloMuteStateChanged(soloMuteState);
     emit soloChanged();
+
+    if (solo && m_outParams.muted) {
+        setMuted(false);
+    }
+}
+
+void MixerChannelItem::setMuted(bool mute)
+{
+    if (m_outParams.muted == mute) {
+        return;
+    }
+
+    m_outParams.muted = mute;
+
+    notation::INotationSoloMuteState::SoloMuteState soloMuteState;
+    soloMuteState.mute = m_outParams.muted;
+    soloMuteState.solo = m_outParams.solo;
+
+    emit soloMuteStateChanged(soloMuteState);
+    emit mutedChanged();
+
+    if (mute && m_outParams.solo) {
+        setSolo(false);
+    }
+}
+
+mu::notation::INotationPlaybackPtr MixerChannelItem::notationPlayback() const
+{
+    project::INotationProjectPtr project = context()->currentProject();
+    return project ? project->masterNotation()->playback() : nullptr;
 }
 
 void MixerChannelItem::setAudioChannelVolumePressure(const audio::audioch_t chNum, const float newValue)
@@ -458,10 +503,41 @@ InputResourceItem* MixerChannelItem::buildInputResourceItem()
 {
     InputResourceItem* newItem = new InputResourceItem(this);
 
-    connect(newItem, &InputResourceItem::inputParamsChanged, this, [this, newItem]() {
-        m_inputParams = newItem->params();
+    connect(newItem, &InputResourceItem::inputParamsChangeRequested, this, [this, newItem](const AudioResourceMeta& newMeta) {
+        if (askAboutChangingSound()) {
+            newItem->setParamsRecourceMeta(newMeta);
+        }
+    });
 
+    connect(newItem, &InputResourceItem::inputParamsChanged, this, [this, newItem]() {
+        bool audioSourceChanged = m_inputParams.type() != newItem->params().type();
+
+        m_inputParams = newItem->params();
         emit inputParamsChanged(m_inputParams);
+
+        if (!audioSourceChanged) {
+            return;
+        }
+
+        bool auxParamsChanged = false;
+        for (aux_channel_idx_t idx = 0; idx < static_cast<size_t>(m_outParams.auxSends.size()); ++idx) {
+            const muse::String& soundId = m_inputParams.resourceMeta.attributeVal(PLAYBACK_SETUP_DATA_ATTRIBUTE);
+            gain_t newAudioSignalAmount = configuration()->defaultAuxSendValue(idx, m_inputParams.type(), soundId);
+
+            auto it = m_auxSendItems.find(idx);
+            if (it == m_auxSendItems.end()) {
+                if (!muse::RealIsEqual(m_outParams.auxSends.at(idx).signalAmount, newAudioSignalAmount)) {
+                    m_outParams.auxSends.at(idx).signalAmount = newAudioSignalAmount;
+                    auxParamsChanged = true;
+                }
+            } else {
+                it.value()->setAudioSignalPercentage(newAudioSignalAmount * 100.f);
+            }
+        }
+
+        if (auxParamsChanged) {
+            emit outputParamsChanged(m_outParams);
+        }
     });
 
     connect(newItem, &InputResourceItem::isBlankChanged, this, &MixerChannelItem::inputResourceItemChanged);
@@ -533,7 +609,7 @@ AuxSendItem* MixerChannelItem::buildAuxSendItem(aux_channel_idx_t index, const A
     newItem->blockSignals(true);
     newItem->setIsActive(params.active);
     newItem->setAudioSignalPercentage(params.signalAmount * 100.f);
-    newItem->setTitle(mu::qtrc("playback", "Aux %1").arg(index + 1));
+    newItem->setTitle(muse::qtrc("playback", "Aux %1").arg(index + 1));
     newItem->blockSignals(false);
 
     connect(newItem, &AuxSendItem::isActiveChanged, this, [this, index](bool active) {
@@ -575,6 +651,39 @@ void MixerChannelItem::closeEditor(AbstractAudioResourceItem* item)
 {
     interactive()->close(item->editorUri());
     item->setEditorUri(UriQuery());
+}
+
+bool MixerChannelItem::askAboutChangingSound()
+{
+    if (!configuration()->needToShowChangeSoundWarning()) {
+        return true;
+    }
+
+    if (!notationPlayback()->hasSoundFlags({ m_instrumentTrackId })) {
+        return true;
+    }
+
+    int changeBtn = int(IInteractive::Button::Apply);
+    IInteractive::Options options = IInteractive::Option::WithIcon | IInteractive::Option::WithDontShowAgainCheckBox;
+    IInteractive::ButtonDatas buttons = {
+        interactive()->buttonData(IInteractive::Button::Cancel),
+        IInteractive::ButtonData(changeBtn, muse::trc("playback", "Change sound"), true /*accent*/)
+    };
+
+    IInteractive::Result result = interactive()->warning(muse::trc("playback", "Are you sure you want to change this sound?"),
+                                                         muse::trc("playback",
+                                                                   "Sound flags on this instrument may be reset, but staff text will remain. This action can’t be undone."),
+                                                         buttons, changeBtn, options);
+
+    if (result.button() == changeBtn) {
+        if (!result.showAgain()) {
+            configuration()->setNeedToShowChangeSoundWarning(false);
+        }
+
+        return true;
+    } else {
+        return false;
+    }
 }
 
 AudioFxChainOrder MixerChannelItem::resolveNewBlankOutputResourceItemOrder() const

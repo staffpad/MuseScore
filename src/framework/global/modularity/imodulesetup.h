@@ -5,7 +5,7 @@
  * MuseScore
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2024 MuseScore BVBA and others
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -24,9 +24,10 @@
 #define MU_MODULARITY_IMODULESETUP_H
 
 #include <string>
+
 #include "../iapplication.h"
 
-namespace mu::modularity {
+namespace muse::modularity {
 class IModuleSetup
 {
 public:
@@ -40,10 +41,11 @@ public:
 
     virtual void registerResources() {}
     virtual void registerUiTypes() {}
+    virtual void registerApi() {}
 
-    virtual void onPreInit(const framework::IApplication::RunMode& mode) { (void)mode; }
-    virtual void onInit(const framework::IApplication::RunMode& mode) { (void)mode; }
-    virtual void onAllInited(const framework::IApplication::RunMode& mode) { (void)mode; }
+    virtual void onPreInit(const IApplication::RunMode& mode) { (void)mode; }
+    virtual void onInit(const IApplication::RunMode& mode) { (void)mode; }
+    virtual void onAllInited(const IApplication::RunMode& mode) { (void)mode; }
     virtual void onDelayedInit() {}
     virtual void onDeinit() {}
     virtual void onDestroy() {}

@@ -19,36 +19,53 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_FRAMEWORK_GLOBALMODULE_H
-#define MU_FRAMEWORK_GLOBALMODULE_H
+#ifndef MUSE_GLOBAL_GLOBALMODULE_H
+#define MUSE_GLOBAL_GLOBALMODULE_H
 
 #include <memory>
+#include <optional>
+
+#include "logger.h"
 
 #include "modularity/imodulesetup.h"
 #include "modularity/ioc.h"
 #include "io/ifilesystem.h"
 
-namespace mu::framework {
+namespace muse {
+class SystemInfo;
 class Invoker;
 class GlobalConfiguration;
+class Application;
 class GlobalModule : public modularity::IModuleSetup
 {
-    INJECT(io::IFileSystem, fileSystem)
+    Inject<io::IFileSystem> fileSystem;
+
 public:
+
+    GlobalModule();
 
     std::string moduleName() const override;
     void registerExports() override;
+    void registerApi() override;
     void onPreInit(const IApplication::RunMode& mode) override;
     void onInit(const IApplication::RunMode& mode) override;
     void onDeinit() override;
 
     static void invokeQueuedCalls();
 
+    void setLoggerLevel(const muse::logger::Level& level);
+
+    std::shared_ptr<Application> app() const;
+
 private:
+    std::shared_ptr<Application> m_application;
     std::shared_ptr<GlobalConfiguration> m_configuration;
+    std::shared_ptr<SystemInfo> m_systemInfo;
+
+    std::optional<muse::logger::Level> m_loggerLevel;
 
     static std::shared_ptr<Invoker> s_asyncInvoker;
 };
 }
 
-#endif // MU_FRAMEWORK_GLOBALMODULE_H
+#endif // MUSE_GLOBAL_GLOBALMODULE_H

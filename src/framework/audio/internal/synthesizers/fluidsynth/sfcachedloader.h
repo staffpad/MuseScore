@@ -20,24 +20,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_AUDIO_SFCACHEDLOADER_H
-#define MU_AUDIO_SFCACHEDLOADER_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef MUSE_AUDIO_SFCACHEDLOADER_H
+#define MUSE_AUDIO_SFCACHEDLOADER_H
 
 #include <cstdio>
-#include <vector>
-#include <map>
-#include <string>
 
 #include <sfloader/fluid_sfont.h>
 #include <sfloader/fluid_defsfont.h>
 
-#include "log.h"
-
-namespace mu::audio::synth {
+namespace muse::audio::synth {
 struct SoundFontData
 {
     fluid_sfont_t* soundFontPtr = nullptr;
@@ -90,12 +81,12 @@ void* openSoundFont(const char* filename)
     return stream;
 }
 
-int readSoundFont(void* buf, int count, void* handle)
+int readSoundFont(void* buf, fluid_long_long_t count, void* handle)
 {
     return static_cast<int>(std::fread(buf, count, 1, static_cast<std::FILE*>(handle)));
 }
 
-int seekSoundFont(void* handle, long offset, int origin)
+int seekSoundFont(void* handle, fluid_long_long_t offset, int origin)
 {
     return std::fseek(static_cast<std::FILE*>(handle), offset, origin);
 }
@@ -109,7 +100,7 @@ int closeSoundFont(void* /*handle*/)
     return FLUID_OK;
 }
 
-long tellSoundFont(void* handle)
+fluid_long_long_t tellSoundFont(void* handle)
 {
     return std::ftell(static_cast<std::FILE*>(handle));
 }
@@ -173,8 +164,4 @@ fluid_sfont_t* loadSoundFont(fluid_sfloader_t* loader, const char* filename)
 }
 }
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif // MU_AUDIO_SFCACHEDLOADER_H
+#endif // MUSE_AUDIO_SFCACHEDLOADER_H

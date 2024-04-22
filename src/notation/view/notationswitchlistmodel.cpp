@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -30,7 +30,7 @@ using namespace mu::project;
 NotationSwitchListModel::NotationSwitchListModel(QObject* parent)
     : QAbstractListModel(parent)
 {
-    m_notationChangedReceiver = std::make_unique<async::Asyncable>();
+    m_notationChangedReceiver = std::make_unique<muse::async::Asyncable>();
 }
 
 void NotationSwitchListModel::load()
@@ -59,7 +59,7 @@ void NotationSwitchListModel::onCurrentProjectChanged()
         return;
     }
 
-    project->masterNotation()->excerpts().ch.onReceive(this, [this](ExcerptNotationList) {
+    project->masterNotation()->excerptsChanged().onNotify(this, [this]() {
         loadNotations();
     });
 
@@ -93,7 +93,7 @@ void NotationSwitchListModel::loadNotations()
     m_notations << masterNotation->notation();
     listenNotationOpeningStatus(masterNotation->notation());
 
-    for (IExcerptNotationPtr excerpt: masterNotation->excerpts().val) {
+    for (IExcerptNotationPtr excerpt: masterNotation->excerpts()) {
         if (excerpt->notation()->isOpen()) {
             m_notations << excerpt->notation();
         }
@@ -171,7 +171,7 @@ void NotationSwitchListModel::listenProjectSavingStatusChanged()
         emit dataChanged(modelIndex, modelIndex, { RoleNeedSave, RoleIsCloud });
     });
 
-    currentProject->pathChanged().onNotify(this, [this]() {
+    currentProject->displayNameChanged().onNotify(this, [this]() {
         INotationProjectPtr project = context()->currentProject();
         if (!project) {
             return;
@@ -288,17 +288,17 @@ QVariantList NotationSwitchListModel::contextMenuItems(int index) const
     }
 
     QVariantList result {
-        QVariantMap { { "id", "close-tab" }, { "title", qtrc("notation", "Close tab") } },
+        QVariantMap { { "id", "close-tab" }, { "title", muse::qtrc("notation", "Close tab") } },
     };
 
     bool canCloseOtherTabs = rowCount() > 2 || (rowCount() == 2 && isMasterNotation(m_notations[index]));
     if (canCloseOtherTabs) {
-        result << QVariantMap { { "id", "close-other-tabs" }, { "title", qtrc("notation", "Close other tabs") } };
+        result << QVariantMap { { "id", "close-other-tabs" }, { "title", muse::qtrc("notation", "Close other tabs") } };
     }
 
     bool canCloseAllTabs = rowCount() > 1;
     if (canCloseAllTabs) {
-        result << QVariantMap { { "id", "close-all-tabs" }, { "title", qtrc("notation", "Close all tabs") } };
+        result << QVariantMap { { "id", "close-all-tabs" }, { "title", muse::qtrc("notation", "Close all tabs") } };
     }
 
     return result;

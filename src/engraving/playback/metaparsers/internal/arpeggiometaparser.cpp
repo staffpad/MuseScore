@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,9 +22,10 @@
 
 #include "arpeggiometaparser.h"
 
-#include "libmscore/arpeggio.h"
+#include "dom/arpeggio.h"
 
 using namespace mu::engraving;
+using namespace muse;
 
 void ArpeggioMetaParser::doParse(const EngravingItem* item, const RenderingContext& ctx, mpe::ArticulationMap& result)
 {
@@ -64,9 +65,14 @@ void ArpeggioMetaParser::doParse(const EngravingItem* item, const RenderingConte
         return;
     }
 
+    const mpe::ArticulationPattern& pattern = ctx.profile->pattern(type);
+    if (pattern.empty()) {
+        return;
+    }
+
     mpe::ArticulationMeta articulationMeta;
     articulationMeta.type = type;
-    articulationMeta.pattern = ctx.profile->pattern(type);
+    articulationMeta.pattern = pattern;
     articulationMeta.timestamp = ctx.nominalTimestamp;
     articulationMeta.overallDuration = ctx.nominalDuration * arpeggio->Stretch();
 

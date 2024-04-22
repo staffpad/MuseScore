@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-set(MODULE audio)
+declare_module(muse_audio)
+set(MODULE_ALIAS muse::audio)
 
 include(GetPlatformInfo)
 
@@ -36,13 +37,24 @@ if (OS_IS_WIN)
         ${CMAKE_CURRENT_LIST_DIR}/internal/platform/win/audiodeviceslistener.cpp
         ${CMAKE_CURRENT_LIST_DIR}/internal/platform/win/audiodeviceslistener.h
     )
-elseif(OS_IS_LIN)
-    set(DRIVER_SRC
-        ${CMAKE_CURRENT_LIST_DIR}/internal/platform/lin/linuxaudiodriver.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/internal/platform/lin/linuxaudiodriver.h
-        ${CMAKE_CURRENT_LIST_DIR}/internal/platform/lin/audiodeviceslistener.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/internal/platform/lin/audiodeviceslistener.h
-    )
+elseif(OS_IS_LIN OR OS_IS_FBSD)
+    if (MUSE_MODULE_AUDIO_JACK)
+        set(DRIVER_SRC
+            ${CMAKE_CURRENT_LIST_DIR}/internal/platform/jack/jackaudiodriver.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/internal/platform/jack/jackaudiodriver.h
+            ${CMAKE_CURRENT_LIST_DIR}/internal/platform/lin/linuxaudiodriver.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/internal/platform/lin/linuxaudiodriver.h
+            ${CMAKE_CURRENT_LIST_DIR}/internal/platform/jack/audiodeviceslistener.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/internal/platform/jack/audiodeviceslistener.h
+        )
+    else()
+        set(DRIVER_SRC
+            ${CMAKE_CURRENT_LIST_DIR}/internal/platform/lin/linuxaudiodriver.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/internal/platform/lin/linuxaudiodriver.h
+            ${CMAKE_CURRENT_LIST_DIR}/internal/platform/lin/audiodeviceslistener.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/internal/platform/lin/audiodeviceslistener.h
+        )
+    endif()
 elseif(OS_IS_MAC)
     set(DRIVER_SRC
         ${CMAKE_CURRENT_LIST_DIR}/internal/platform/osx/osxaudiodriver.mm
@@ -62,8 +74,6 @@ elseif(OS_IS_WASM)
     )
 endif()
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/thirdparty/fluidsynth fluidsynth)
-
 set(MODULE_SRC
 
     # Common public
@@ -76,8 +86,9 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/ifxprocessor.h
     ${CMAKE_CURRENT_LIST_DIR}/iaudiodriver.h
     ${CMAKE_CURRENT_LIST_DIR}/iaudiosource.h
-    ${CMAKE_CURRENT_LIST_DIR}/synthtypes.h
+    ${CMAKE_CURRENT_LIST_DIR}/soundfonttypes.h
     ${CMAKE_CURRENT_LIST_DIR}/audiotypes.h
+    ${CMAKE_CURRENT_LIST_DIR}/audioutils.h
     ${CMAKE_CURRENT_LIST_DIR}/iplayer.h
     ${CMAKE_CURRENT_LIST_DIR}/itracks.h
     ${CMAKE_CURRENT_LIST_DIR}/iaudiooutput.h
@@ -210,11 +221,17 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/internal/synthesizers/fluidsynth/fluidsequencer.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/synthesizers/fluidsynth/fluidresolver.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/synthesizers/fluidsynth/fluidresolver.h
+    ${CMAKE_CURRENT_LIST_DIR}/internal/synthesizers/fluidsynth/fluidsoundfontparser.h
+    ${CMAKE_CURRENT_LIST_DIR}/internal/synthesizers/fluidsynth/fluidsoundfontparser.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/synthesizers/synthresolver.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/synthesizers/synthresolver.h
     )
 
-set(FLUIDSYNTH_DIR ${PROJECT_SOURCE_DIR}/thirdparty/fluidsynth/fluidsynth-2.1.4)
+# fluidsynth dependency
+include(FindSndFile)
+
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/thirdparty/fluidsynth fluidsynth)
+set(FLUIDSYNTH_DIR ${CMAKE_CURRENT_LIST_DIR}/thirdparty/fluidsynth/fluidsynth-2.3.3)
 set (FLUIDSYNTH_INC
     ${FLUIDSYNTH_DIR}/include
     ${FLUIDSYNTH_DIR}/src
@@ -236,7 +253,7 @@ set(MODULE_LINK
     fluidsynth
     )
 
-if (MUE_ENABLE_AUDIO_EXPORT)
+if (MUSE_MODULE_AUDIO_EXPORT)
     set(MODULE_SRC
         ${MODULE_SRC}
 
@@ -256,11 +273,43 @@ if (MUE_ENABLE_AUDIO_EXPORT)
         ${CMAKE_CURRENT_LIST_DIR}/internal/soundtracks/soundtrackwriter.h
         )
 
-    add_subdirectory(${PROJECT_SOURCE_DIR}/thirdparty/lame lame)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/thirdparty/opusenc opusenc)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/thirdparty/flac flac)
-
-    set(MODULE_LINK ${MODULE_LINK} lame opusenc flac)
+    add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/thirdparty/lame lame)
+    set(MODULE_LINK
+        ${MODULE_LINK}
+        lame
+    )
+    if (MUE_COMPILE_USE_SYSTEM_OPUSENC)
+        pkg_check_modules(libopusenc REQUIRED IMPORTED_TARGET libopusenc)
+        # Transitive dependency
+        pkg_check_modules(opus REQUIRED IMPORTED_TARGET opus)
+        set(MODULE_LINK
+            ${MODULE_LINK}
+            PkgConfig::libopusenc
+            PkgConfig::opus
+        )
+        set(MODULE_DEF "SYSTEM_OPUSENC")
+    else()
+        add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/thirdparty/opusenc opusenc)
+        set(MODULE_LINK
+            ${MODULE_LINK}
+            opusenc
+        )
+    endif()
+    if (MUE_COMPILE_USE_SYSTEM_FLAC)
+        pkg_check_modules(flac REQUIRED IMPORTED_TARGET flac)
+        pkg_check_modules(flacpp REQUIRED IMPORTED_TARGET flac++)
+        set(MODULE_LINK
+            ${MODULE_LINK}
+            PkgConfig::flac
+            PkgConfig::flacpp
+        )
+    else()
+        add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/thirdparty/flac flac)
+        set(MODULE_LINK
+            ${MODULE_LINK}
+            flac
+        )
+    endif()
 endif()
 
 if (ARCH_IS_X86_64)
@@ -277,24 +326,34 @@ else ()
         )
 endif()
 
-if (OS_IS_MAC)
-    find_library(AudioToolbox NAMES AudioToolbox)
-    find_library(CoreAudio NAMES CoreAudio)
-    set(MODULE_LINK ${MODULE_LINK} ${AudioToolbox} ${CoreAudio})
-elseif (OS_IS_WIN)
-    set(MODULE_LINK ${MODULE_LINK} winmm mmdevapi mfplat)
-elseif (OS_IS_LIN)
+if (MUSE_MODULE_AUDIO_JACK)
+    find_package(Jack REQUIRED)
+    set(MODULE_INCLUDE ${MODULE_INCLUDE} ${JACK_INCLUDE_DIRS} )
+    set(MODULE_LINK ${MODULE_LINK} ${JACK_LIBRARIES} pthread )
     find_package(ALSA REQUIRED)
     set(MODULE_INCLUDE ${MODULE_INCLUDE} ${ALSA_INCLUDE_DIRS} )
     set(MODULE_LINK ${MODULE_LINK} ${ALSA_LIBRARIES} pthread )
+else ()
+    if (OS_IS_MAC)
+        find_library(AudioToolbox NAMES AudioToolbox)
+        find_library(CoreAudio NAMES CoreAudio)
+        set(MODULE_LINK ${MODULE_LINK} ${AudioToolbox} ${CoreAudio})
+    elseif (OS_IS_WIN)
+        set(MODULE_LINK ${MODULE_LINK} winmm mmdevapi mfplat)
+    elseif (OS_IS_LIN)
+        find_package(ALSA REQUIRED)
+        set(MODULE_INCLUDE ${MODULE_INCLUDE} ${ALSA_INCLUDE_DIRS} )
+        set(MODULE_LINK ${MODULE_LINK} ${ALSA_LIBRARIES} pthread )
+    endif()
 endif()
 
 set(MODULE_QRC audio.qrc)
 
+set(MODULE_ROOT ${CMAKE_CURRENT_LIST_DIR})
 set(MODULE_QML_IMPORT ${CMAKE_CURRENT_LIST_DIR}/qml)
 
-include(${PROJECT_SOURCE_DIR}/build/module.cmake)
+setup_module()
 
-if (MUE_BUILD_UNIT_TESTS)
+if (MUSE_MODULE_AUDIO_TESTS)
     add_subdirectory(tests)
 endif()

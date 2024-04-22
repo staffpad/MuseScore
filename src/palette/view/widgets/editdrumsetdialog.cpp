@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -26,31 +26,32 @@
 
 #include "engraving/infrastructure/smufl.h"
 
+#include "engraving/types/constants.h"
 #include "engraving/types/symnames.h"
 #include "engraving/types/typesconv.h"
 
 #include "engraving/rw/xmlreader.h"
 #include "engraving/rw/xmlwriter.h"
 
-#include "libmscore/chord.h"
-#include "libmscore/factory.h"
-#include "libmscore/masterscore.h"
-#include "libmscore/note.h"
-#include "libmscore/score.h"
-#include "libmscore/stem.h"
-#include "libmscore/utils.h"
+#include "engraving/dom/chord.h"
+#include "engraving/dom/factory.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/note.h"
+#include "engraving/dom/score.h"
+#include "engraving/dom/stem.h"
+#include "engraving/dom/utils.h"
 
 #include "draw/types/geometry.h"
 
 #include <QMessageBox>
 
 using namespace mu::palette;
-using namespace mu::io;
-using namespace mu::framework;
+using namespace muse::io;
 using namespace mu::notation;
 using namespace mu::engraving;
 
 static const QString EDIT_DRUMSET_DIALOG_NAME("EditDrumsetDialog");
+static const std::string_view POSSIBLE_SHORTCUTS("ABCDEFG");
 
 enum Column : char {
     PITCH, NOTE, SHORTCUT, NAME
@@ -121,13 +122,13 @@ struct SymbolIcon {
         QIcon icon;
         QPixmap image(w, h);
         image.fill(Qt::transparent);
-        mu::draw::Painter painter(&image, "generateicon");
-        const mu::RectF& bbox = EditDrumsetDialog::engravingFonts()->fallbackFont()->bbox(id, 1);
+        muse::draw::Painter painter(&image, "generateicon");
+        const muse::RectF& bbox = EditDrumsetDialog::engravingFonts()->fallbackFont()->bbox(id, 1);
         const qreal actualSymbolScale = std::min(w / bbox.width(), h / bbox.height());
         qreal mag = std::min(defaultScale, actualSymbolScale);
         const qreal& xStShift = (w - mag * bbox.width()) / 2 - mag * bbox.left();
         const qreal& yStShift = (h - mag * bbox.height()) / 2 - mag * bbox.top();
-        const mu::PointF& stPtPos = mu::PointF(xStShift, yStShift);
+        const muse::PointF& stPtPos = muse::PointF(xStShift, yStShift);
         EditDrumsetDialog::engravingFonts()->fallbackFont()->draw(id, &painter, mag, stPtPos);
         icon.addPixmap(image);
         return SymbolIcon(id, icon);
@@ -158,6 +159,7 @@ EditDrumsetDialog::EditDrumsetDialog(QWidget* parent)
         const Staff* staff = m_notation->elements()->msScore()->staff(track2staff(state.currentTrack));
         m_instrumentKey.instrumentId = staff ? staff->part()->instrumentId().toQString() : QString();
         m_instrumentKey.partId = staff ? staff->part()->id() : ID();
+        m_instrumentKey.tick = state.segment ? state.segment->tick() : Fraction(-1, 1);
         m_originDrumset = state.drumset ? *state.drumset : Drumset();
     }
 
@@ -279,15 +281,13 @@ EditDrumsetDialog::EditDrumsetDialog(QWidget* parent)
     setFocus();
 }
 
+#ifdef MU_QT5_COMPAT
 EditDrumsetDialog::EditDrumsetDialog(const EditDrumsetDialog& other)
     : QDialog(other.parentWidget())
 {
 }
 
-int EditDrumsetDialog::static_metaTypeId()
-{
-    return QMetaType::type(EDIT_DRUMSET_DIALOG_NAME.toStdString().c_str());
-}
+#endif
 
 //---------------------------------------------------------
 //   customGboxToggled
@@ -374,11 +374,14 @@ void EditDrumsetDialog::shortcutChanged()
     }
 
     int pitch = item->data(Column::PITCH, Qt::UserRole).toInt();
+    int index = shortcut->currentIndex();
+    bool invalidIndex = index < 0 || index >= static_cast<int>(POSSIBLE_SHORTCUTS.size());
     int sc;
-    if (shortcut->currentIndex() == 7) {
+
+    if (invalidIndex) {
         sc = 0;
     } else {
-        sc = "ABCDEFG"[shortcut->currentIndex()];
+        sc = POSSIBLE_SHORTCUTS[index];
     }
 
     if (QString(QChar(m_editedDrumset.drum(pitch).shortcut)) != shortcut->currentText()) {
@@ -394,7 +397,7 @@ void EditDrumsetDialog::shortcutChanged()
             }
         }
         m_editedDrumset.drum(pitch).shortcut = sc;
-        if (shortcut->currentIndex() == 7) {
+        if (invalidIndex) {
             item->setText(Column::SHORTCUT, "");
         } else {
             item->setText(Column::SHORTCUT, shortcut->currentText());
@@ -423,6 +426,15 @@ void EditDrumsetDialog::bboxClicked(QAbstractButton* button)
 void EditDrumsetDialog::apply()
 {
     valueChanged();    //save last changes in name
+
+    //! NOTE: The note input state changes inside valueChanged,
+    //! so to update the state of the drumset panel view, need to notify the change
+    notifyAboutNoteInputStateChanged();
+}
+
+void EditDrumsetDialog::notifyAboutNoteInputStateChanged()
+{
+    m_notation->interaction()->noteInput()->stateChanged().notify();
 }
 
 void EditDrumsetDialog::cancel()
@@ -492,10 +504,12 @@ void EditDrumsetDialog::itemChanged(QTreeWidgetItem* current, QTreeWidgetItem* p
 
         m_editedDrumset.drum(pitch).line          = staffLine->value();
         m_editedDrumset.drum(pitch).voice         = voice->currentIndex();
-        if (shortcut->currentIndex() == 7) {
+        int index = shortcut->currentIndex();
+
+        if (index < 0 || index >= static_cast<int>(POSSIBLE_SHORTCUTS.size())) {
             m_editedDrumset.drum(pitch).shortcut = 0;
         } else {
-            m_editedDrumset.drum(pitch).shortcut = "ABCDEFG"[shortcut->currentIndex()];
+            m_editedDrumset.drum(pitch).shortcut = POSSIBLE_SHORTCUTS[index];
         }
         m_editedDrumset.drum(pitch).stemDirection = DirectionV(stemDirection->currentIndex());
         previous->setText(Column::NAME, m_editedDrumset.translatedName(pitch));
@@ -609,13 +623,15 @@ void EditDrumsetDialog::updateExample()
     note->setPitch(pitch);
     note->setTpcFromPitch();
     note->setLine(line);
-    note->setPos(0.0, gpaletteScore->spatium() * .5 * line);
+    note->setPos(0.0, gpaletteScore->style().spatium() * .5 * line);
     note->setHeadType(NoteHeadType::HEAD_QUARTER);
     note->setHeadGroup(nh);
-    note->setCachedNoteheadSym(SymNames::symIdByName(quarterCmb->currentData().toString()));
+    note->mutldata()->cachedNoteheadSym.set_value(SymNames::symIdByName(quarterCmb->currentData().toString()));
     chord->add(note);
     Stem* stem = Factory::createStem(chord.get());
-    stem->setBaseLength(Millimetre((up ? -3.0 : 3.0) * gpaletteScore->spatium()));
+    stem->setParent(chord.get());
+    stem->setBaseLength(Millimetre((up ? -3.0 : 3.0) * gpaletteScore->style().spatium()));
+    engravingRenderer()->layoutItem(stem);
     chord->add(stem);
     drumNote->appendElement(chord, m_editedDrumset.translatedName(pitch));
 }
@@ -626,9 +642,9 @@ void EditDrumsetDialog::updateExample()
 
 void EditDrumsetDialog::load()
 {
-    std::vector<std::string> filter = { mu::trc("palette", "MuseScore drumset file") + " (*.drm)" };
-    mu::io::path_t dir = notationConfiguration()->userStylesPath();
-    mu::io::path_t fname = interactive()->selectOpeningFile(mu::qtrc("palette", "Load drumset"), dir, filter);
+    std::vector<std::string> filter = { muse::trc("palette", "MuseScore drumset file") + " (*.drm)" };
+    muse::io::path_t dir = notationConfiguration()->userStylesPath();
+    muse::io::path_t fname = interactive()->selectOpeningFile(muse::qtrc("palette", "Load drumset"), dir, filter);
 
     if (fname.empty()) {
         return;
@@ -643,15 +659,15 @@ void EditDrumsetDialog::load()
     m_editedDrumset.clear();
     while (e.readNextStartElement()) {
         if (e.name() == "museScore") {
-            if (e.attribute("version") != MSC_VERSION) {
+            if (e.attribute("version") != Constants::MSC_VERSION_STR) {
                 auto result = interactive()->warning(
-                    mu::trc("palette", "Drumset file too old"),
-                    mu::trc("palette", "MuseScore may not be able to load this drumset file."), {
-                    IInteractive::Button::Cancel,
-                    IInteractive::Button::Ignore
-                }, IInteractive::Button::Cancel);
+                    muse::trc("palette", "Drumset file too old"),
+                    muse::trc("palette", "MuseScore Studio may not be able to load this drumset file."), {
+                    muse::IInteractive::Button::Cancel,
+                    muse::IInteractive::Button::Ignore
+                }, muse::IInteractive::Button::Cancel);
 
-                if (result.standardButton() != IInteractive::Button::Ignore) { // covers Cancel and Esc
+                if (result.standardButton() != muse::IInteractive::Button::Ignore) { // covers Cancel and Esc
                     return;
                 }
             }
@@ -675,9 +691,9 @@ void EditDrumsetDialog::load()
 
 void EditDrumsetDialog::save()
 {
-    std::vector<std::string> filter = { mu::trc("palette", "MuseScore drumset file") + " (*.drm)" };
-    mu::io::path_t dir = notationConfiguration()->userStylesPath();
-    mu::io::path_t fname = interactive()->selectSavingFile(mu::qtrc("palette", "Save drumset"), dir, filter);
+    std::vector<std::string> filter = { muse::trc("palette", "MuseScore drumset file") + " (*.drm)" };
+    muse::io::path_t dir = notationConfiguration()->userStylesPath();
+    muse::io::path_t fname = interactive()->selectSavingFile(muse::qtrc("palette", "Save drumset"), dir, filter);
 
     if (fname.empty()) {
         return;
@@ -685,19 +701,19 @@ void EditDrumsetDialog::save()
 
     File f(fname);
     if (!f.open(IODevice::WriteOnly)) {
-        QString s = mu::qtrc("palette", "Opening file\n%1\nfailed: %2").arg(f.filePath().toQString()).arg(strerror(errno));
-        interactive()->error(mu::trc("palette", "Open file"), s.toStdString());
+        QString s = muse::qtrc("palette", "Opening file\n%1\nfailed: %2").arg(f.filePath().toQString()).arg(strerror(errno));
+        interactive()->error(muse::trc("palette", "Open file"), s.toStdString());
         return;
     }
     valueChanged();    //save last changes in name
     XmlWriter xml(&f);
     xml.startDocument();
-    xml.startElement("museScore", { { "version", MSC_VERSION } });
+    xml.startElement("museScore", { { "version", Constants::MSC_VERSION_STR } });
     m_editedDrumset.save(xml);
     xml.endElement();
-    if (f.error() != File::NoError) {
-        QString s = mu::qtrc("palette", "Writing file failed: %1").arg(QString::fromStdString(f.errorString()));
-        interactive()->error(mu::trc("palette", "Write drumset"), s.toStdString());
+    if (f.hasError()) {
+        QString s = muse::qtrc("palette", "Writing file failed: %1").arg(QString::fromStdString(f.errorString()));
+        interactive()->error(muse::trc("palette", "Write drumset"), s.toStdString());
     }
 }
 

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,6 +25,8 @@
 #include <QCommandLineParser>
 #include <QStringList>
 #include <optional>
+
+#include "logger.h"
 
 #include "global/iapplication.h"
 #include "io/path.h"
@@ -70,8 +72,13 @@ public:
         } exportVideo;
 
         struct {
-            std::optional<io::path_t> operationsFile;
+            std::optional<muse::io::path_t> operationsFile;
         } importMidi;
+
+        struct {
+            std::optional<bool> useDefaultFont;
+            std::optional<bool> inferTextType;
+        } importMusicXML;
 
         struct {
             std::optional<bool> linkedTabStaffCreated;
@@ -80,11 +87,13 @@ public:
 
         struct {
             std::optional<bool> revertToFactorySettings;
+            std::optional<muse::logger::Level> loggerLevel;
         } app;
 
         struct {
             std::optional<std::string> type;
-            std::optional<io::path_t> scorePath;
+            std::optional<QUrl> scoreUrl;
+            std::optional<QString> scoreDisplayNameOverride;
         } startup;
     };
 
@@ -107,6 +116,7 @@ public:
         ScoreSource,
         ScoreTransposeOptions,
         ForceMode,
+        SoundProfile,
 
         // Video
     };
@@ -143,7 +153,7 @@ public:
     };
 
     struct AudioPluginRegistration {
-        io::path_t pluginPath;
+        muse::io::path_t pluginPath;
         bool failedPlugin = false;
         int failCode = 0;
     };
@@ -152,7 +162,7 @@ public:
     void parse(int argc, char** argv);
     void processBuiltinArgs(const QCoreApplication& app);
 
-    framework::IApplication::RunMode runMode() const;
+    muse::IApplication::RunMode runMode() const;
 
     // Options
     const Options& options() const;
@@ -167,7 +177,7 @@ private:
     void printLongVersion() const;
 
     QCommandLineParser m_parser;
-    framework::IApplication::RunMode m_runMode = framework::IApplication::RunMode::GuiApp;
+    muse::IApplication::RunMode m_runMode = muse::IApplication::RunMode::GuiApp;
     Options m_options;
 
     ConverterTask m_converterTask;

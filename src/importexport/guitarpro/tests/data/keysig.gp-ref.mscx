@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<museScore version="4.00">
+<museScore version="4.40">
   <Score>
-    <LayerTag id="0" tag="default"></LayerTag>
-    <currentLayer>0</currentLayer>
     <Division>480</Division>
     <showInvisible>1</showInvisible>
     <showUnprintable>1</showUnprintable>
@@ -14,7 +12,6 @@
     <metaTag name="lyricist"></metaTag>
     <metaTag name="movementNumber"></metaTag>
     <metaTag name="movementTitle"></metaTag>
-    <metaTag name="poet"></metaTag>
     <metaTag name="source"></metaTag>
     <metaTag name="translator"></metaTag>
     <metaTag name="workNumber"></metaTag>
@@ -43,34 +40,6 @@
           <string>71</string>
           <string>76</string>
           </StringData>
-        <Articulation name="staccatissimo">
-          <velocity>100</velocity>
-          <gateTime>30</gateTime>
-          </Articulation>
-        <Articulation name="staccato">
-          <velocity>100</velocity>
-          <gateTime>50</gateTime>
-          </Articulation>
-        <Articulation name="portato">
-          <velocity>100</velocity>
-          <gateTime>67</gateTime>
-          </Articulation>
-        <Articulation name="tenuto">
-          <velocity>100</velocity>
-          <gateTime>100</gateTime>
-          </Articulation>
-        <Articulation name="accent">
-          <velocity>120</velocity>
-          <gateTime>67</gateTime>
-          </Articulation>
-        <Articulation name="marcato">
-          <velocity>144</velocity>
-          <gateTime>67</gateTime>
-          </Articulation>
-        <Articulation name="sforzato">
-          <velocity>169</velocity>
-          <gateTime>100</gateTime>
-          </Articulation>
         <Channel>
           <program value="27"/>
           <controller ctrl="7" value="81"/>
@@ -81,7 +50,8 @@
       <Measure>
         <voice>
           <KeySig>
-            <accidental>0</accidental>
+            <concertKey>0</concertKey>
+            <mode>major</mode>
             </KeySig>
           <TimeSig>
             <sigN>4</sigN>
@@ -131,12 +101,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>1</accidental>
+            <concertKey>1</concertKey>
+            <mode>major</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -174,12 +147,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>2</accidental>
+            <concertKey>2</concertKey>
+            <mode>major</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -220,12 +196,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>3</accidental>
+            <concertKey>3</concertKey>
+            <mode>major</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -269,12 +248,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>4</accidental>
+            <concertKey>4</concertKey>
+            <mode>major</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -321,12 +303,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>5</accidental>
+            <concertKey>5</concertKey>
+            <mode>major</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -373,12 +358,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>6</accidental>
+            <concertKey>6</concertKey>
+            <mode>major</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -425,12 +413,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>7</accidental>
+            <concertKey>7</concertKey>
+            <mode>major</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -474,12 +465,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-1</accidental>
+            <concertKey>-1</concertKey>
+            <mode>major</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -517,12 +511,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-2</accidental>
+            <concertKey>-2</concertKey>
+            <mode>major</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -563,12 +560,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-3</accidental>
+            <concertKey>-3</concertKey>
+            <mode>major</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -612,12 +612,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-4</accidental>
+            <concertKey>-4</concertKey>
+            <mode>major</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -661,12 +664,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-5</accidental>
+            <concertKey>-5</concertKey>
+            <mode>major</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -710,12 +716,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-6</accidental>
+            <concertKey>-6</concertKey>
+            <mode>major</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -762,12 +771,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-7</accidental>
+            <concertKey>-7</concertKey>
+            <mode>major</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -817,12 +829,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>0</accidental>
+            <concertKey>0</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -860,12 +875,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>1</accidental>
+            <concertKey>1</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -906,12 +924,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>2</accidental>
+            <concertKey>2</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -952,12 +973,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>3</accidental>
+            <concertKey>3</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -1001,12 +1025,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>4</accidental>
+            <concertKey>4</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -1053,12 +1080,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>5</accidental>
+            <concertKey>5</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -1105,12 +1135,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>6</accidental>
+            <concertKey>6</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -1157,12 +1190,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>7</accidental>
+            <concertKey>7</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -1209,12 +1245,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-1</accidental>
+            <concertKey>-1</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -1252,12 +1291,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-2</accidental>
+            <concertKey>-2</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -1298,12 +1340,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-3</accidental>
+            <concertKey>-3</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -1347,12 +1392,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-4</accidental>
+            <concertKey>-4</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -1396,12 +1444,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-5</accidental>
+            <concertKey>-5</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -1445,12 +1496,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-6</accidental>
+            <concertKey>-6</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -1497,12 +1551,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>-7</accidental>
+            <concertKey>-7</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -1549,12 +1606,15 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
         <voice>
           <KeySig>
-            <accidental>0</accidental>
+            <concertKey>0</concertKey>
+            <mode>minor</mode>
             </KeySig>
           <Chord>
             <durationType>quarter</durationType>
@@ -1592,6 +1652,8 @@
               <string>4</string>
               </Note>
             </Chord>
+          <BarLine>
+            </BarLine>
           </voice>
         </Measure>
       <Measure>
@@ -1632,9 +1694,6 @@
               <string>4</string>
               </Note>
             </Chord>
-          <BarLine>
-            <subtype>end</subtype>
-            </BarLine>
           </voice>
         </Measure>
       </Staff>

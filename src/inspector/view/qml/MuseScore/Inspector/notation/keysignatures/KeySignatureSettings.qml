@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,8 +21,8 @@
  */
 import QtQuick 2.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 import MuseScore.Inspector 1.0
 
 import "../../common"
@@ -43,7 +43,7 @@ Column {
         showCourtesyKeySignature.navigation.requestActive()
     }
 
-    CheckBoxPropertyView {
+    PropertyCheckBox {
         id: showCourtesyKeySignature
         text: qsTrc("inspector", "Show courtesy key signature on previous system")
         propertyItem: root.model ? root.model.hasToShowCourtesy : null
@@ -65,8 +65,10 @@ Column {
         model: [
             { text: qsTrc("inspector", "Unknown"), value: KeySignatureTypes.MODE_UNKNOWN },
             { text: qsTrc("inspector", "None"), value: KeySignatureTypes.MODE_NONE },
-            { text: qsTrc("inspector", "Major"), value: KeySignatureTypes.MODE_MAJOR },
-            { text: qsTrc("inspector", "Minor"), value: KeySignatureTypes.MODE_MINOR },
+            //: mode of a key signature, not an interval
+            { text: qsTrc("inspector", "Major", "key signature mode"), value: KeySignatureTypes.MODE_MAJOR },
+            //: mode of a key signature, not an interval
+            { text: qsTrc("inspector", "Minor", "key signature mode"), value: KeySignatureTypes.MODE_MINOR },
             { text: qsTrc("inspector", "Dorian"), value: KeySignatureTypes.MODE_DORIAN },
             { text: qsTrc("inspector", "Phrygian"), value: KeySignatureTypes.MODE_PHRYGIAN },
             { text: qsTrc("inspector", "Lydian"), value: KeySignatureTypes.MODE_LYDIAN },

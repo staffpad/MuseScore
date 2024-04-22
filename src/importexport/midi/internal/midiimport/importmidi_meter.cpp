@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -24,8 +24,8 @@
 #include <QQueue>
 
 #include "importmidi_fraction.h"
-#include "libmscore/durationtype.h"
-#include "libmscore/mscore.h"
+#include "engraving/dom/durationtype.h"
+#include "engraving/dom/mscore.h"
 #include "importmidi_tuplet.h"
 #include "importmidi_chord.h"
 #include "importmidi_inner.h"
@@ -313,7 +313,7 @@ bool isPowerOfTwo(unsigned int x)
 
 bool isSimpleNoteDuration(const ReducedFraction& duration)
 {
-    const auto division = ReducedFraction::fromTicks(engraving::Constants::division);
+    const auto division = ReducedFraction::fromTicks(engraving::Constants::DIVISION);
     auto div = (duration > division) ? duration / division : division / duration;
     if (div > ReducedFraction(0, 1)) {
         div.reduce();

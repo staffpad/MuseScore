@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2023 MuseScore BVBA and others
+ * Copyright (C) 2023 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,9 +22,9 @@
 
 #include <gtest/gtest.h>
 
-#include "libmscore/masterscore.h"
-#include "libmscore/measure.h"
-#include "libmscore/repeatlist.h"
+#include "dom/masterscore.h"
+#include "dom/measure.h"
+#include "dom/repeatlist.h"
 
 #include "utils/scorerw.h"
 
@@ -307,7 +307,7 @@ TEST_F(Engraving_RepeatTests, repeat46) {
 }
 
 TEST_F(Engraving_RepeatTests, repeat47) {
-    // #269378 Double Coda messed up repeat rewind logic
+    // #269378 Double Coda AKA Doppia Coda messed up repeat rewind logic
     repeat("repeat47.mscx", u"1;2;3; 2; 4;5;6;7; 6; 8;9;10;11; 2; 4; 13;14;15; 9;10; 16;17;18");
 }
 

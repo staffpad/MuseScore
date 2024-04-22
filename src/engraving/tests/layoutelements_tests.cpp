@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,15 +22,14 @@
 
 #include <gtest/gtest.h>
 
-#include "libmscore/masterscore.h"
-#include "libmscore/measure.h"
-#include "libmscore/page.h"
-#include "libmscore/rest.h"
-#include "libmscore/staff.h"
-#include "libmscore/system.h"
-#include "libmscore/tuplet.h"
-#include "libmscore/chord.h"
-#include "libmscore/note.h"
+#include "dom/masterscore.h"
+#include "dom/measure.h"
+#include "dom/page.h"
+#include "dom/rest.h"
+#include "dom/staff.h"
+#include "dom/system.h"
+#include "dom/tuplet.h"
+#include "dom/note.h"
 
 #include "utils/scorerw.h"
 
@@ -78,9 +77,14 @@ static void isLayoutDone(void* data, EngravingItem* e)
         // another valid exception
         return;
     }
+    if (e->isTimeTickAnchor()) {
+        // not expected to be laid out
+        return;
+    }
+
     // If layout of element is done it (usually?) has a valid
     // bounding box (bbox).
-    if (e->visible() && !e->bbox().isValid()) {
+    if (e->visible() && !e->ldata()->bbox().isValid()) {
         (*result) = false;
         // Print some info about the element to make test more useful...
         if (Measure* m = toMeasure(e->findMeasure())) {

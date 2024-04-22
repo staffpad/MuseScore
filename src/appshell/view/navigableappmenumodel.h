@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,6 +21,8 @@
  */
 #ifndef MU_APPSHELL_NAVIGABLEAPPMENUMODEL_H
 #define MU_APPSHELL_NAVIGABLEAPPMENUMODEL_H
+
+#include <optional>
 
 #include <QObject>
 
@@ -86,6 +88,12 @@ private:
     void resetNavigation();
     void navigateToFirstMenu();
 
+    struct MUNavigationSystemState {
+        std::string sectionName;
+        std::string panelName;
+        std::string controlName;
+    };
+
     void saveMUNavigationSystemState();
     void restoreMUNavigationSystemState();
 
@@ -94,13 +102,13 @@ private:
     QString highlightedMenuId() const;
     QString openedMenuId() const;
 
-    QString menuItemId(const uicomponents::MenuItemList& items, const QSet<int>& activatePossibleKeys);
+    QString menuItemId(const muse::uicomponents::MenuItemList& items, const QSet<int>& activatePossibleKeys);
 
     QString m_highlightedMenuId;
     QString m_openedMenuId;
 
     bool m_needActivateHighlight = true;
-    ui::INavigationControl* m_lastActiveMUNavigationControl = nullptr;
+    std::optional<MUNavigationSystemState> m_lastActiveMUNavigationState;
     bool m_needActivateLastMUNavigationControl = false;
 
     QWindow* m_appWindow = nullptr;

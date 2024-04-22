@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -42,25 +42,26 @@
 #include "iapplication.h"
 
 namespace mu::appshell {
-class ApplicationActionController : public QObject, public IApplicationActionController, public actions::Actionable, public async::Asyncable
+class ApplicationActionController : public QObject, public IApplicationActionController, public muse::actions::Actionable,
+    public muse::async::Asyncable
 {
-    INJECT(actions::IActionsDispatcher, dispatcher)
-    INJECT(ui::IUiActionsRegister, actionsRegister)
-    INJECT(ui::IMainWindow, mainWindow)
-    INJECT(languages::ILanguagesService, languagesService)
-    INJECT(framework::IInteractive, interactive)
+    INJECT(muse::actions::IActionsDispatcher, dispatcher)
+    INJECT(muse::ui::IUiActionsRegister, actionsRegister)
+    INJECT(muse::ui::IMainWindow, mainWindow)
+    INJECT(muse::languages::ILanguagesService, languagesService)
+    INJECT(muse::IInteractive, interactive)
     INJECT(IAppShellConfiguration, configuration)
-    INJECT(mi::IMultiInstancesProvider, multiInstancesProvider)
+    INJECT(muse::mi::IMultiInstancesProvider, multiInstancesProvider)
     INJECT(project::IProjectFilesController, projectFilesController)
-    INJECT(audio::ISoundFontRepository, soundFontRepository)
+    INJECT(muse::audio::ISoundFontRepository, soundFontRepository)
     INJECT(IStartupScenario, startupScenario)
-    INJECT(framework::IApplication, application)
+    INJECT(muse::IApplication, application)
 
 public:
     void preInit();
     void init();
 
-    ValCh<bool> isFullScreen() const;
+    muse::ValCh<bool> isFullScreen() const;
 
     void onDragEnterEvent(QDragEnterEvent* event) override;
     void onDragMoveEvent(QDragMoveEvent* event) override;
@@ -71,7 +72,7 @@ private:
 
     void setupConnections();
 
-    bool quit(bool isAllInstances, const io::path_t& installerPath = io::path_t());
+    bool quit(bool isAllInstances, const muse::io::path_t& installerPath = muse::io::path_t());
     void restart();
 
     void toggleFullScreen();
@@ -87,7 +88,7 @@ private:
 
     bool m_quiting = false;
 
-    async::Channel<actions::ActionCodeList> m_actionsReceiveAvailableChanged;
+    muse::async::Channel<muse::actions::ActionCodeList> m_actionsReceiveAvailableChanged;
 };
 }
 

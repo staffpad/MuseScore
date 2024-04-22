@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,8 +21,8 @@
  */
 import QtQuick 2.15
 
-import MuseScore.UiComponents 1.0
-import MuseScore.Ui 1.0
+import Muse.UiComponents 1.0
+import Muse.Ui 1.0
 import MuseScore.Inspector 1.0
 
 import "../common"
@@ -322,31 +322,23 @@ InspectorSectionView {
             }
         }
 
-        PopupViewButton {
-            id: textAdvancedSettingsButton
+        ExpandableBlank {
+            id: showItem
+            isExpanded: false
 
-            width: contentColumn.width
-            anchorItem: root.anchorItem
+            title: isExpanded ? qsTrc("inspector", "Show less") : qsTrc("inspector", "Show more")
+
+            visible: root.model ? !root.model.isEmpty : false
+            width: parent.width
 
             navigation.panel: root.navigationPanel
             navigation.name: "TextAdvancedSettings"
             navigation.row: insertSpecCharactersButton.navigation.row + 1
 
-            text: qsTrc("inspector", "More…")
-            visible: root.model ? !root.model.isEmpty : false
-
-            popupContent: TextSettings {
+            contentItemComponent: TextSettings {
                 model: root.model
-
-                navigationPanel: textAdvancedSettingsButton.popupNavigationPanel
-            }
-
-            onEnsureContentVisibleRequested: function(invisibleContentHeight) {
-                root.ensureContentVisibleRequested(invisibleContentHeight)
-            }
-
-            onPopupOpened: {
-                root.popupOpened(popup, control)
+                navigationPanel: root.navigationPanel
+                navigationRowStart: showItem.navigation.row + 1
             }
         }
     }

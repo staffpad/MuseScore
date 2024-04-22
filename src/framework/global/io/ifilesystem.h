@@ -19,17 +19,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_SYSTEM_IFILESYSTEM_H
-#define MU_SYSTEM_IFILESYSTEM_H
+#ifndef MUSE_IO_IFILESYSTEM_H
+#define MUSE_IO_IFILESYSTEM_H
 
-#include "modularity/imoduleinterface.h"
-#include "types/bytearray.h"
-#include "types/datetime.h"
-#include "types/retval.h"
+#include "global/modularity/imoduleinterface.h"
+#include "global/types/bytearray.h"
+#include "global/types/datetime.h"
+#include "global/types/retval.h"
+
 #include "path.h"
 #include "ioenums.h"
 
-namespace mu::io {
+namespace muse::io {
 class IFileSystem : MODULE_EXPORT_INTERFACE
 {
     INTERFACE_ID(IFileSystem)
@@ -60,7 +61,7 @@ public:
     virtual bool setPermissionsAllowedForAll(const io::path_t& path) const = 0;
 
     virtual RetVal<ByteArray> readFile(const io::path_t& filePath) const = 0;
-    virtual bool readFile(const io::path_t& filePath, ByteArray& data) const = 0;
+    virtual Ret readFile(const io::path_t& filePath, ByteArray& data) const = 0;
     virtual Ret writeFile(const io::path_t& filePath, const ByteArray& data) const = 0;
 
     //! NOTE File info
@@ -69,8 +70,8 @@ public:
     virtual io::path_t absoluteFilePath(const io::path_t& filePath) const = 0;
     virtual DateTime birthTime(const io::path_t& filePath) const = 0;
     virtual DateTime lastModified(const io::path_t& filePath) const = 0;
-    virtual bool isWritable(const io::path_t& filePath) const = 0;
+    virtual Ret isWritable(const io::path_t& filePath) const = 0;
 };
 }
 
-#endif // MU_SYSTEM_IFILESYSTEM_H
+#endif // MUSE_IO_IFILESYSTEM_H

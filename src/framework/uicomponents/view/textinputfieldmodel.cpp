@@ -26,8 +26,8 @@
 
 #include "shortcuts/shortcutstypes.h"
 
-using namespace mu::uicomponents;
-using namespace mu::shortcuts;
+using namespace muse::uicomponents;
+using namespace muse::shortcuts;
 
 TextInputFieldModel::TextInputFieldModel(QObject* parent)
     : QObject(parent)
@@ -43,27 +43,33 @@ void TextInputFieldModel::init()
     loadShortcuts();
 }
 
-bool TextInputFieldModel::isShortcutAllowedOverride(int key, Qt::KeyboardModifiers modifiers) const
+bool TextInputFieldModel::isShortcutAllowedOverride(Qt::Key key, Qt::KeyboardModifiers modifiers) const
 {
-    std::pair<int, Qt::KeyboardModifiers> correctedKeyInput = correctKeyInput(key, modifiers);
-    int newKey = correctedKeyInput.first;
-    int newModifiers = correctedKeyInput.second;
+    auto [newKey, newModifiers] = correctKeyInput(key, modifiers);
 
     if (needIgnoreKey(newKey)) {
         return true;
     }
 
-    QKeySequence keySequence(newModifiers + newKey);
-    for (const Shortcut& shortcut : m_notAllowedForOverrideShortcuts) {
-        for (const std::string& seq : shortcut.sequences) {
-            QKeySequence shortcutSequence(QString::fromStdString(seq));
-            if (shortcutSequence == keySequence) {
-                return false;
-            }
-        }
+    const Shortcut& shortcut = this->shortcut(newKey, newModifiers);
+    return !shortcut.isValid();
+}
+
+bool TextInputFieldModel::handleShortcut(Qt::Key key, Qt::KeyboardModifiers modifiers)
+{
+    auto [newKey, newModifiers] = correctKeyInput(key, modifiers);
+
+    if (needIgnoreKey(newKey)) {
+        return false;
     }
 
-    return true;
+    const Shortcut& shortcut = this->shortcut(newKey, newModifiers);
+    bool found = shortcut.isValid();
+    if (found) {
+        dispatcher()->dispatch(shortcut.action);
+    }
+
+    return found;
 }
 
 void TextInputFieldModel::loadShortcuts()
@@ -88,4 +94,19 @@ void TextInputFieldModel::loadShortcuts()
     for (const std::string& actionCode : actionCodes) {
         m_notAllowedForOverrideShortcuts.push_back(shortcutsRegister()->shortcut(actionCode));
     }
+}
+
+Shortcut TextInputFieldModel::shortcut(Qt::Key key, Qt::KeyboardModifiers modifiers) const
+{
+    QKeySequence keySequence(modifiers | key);
+    for (const Shortcut& shortcut : m_notAllowedForOverrideShortcuts) {
+        for (const std::string& seq : shortcut.sequences) {
+            QKeySequence shortcutSequence(QString::fromStdString(seq));
+            if (shortcutSequence == keySequence) {
+                return shortcut;
+            }
+        }
+    }
+
+    return Shortcut();
 }

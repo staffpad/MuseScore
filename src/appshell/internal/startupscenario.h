@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -35,11 +35,11 @@
 #include "project/iprojectautosaver.h"
 
 namespace mu::appshell {
-class StartupScenario : public IStartupScenario, public async::Asyncable
+class StartupScenario : public IStartupScenario, public muse::async::Asyncable
 {
-    INJECT(framework::IInteractive, interactive)
-    INJECT(actions::IActionsDispatcher, dispatcher)
-    INJECT(mi::IMultiInstancesProvider, multiInstancesProvider)
+    INJECT(muse::IInteractive, interactive)
+    INJECT(muse::actions::IActionsDispatcher, dispatcher)
+    INJECT(muse::mi::IMultiInstancesProvider, multiInstancesProvider)
     INJECT(IAppShellConfiguration, configuration)
     INJECT(ISessionsManager, sessionsManager)
     INJECT(project::IProjectAutoSaver, projectAutoSaver)
@@ -48,8 +48,10 @@ public:
 
     void setStartupType(const std::optional<std::string>& type) override;
 
-    io::path_t startupScorePath() const override;
-    void setStartupScorePath(const std::optional<io::path_t>& path) override;
+    bool isStartWithNewFileAsSecondaryInstance() const override;
+
+    const project::ProjectFile& startupScoreFile() const override;
+    void setStartupScoreFile(const std::optional<project::ProjectFile>& file) override;
 
     void run() override;
     bool startupCompleted() const override;
@@ -58,15 +60,15 @@ private:
     void onStartupPageOpened(StartupModeType modeType);
 
     StartupModeType resolveStartupModeType() const;
-    Uri startupPageUri(StartupModeType modeType) const;
+    muse::Uri startupPageUri(StartupModeType modeType) const;
 
-    void openScore(const io::path_t& path);
+    void openScore(const project::ProjectFile& file);
 
     void restoreLastSession();
-    void removeProjectsUnsavedChanges(const io::paths_t& projectsPaths);
+    void removeProjectsUnsavedChanges(const muse::io::paths_t& projectsPaths);
 
     std::string m_startupTypeStr;
-    io::path_t m_startupScorePath;
+    project::ProjectFile m_startupScoreFile;
     bool m_startupCompleted = false;
 };
 }

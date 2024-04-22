@@ -19,8 +19,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_FRAMEWORK_IINTERACTIVE_H
-#define MU_FRAMEWORK_IINTERACTIVE_H
+#ifndef MUSE_GLOBAL_IINTERACTIVE_H
+#define MUSE_GLOBAL_IINTERACTIVE_H
 
 #include "modularity/imoduleinterface.h"
 #include "io/path.h"
@@ -28,9 +28,10 @@
 #include "types/retval.h"
 #include "types/uri.h"
 #include "types/flags.h"
+#include "async/promise.h"
 #include "progress.h"
 
-namespace mu::framework {
+namespace muse {
 class IInteractive : MODULE_EXPORT_INTERFACE
 {
     INTERFACE_ID(IInteractive)
@@ -42,42 +43,63 @@ public:
     enum class Button {
         NoButton,
         Ok,
-        Save,
-        SaveAll,
-        DontSave,
-        Open,
-        Yes,
-        YesToAll,
-        No,
-        NoToAll,
-        Abort,
-        Retry,
-        Ignore,
-        Close,
-        Cancel,
-        Discard,
-        Help,
-        Apply,
-        Reset,
         Continue,
+        RestoreDefaults,
+        Reset,
+        Apply,
+        Help,
+        Discard,
+        Cancel,
+        Close,
+        Ignore,
+        Retry,
+        Abort,
+        NoToAll,
+        No,
+        YesToAll,
+        Yes,
+        Open,
+        DontSave,
+        SaveAll,
+        Save,
+        Next,
+        Back,
+        Select,
+        Clear,
+        Done,
 
-        CustomButton
+        CustomButton,
     };
     using Buttons = std::vector<Button>;
+
+    enum ButtonRole { // Keep updated with ButtonRole in buttonboxmodel.h
+        AcceptRole,
+        RejectRole,
+        DestructiveRole,
+        ResetRole,
+        ApplyRole,
+        RetryRole,
+        HelpRole,
+        ContinueRole,
+        BackRole,
+        CustomRole
+    };
 
     struct ButtonData {
         int btn = int(Button::CustomButton);
         std::string text;
         bool accent = false;
+        bool leftSide = false;
+        ButtonRole role = ButtonRole::CustomRole;
 
         ButtonData(int btn, const std::string& text)
             : btn(btn), text(text) {}
         ButtonData(Button btn, const std::string& text)
             : btn(int(btn)), text(text) {}
-        ButtonData(int btn, const std::string& text, bool accent)
-            : btn(btn), text(text), accent(accent) {}
-        ButtonData(Button btn, const std::string& text, bool accent)
-            : btn(int(btn)), text(text), accent(accent) {}
+        ButtonData(int btn, const std::string& text, bool accent, bool leftSide = false, ButtonRole role = ButtonRole::CustomRole)
+            : btn(btn), text(text), accent(accent), leftSide(leftSide), role(role) {}
+        ButtonData(Button btn, const std::string& text, bool accent, bool leftSide = false, ButtonRole role = ButtonRole::CustomRole)
+            : btn(int(btn)), text(text), accent(accent), leftSide(leftSide), role(role) {}
     };
     using ButtonDatas = std::vector<ButtonData>;
 
@@ -159,7 +181,7 @@ public:
                          int defBtn = int(Button::NoButton), const Options& options = { WithIcon }) const = 0;
 
     // progress
-    virtual Ret showProgress(const std::string& title, framework::Progress* progress) const = 0;
+    virtual Ret showProgress(const std::string& title, Progress* progress) const = 0;
 
     // files
     virtual io::path_t selectOpeningFile(const QString& title, const io::path_t& dir, const std::vector<std::string>& filter) = 0;
@@ -195,6 +217,10 @@ public:
     virtual Ret openUrl(const std::string& url) const = 0;
     virtual Ret openUrl(const QUrl& url) const = 0;
 
+    virtual Ret isAppExists(const std::string& appIdentifier) const = 0;
+    virtual Ret canOpenApp(const Uri& uri) const = 0;
+    virtual async::Promise<Ret> openApp(const Uri& uri) const = 0;
+
     /// Opens a file browser at the parent directory of filePath,
     /// and selects the file at filePath on OSs that support it
     virtual Ret revealInFileBrowser(const io::path_t& filePath) const = 0;
@@ -202,4 +228,4 @@ public:
 DECLARE_OPERATORS_FOR_FLAGS(IInteractive::Options)
 }
 
-#endif // MU_FRAMEWORK_IINTERACTIVE_H
+#endif // MUSE_GLOBAL_IINTERACTIVE_H

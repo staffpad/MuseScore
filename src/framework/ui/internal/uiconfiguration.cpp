@@ -23,8 +23,6 @@
 
 #include "async/async.h"
 #include "settings.h"
-#include "log.h"
-#include "translation.h"
 #include "themeconverter.h"
 
 #include <QScreen>
@@ -37,10 +35,11 @@
 #include <QOperatingSystemVersion>
 #endif
 
-using namespace mu;
-using namespace mu::ui;
-using namespace mu::framework;
-using namespace mu::async;
+#include "log.h"
+
+using namespace muse;
+using namespace muse::ui;
+using namespace muse::async;
 
 static const Settings::Key UI_THEMES_KEY("ui", "ui/application/themes");
 static const Settings::Key UI_CURRENT_THEME_CODE_KEY("ui", "ui/application/currentThemeCode");
@@ -395,8 +394,18 @@ ThemeList UiConfiguration::themes() const
 
 QStringList UiConfiguration::possibleFontFamilies() const
 {
+#ifdef MU_QT5_COMPAT
     QFontDatabase db;
-    return db.families();
+    QStringList allFonts = db.families();
+#else
+    QStringList allFonts = QFontDatabase::families();
+#endif
+    QStringList smuflFonts
+        = { "Bravura", "Campania", "Edwin", "Finale Broadway", "Finale Maestro", "Gootville", "Leland", "MScore", "MuseJazz", "Petaluma" };
+    for (const QString& font : smuflFonts) {
+        allFonts.removeAll(font);
+    }
+    return allFonts;
 }
 
 QStringList UiConfiguration::possibleAccentColors() const
@@ -517,7 +526,7 @@ void UiConfiguration::setCurrentThemeStyleValue(ThemeStyleKey key, const Val& va
     writeThemes(modifiedThemes);
 }
 
-Notification UiConfiguration::currentThemeChanged() const
+muse::async::Notification UiConfiguration::currentThemeChanged() const
 {
     return m_currentThemeChanged;
 }
@@ -560,7 +569,7 @@ void UiConfiguration::setBodyFontSize(int size)
     settings()->setSharedValue(UI_FONT_SIZE_KEY, Val(size));
 }
 
-Notification UiConfiguration::fontChanged() const
+muse::async::Notification UiConfiguration::fontChanged() const
 {
     return m_fontChanged;
 }
@@ -582,7 +591,7 @@ int UiConfiguration::iconsFontSize(IconSizeType type) const
     return bodyFontSize;
 }
 
-Notification UiConfiguration::iconsFontChanged() const
+muse::async::Notification UiConfiguration::iconsFontChanged() const
 {
     return m_iconsFontChanged;
 }
@@ -597,24 +606,27 @@ int UiConfiguration::musicalFontSize() const
     return settings()->value(UI_MUSICAL_FONT_SIZE_KEY).toInt();
 }
 
-Notification UiConfiguration::musicalFontChanged() const
+muse::async::Notification UiConfiguration::musicalFontChanged() const
 {
     return m_musicalFontChanged;
 }
 
 std::string UiConfiguration::defaultFontFamily() const
 {
-    std::string family = QFontDatabase::systemFont(QFontDatabase::GeneralFont).family().toStdString();
-
 #ifdef Q_OS_WIN
     static const QString defaultWinFamily = "Segoe UI";
+
+#ifdef MU_QT5_COMPAT
     QFontDatabase fontDatabase;
     if (fontDatabase.hasFamily(defaultWinFamily)) {
-        family = defaultWinFamily.toStdString();
+#else
+    if (QFontDatabase::hasFamily(defaultWinFamily)) {
+#endif
+        return defaultWinFamily.toStdString();
     }
 #endif
 
-    return family;
+    return QFontDatabase::systemFont(QFontDatabase::GeneralFont).family().toStdString();
 }
 
 int UiConfiguration::defaultFontSize() const
@@ -648,9 +660,16 @@ double UiConfiguration::physicalDpi() const
         return m_customDPI.value();
     }
 
+    constexpr double DEFAULT_DPI = 96;
     const QScreen* screen = mainWindow() ? mainWindow()->screen() : nullptr;
     if (!screen) {
-        constexpr double DEFAULT_DPI = 96;
+        return DEFAULT_DPI;
+    }
+
+    auto physicalSize = screen->physicalSize();
+    // Work around xrandr reporting a 1x1mm size if
+    // the screen doesn't have a valid physical size
+    if (physicalSize.height() <= 1 && physicalSize.width() <= 1) {
         return DEFAULT_DPI;
     }
 
@@ -674,7 +693,7 @@ double UiConfiguration::logicalDpi() const
     return screen->logicalDotsPerInch();
 }
 
-mu::ValNt<QByteArray> UiConfiguration::pageState(const QString& pageName) const
+ValNt<QByteArray> UiConfiguration::pageState(const QString& pageName) const
 {
     ValNt<QByteArray> result;
     result.val = m_uiArrangement.state(pageName);
@@ -698,7 +717,7 @@ void UiConfiguration::setWindowGeometry(const QByteArray& geometry)
     m_uiArrangement.setState(WINDOW_GEOMETRY_KEY, geometry);
 }
 
-Notification UiConfiguration::windowGeometryChanged() const
+muse::async::Notification UiConfiguration::windowGeometryChanged() const
 {
     return m_windowGeometryChanged;
 }
@@ -726,7 +745,7 @@ void UiConfiguration::setIsVisible(const QString& key, bool val)
     m_uiArrangement.setValue(key, QString::number(val ? 1 : 0));
 }
 
-mu::async::Notification UiConfiguration::isVisibleChanged(const QString& key) const
+async::Notification UiConfiguration::isVisibleChanged(const QString& key) const
 {
     return m_uiArrangement.valueChanged(key);
 }
@@ -747,7 +766,7 @@ void UiConfiguration::setToolConfig(const QString& toolName, const ToolConfig& c
     m_uiArrangement.setToolConfig(toolName, config);
 }
 
-mu::async::Notification UiConfiguration::toolConfigChanged(const QString& toolName) const
+async::Notification UiConfiguration::toolConfigChanged(const QString& toolName) const
 {
     return m_uiArrangement.toolConfigChanged(toolName);
 }

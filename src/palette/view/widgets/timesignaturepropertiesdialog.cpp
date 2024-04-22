@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,10 +25,10 @@
 #include <QRegularExpression>
 
 #include "engraving/iengravingfont.h"
-#include "engraving/libmscore/masterscore.h"
-#include "engraving/libmscore/measure.h"
-#include "engraving/libmscore/score.h"
-#include "engraving/libmscore/timesig.h"
+#include "engraving/dom/masterscore.h"
+#include "engraving/dom/measure.h"
+#include "engraving/dom/score.h"
+#include "engraving/dom/timesig.h"
 
 #include "ui/view/musicalsymbolcodes.h"
 #include "ui/view/widgetstatestore.h"
@@ -36,7 +36,7 @@
 static QString TIME_SIGNATURE_PROPERTIES_DIALOG_NAME("TimeSignaturePropertiesDialog");
 
 using namespace mu::palette;
-using namespace mu::ui;
+using namespace muse::ui;
 using namespace mu::notation;
 using namespace mu::engraving;
 
@@ -158,10 +158,13 @@ TimeSignaturePropertiesDialog::TimeSignaturePropertiesDialog(QWidget* parent)
     WidgetStateStore::restoreGeometry(this);
 }
 
+#ifdef MU_QT5_COMPAT
 TimeSignaturePropertiesDialog::TimeSignaturePropertiesDialog(const TimeSignaturePropertiesDialog& other)
     : QDialog(other.parentWidget())
 {
 }
+
+#endif
 
 TimeSignaturePropertiesDialog::~TimeSignaturePropertiesDialog()
 {
@@ -172,11 +175,6 @@ void TimeSignaturePropertiesDialog::hideEvent(QHideEvent* event)
 {
     WidgetStateStore::saveGeometry(this);
     QDialog::hideEvent(event);
-}
-
-int TimeSignaturePropertiesDialog::static_metaTypeId()
-{
-    return QMetaType::type(TIME_SIGNATURE_PROPERTIES_DIALOG_NAME.toStdString().c_str());
 }
 
 //---------------------------------------------------------

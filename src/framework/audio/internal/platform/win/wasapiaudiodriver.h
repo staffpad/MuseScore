@@ -20,16 +20,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_AUDIO_WASAPIAUDIODRIVER_H
-#define MU_AUDIO_WASAPIAUDIODRIVER_H
+#ifndef MUSE_AUDIO_WASAPIAUDIODRIVER_H
+#define MUSE_AUDIO_WASAPIAUDIODRIVER_H
 
 #include <memory>
 
-#include "async/asyncable.h"
+#include "global/async/asyncable.h"
 
 #include "iaudiodriver.h"
 
-namespace mu::audio {
+namespace muse::audio {
 class AudioDevicesListener;
 class WasapiAudioDriver : public IAudioDriver, public async::Asyncable
 {
@@ -58,6 +58,8 @@ private:
 
     void reopen();
 
+    AudioDeviceID defaultDeviceId() const;
+
     bool m_isOpened = false;
 
     AudioDeviceID m_deviceId;
@@ -73,4 +75,4 @@ private:
 };
 }
 
-#endif // MU_AUDIO_WASAPIAUDIODRIVER_H
+#endif // MUSE_AUDIO_WASAPIAUDIODRIVER_H

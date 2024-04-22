@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -55,7 +55,7 @@ bool PropertyValue::operator ==(const PropertyValue& v) const
 
     //! HACK Temporary hack for Spatium comparisons (maybe one type is Spatium and another type is real)
     if (v.m_type == P_TYPE::SPATIUM || m_type == P_TYPE::SPATIUM) {
-        return RealIsEqual(v.value<double>(), value<double>());
+        return muse::RealIsEqual(v.value<double>(), value<double>());
     }
 
     //! HACK Temporary hack for Fraction comparisons
@@ -66,7 +66,7 @@ bool PropertyValue::operator ==(const PropertyValue& v) const
 
     if (v.m_type == P_TYPE::REAL) {
         assert(m_type == P_TYPE::REAL);
-        return RealIsEqual(v.value<double>(), value<double>());
+        return muse::RealIsEqual(v.value<double>(), value<double>());
     }
 
     assert(m_data);
@@ -112,7 +112,7 @@ QVariant PropertyValue::toQVariant() const
 
     // Draw
     case P_TYPE::SYMID:       return static_cast<int>(value<SymId>());
-    case P_TYPE::COLOR:       return value<draw::Color>().toQColor();
+    case P_TYPE::COLOR:       return value<Color>().toQColor();
     case P_TYPE::ORNAMENT_STYLE: return static_cast<int>(value<OrnamentStyle>());
     case P_TYPE::ORNAMENT_INTERVAL: {
         OrnamentInterval interval = value<OrnamentInterval>();
@@ -164,6 +164,7 @@ QVariant PropertyValue::toQVariant() const
     case P_TYPE::PLAYTECH_TYPE:    return static_cast<int>(value<PlayingTechniqueType>());
     case P_TYPE::TEMPOCHANGE_TYPE: return static_cast<int>(value<GradualTempoChangeType>());
     case P_TYPE::SLUR_STYLE_TYPE:  return static_cast<int>(value<SlurStyleType>());
+    case P_TYPE::TIE_PLACEMENT:    return static_cast<int>(value<TiePlacement>());
 
     // Other
     case P_TYPE::GROUPS: {
@@ -264,6 +265,7 @@ PropertyValue PropertyValue::fromQVariant(const QVariant& v, P_TYPE type)
     case P_TYPE::PLAYTECH_TYPE:    return PropertyValue(PlayingTechniqueType(v.toInt()));
     case P_TYPE::TEMPOCHANGE_TYPE: return PropertyValue(GradualTempoChangeType(v.toInt()));
     case P_TYPE::SLUR_STYLE_TYPE:  return PropertyValue(SlurStyleType(v.toInt()));
+    case P_TYPE::TIE_PLACEMENT:    return PropertyValue(TiePlacement(v.toInt()));
 
     // Other
     case P_TYPE::GROUPS: {
@@ -273,6 +275,7 @@ PropertyValue PropertyValue::fromQVariant(const QVariant& v, P_TYPE type)
     }
 
     //! NOTE Try determinate type by QVariant type
+#ifdef MU_QT5_COMPAT
     switch (v.type()) {
     case QVariant::Invalid:     return PropertyValue();
     case QVariant::Bool:        return PropertyValue(v.toBool());
@@ -291,6 +294,26 @@ PropertyValue PropertyValue::fromQVariant(const QVariant& v, P_TYPE type)
     default:
         break;
     }
+#else
+    switch (v.typeId()) {
+    case QMetaType::UnknownType: return PropertyValue();
+    case QMetaType::Bool:        return PropertyValue(v.toBool());
+    case QMetaType::Int:         return PropertyValue(v.toInt());
+    case QMetaType::UInt:        return PropertyValue(v.toInt());
+    case QMetaType::LongLong:    return PropertyValue(v.toInt());
+    case QMetaType::ULongLong:   return PropertyValue(v.toInt());
+    case QMetaType::Double:      return PropertyValue(v.toReal());
+    case QMetaType::Char:        return PropertyValue(v.toInt());
+    case QMetaType::QString:     return PropertyValue(v.toString());
+    case QMetaType::QSize:       return PropertyValue(SizeF::fromQSizeF(QSizeF(v.toSize())));
+    case QMetaType::QSizeF:      return PropertyValue(SizeF::fromQSizeF(v.toSizeF()));
+    case QMetaType::QPoint:      return PropertyValue(PointF::fromQPointF(QPointF(v.toPoint())));
+    case QMetaType::QPointF:     return PropertyValue(PointF::fromQPointF(v.toPointF()));
+    case QMetaType::QColor:      return PropertyValue(Color::fromQColor(v.value<QColor>()));
+    default:
+        break;
+    }
+#endif
 
     return PropertyValue();
 }

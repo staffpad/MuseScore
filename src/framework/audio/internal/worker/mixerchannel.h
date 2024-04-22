@@ -19,26 +19,27 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_AUDIO_MIXERCHANNEL_H
-#define MU_AUDIO_MIXERCHANNEL_H
+#ifndef MUSE_AUDIO_MIXERCHANNEL_H
+#define MUSE_AUDIO_MIXERCHANNEL_H
 
-#include "modularity/ioc.h"
-
-#include "async/asyncable.h"
+#include "global/modularity/ioc.h"
+#include "global/async/asyncable.h"
 
 #include "ifxresolver.h"
 #include "ifxprocessor.h"
 #include "track.h"
 #include "internal/dsp/compressor.h"
 
-namespace mu::audio {
+namespace muse::audio {
 class MixerChannel : public ITrackAudioOutput, public async::Asyncable
 {
-    INJECT(fx::IFxResolver, fxResolver)
+    Inject<fx::IFxResolver> fxResolver;
 
 public:
     explicit MixerChannel(const TrackId trackId, IAudioSourcePtr source, const unsigned int sampleRate);
-    explicit MixerChannel(const TrackId trackId, const unsigned int sampleRate);
+    explicit MixerChannel(const TrackId trackId, const unsigned int sampleRate, unsigned int audioChannelsCount);
+
+    TrackId trackId() const;
 
     const AudioOutputParams& outputParams() const override;
     void applyOutputParams(const AudioOutputParams& requiredParams) override;
@@ -61,6 +62,7 @@ private:
     TrackId m_trackId = -1;
 
     unsigned int m_sampleRate = 0;
+    unsigned int m_audioChannelsCount = 0;
     AudioOutputParams m_params;
 
     IAudioSourcePtr m_audioSource = nullptr;
@@ -75,4 +77,4 @@ private:
 using MixerChannelPtr = std::shared_ptr<MixerChannel>;
 }
 
-#endif // MU_AUDIO_MIXERCHANNEL_H
+#endif // MUSE_AUDIO_MIXERCHANNEL_H

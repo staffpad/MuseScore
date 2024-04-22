@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,6 +22,8 @@
 #ifndef MU_PROJECT_EXPORTDIALOGMODEL_H
 #define MU_PROJECT_EXPORTDIALOGMODEL_H
 
+#include <QAbstractListModel>
+
 #include "modularity/ioc.h"
 
 #include "async/asyncable.h"
@@ -32,22 +34,21 @@
 #include "importexport/musicxml/imusicxmlconfiguration.h"
 #include "importexport/midi/imidiconfiguration.h"
 #include "importexport/audioexport/iaudioexportconfiguration.h"
+#include "importexport/mei/imeiconfiguration.h"
 
-#include "projecttypes.h"
-#include "iprojectconfiguration.h"
 #include "inotationwritersregister.h"
+#include "iprojectconfiguration.h"
 #include "internal/iexportprojectscenario.h"
-
-#include <QAbstractListModel>
+#include "types/projecttypes.h"
 
 class QItemSelectionModel;
 
 namespace mu::project {
-class ExportDialogModel : public QAbstractListModel, public async::Asyncable
+class ExportDialogModel : public QAbstractListModel, public muse::async::Asyncable
 {
     Q_OBJECT
 
-    INJECT(framework::IInteractive, interactive)
+    INJECT(muse::IInteractive, interactive)
     INJECT(context::IGlobalContext, context)
     INJECT(IProjectConfiguration, configuration)
     INJECT(INotationWritersRegister, writers)
@@ -55,6 +56,7 @@ class ExportDialogModel : public QAbstractListModel, public async::Asyncable
     INJECT(iex::musicxml::IMusicXmlConfiguration, musicXmlConfiguration)
     INJECT(iex::midi::IMidiImportExportConfiguration, midiImportExportConfiguration)
     INJECT(iex::audioexport::IAudioExportConfiguration, audioExportConfiguration)
+    INJECT(iex::mei::IMeiConfiguration, meiConfiguration)
     INJECT(IExportProjectScenario, exportProjectScenario)
 
     Q_PROPERTY(int selectionLength READ selectionLength NOTIFY selectionChanged)
@@ -69,6 +71,9 @@ class ExportDialogModel : public QAbstractListModel, public async::Asyncable
     Q_PROPERTY(
         bool pngTransparentBackground READ pngTransparentBackground WRITE setPngTransparentBackground NOTIFY pngTransparentBackgroundChanged)
 
+    Q_PROPERTY(
+        bool svgTransparentBackground READ svgTransparentBackground WRITE setSvgTransparentBackground NOTIFY svgTransparentBackgroundChanged)
+
     Q_PROPERTY(int sampleRate READ sampleRate WRITE setSampleRate NOTIFY sampleRateChanged)
     Q_PROPERTY(int bitRate READ bitRate WRITE setBitRate NOTIFY bitRateChanged)
 
@@ -76,6 +81,8 @@ class ExportDialogModel : public QAbstractListModel, public async::Asyncable
     Q_PROPERTY(bool midiExportRpns READ midiExportRpns WRITE setMidiExportRpns NOTIFY midiExportRpnsChanged)
 
     Q_PROPERTY(MusicXmlLayoutType musicXmlLayoutType READ musicXmlLayoutType WRITE setMusicXmlLayoutType NOTIFY musicXmlLayoutTypeChanged)
+
+    Q_PROPERTY(int meiExportLayout READ meiExportLayout WRITE setMeiExportLayout NOTIFY meiExportLayoutChanged)
 
     Q_PROPERTY(bool shouldDestinationFolderBeOpenedOnExport READ shouldDestinationFolderBeOpenedOnExport
                WRITE setShouldDestinationFolderBeOpenedOnExport NOTIFY shouldDestinationFolderBeOpenedOnExportChanged)
@@ -116,6 +123,9 @@ public:
     bool pngTransparentBackground() const;
     void setPngTransparentBackground(const bool& transparent);
 
+    bool svgTransparentBackground() const;
+    void setSvgTransparentBackground(const bool& transparent);
+
     Q_INVOKABLE QList<int> availableSampleRates() const;
     int sampleRate() const;
     void setSampleRate(int sampleRate);
@@ -129,6 +139,9 @@ public:
 
     bool midiExportRpns() const;
     void setMidiExportRpns(bool exportRpns);
+
+    bool meiExportLayout() const;
+    void setMeiExportLayout(bool exportLayout);
 
     enum class MusicXmlLayoutType {
         AllLayout,
@@ -145,6 +158,8 @@ public:
     bool shouldDestinationFolderBeOpenedOnExport() const;
     void setShouldDestinationFolderBeOpenedOnExport(bool enabled);
 
+    Q_INVOKABLE void updateExportInfo();
+
 signals:
     void selectionChanged();
 
@@ -155,6 +170,8 @@ signals:
     void pngResolutionChanged(int resolution);
     void pngTransparentBackgroundChanged(bool transparent);
 
+    void svgTransparentBackgroundChanged(bool transparent);
+
     void availableSampleRatesChanged();
     void sampleRateChanged(int sampleRate);
     void availableBitRatesChanged();
@@ -164,6 +181,8 @@ signals:
     void midiExportRpnsChanged(bool exportRpns);
 
     void musicXmlLayoutTypeChanged(MusicXmlLayoutType layoutType);
+
+    void meiExportLayoutChanged(bool exportLayout);
 
     void shouldDestinationFolderBeOpenedOnExportChanged(bool shouldDestinationFolderBeOpenedOnExport);
 
@@ -179,11 +198,14 @@ private:
     bool isMainNotation(notation::INotationPtr notation) const;
     notation::IMasterNotationPtr masterNotation() const;
 
+    void selectSavedNotations();
+
     QList<notation::INotationPtr> m_notations {};
     QItemSelectionModel* m_selectionModel = nullptr;
 
     ExportTypeList m_exportTypeList {};
     ExportType m_selectedExportType = ExportType();
+    muse::io::path_t m_exportPath;
     project::INotationWriter::UnitType m_selectedUnitType = project::INotationWriter::UnitType::PER_PART;
 };
 }

@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -36,8 +36,8 @@ public:
     QObject* getQObject() override;
 
     bool needUpdateElementList(const QList<mu::engraving::EngravingItem*>& newRawElementList,
-                               notation::SelectionState selectionState) const override;
-    void updateElementList(const QList<mu::engraving::EngravingItem*>& newRawElementList, notation::SelectionState selectionState) override;
+                               engraving::SelState selectionState) const override;
+    void updateElementList(const QList<mu::engraving::EngravingItem*>& newRawElementList, engraving::SelState selectionState) override;
 
     QList<mu::engraving::EngravingItem*> findElementsByType(const mu::engraving::ElementType elementType) const override;
     QList<mu::engraving::EngravingItem*> findElementsByType(const mu::engraving::ElementType elementType,
@@ -61,7 +61,6 @@ private:
     QList<mu::engraving::EngravingItem*> findStaffs() const;
     QList<mu::engraving::EngravingItem*> findSectionBreaks() const;
     QList<mu::engraving::EngravingItem*> findTexts() const;
-    QList<mu::engraving::EngravingItem*> findTremolos() const;
     QList<mu::engraving::EngravingItem*> findBrackets() const;
     QList<mu::engraving::EngravingItem*> findLines(mu::engraving::ElementType lineType) const;
     QList<mu::engraving::EngravingItem*> findRests() const;
@@ -69,7 +68,7 @@ private:
 
     QList<mu::engraving::EngravingItem*> m_exposedElementList;
     QList<mu::engraving::EngravingItem*> m_rawElementList;
-    notation::SelectionState m_selectionState = notation::SelectionState::NONE;
+    mu::engraving::SelState m_selectionState = mu::engraving::SelState::NONE;
 };
 }
 

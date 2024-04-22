@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -27,6 +27,7 @@
 #include <QPainter>
 #include <QQuickPaintedItem>
 
+#include "draw/types/geometry.h"
 #include "modularity/ioc.h"
 #include "async/asyncable.h"
 #include "inotationconfiguration.h"
@@ -36,13 +37,30 @@
 #include "abstractnotationpaintview.h"
 
 namespace mu::notation {
+class NotationNavigatorCursorView : public QQuickPaintedItem
+{
+    Q_OBJECT
+
+    INJECT(INotationConfiguration, configuration)
+
+public:
+    NotationNavigatorCursorView(QQuickItem* parent = nullptr);
+
+    void setRect(const muse::RectF& cursorRect);
+
+private:
+    virtual void paint(QPainter* painter) override;
+
+    muse::RectF m_cursorRect;
+};
+
 class NotationNavigator : public AbstractNotationPaintView
 {
     Q_OBJECT
 
     INJECT(context::IGlobalContext, globalContext)
     INJECT(INotationConfiguration, configuration)
-    INJECT(ui::IUiConfiguration, uiConfiguration)
+    INJECT(muse::ui::IUiConfiguration, uiConfiguration)
     INJECT(engraving::IEngravingConfiguration, engravingConfiguration)
 
     Q_PROPERTY(int orientation READ orientation NOTIFY orientationChanged)
@@ -76,17 +94,17 @@ private:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
 
-    void paintCursor(QPainter* painter);
     void paintPageNumbers(QPainter* painter);
 
-    void moveCanvasToRect(const RectF& viewRect);
+    bool moveCanvasToRect(const muse::RectF& viewRect);
 
     bool isVerticalOrientation() const;
 
     PageList pages() const;
 
-    RectF m_cursorRect;
-    PointF m_startMove;
+    muse::RectF m_cursorRect;
+    NotationNavigatorCursorView* m_cursorRectView = nullptr;
+    muse::PointF m_startMove;
 };
 }
 

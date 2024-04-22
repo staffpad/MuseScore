@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -31,7 +31,7 @@ class BeamSettingsModel : public AbstractInspectorModel
 {
     Q_OBJECT
 
-    Q_PROPERTY(QObject * beamModesModel READ beamModesModel NOTIFY beamModesModelChanged)
+    Q_PROPERTY(QObject * beamModesModel READ beamModesModel CONSTANT)
 
     Q_PROPERTY(PropertyItem * featheringHeightLeft READ featheringHeightLeft CONSTANT)
     Q_PROPERTY(PropertyItem * featheringHeightRight READ featheringHeightRight CONSTANT)
@@ -48,6 +48,11 @@ class BeamSettingsModel : public AbstractInspectorModel
     Q_PROPERTY(PropertyItem * forceHorizontal READ forceHorizontal CONSTANT)
 
     Q_PROPERTY(PropertyItem * customPositioned READ customPositioned CONSTANT)
+
+    Q_PROPERTY(PropertyItem * stemDirection READ stemDirection CONSTANT)
+    Q_PROPERTY(PropertyItem * crossStaffMove READ crossStaffMove CONSTANT)
+    Q_PROPERTY(
+        bool isCrossStaffMoveAvailable READ isCrossStaffMoveAvailable WRITE setisCrossStaffMoveAvailable NOTIFY isCrossStaffMoveAvailableChanged)
 
 public:
     explicit BeamSettingsModel(QObject* parent, IElementRepositoryService* repository);
@@ -69,15 +74,19 @@ public:
     PropertyItem* beamHeightRight() const;
     bool isBeamHeightLocked() const;
 
+    PropertyItem* stemDirection() const;
+    PropertyItem* crossStaffMove() const;
+    bool isCrossStaffMoveAvailable() const;
+
 public slots:
     void setIsBeamHeightLocked(bool isBeamHeightLocked);
     void setFeatheringMode(BeamTypes::FeatheringMode featheringMode);
-    void setBeamModesModel(BeamModesModel* beamModesModel);
+    void setisCrossStaffMoveAvailable(bool isCrossStaffMoveAvailable);
 
 signals:
     void isBeamHeightLockedChanged(bool isBeamHeightLocked);
     void featheringModeChanged(BeamTypes::FeatheringMode featheringMode);
-    void beamModesModelChanged(QObject* beamModesModel);
+    void isCrossStaffMoveAvailableChanged(bool isCrossStaffMoveAvailable);
 
 private:
     void createProperties() override;
@@ -96,6 +105,10 @@ private:
 
     void updateFeatheringMode(const qreal left, const qreal right);
 
+    void updateisCrossStaffMoveAvailable();
+
+    void onCurrentNotationChanged() override;
+
     BeamModesModel* m_beamModesModel = nullptr;
 
     PropertyItem* m_featheringHeightLeft = nullptr;
@@ -104,12 +117,16 @@ private:
 
     PropertyItem* m_beamHeightLeft = nullptr;
     PropertyItem* m_beamHeightRight = nullptr;
-    PairF m_cachedBeamHeights; //!Note used in delta calculation
+    muse::PairF m_cachedBeamHeights; //!Note used in delta calculation
     bool m_isBeamHeightLocked = false;
 
     PropertyItem* m_isBeamHidden = nullptr;
     PropertyItem* m_forceHorizontal = nullptr;
     PropertyItem* m_customPositioned = nullptr;
+
+    PropertyItem* m_stemDirection = nullptr;
+    PropertyItem* m_crossStaffMove = nullptr;
+    bool m_isCrossStaffMoveAvailable = false;
 };
 }
 

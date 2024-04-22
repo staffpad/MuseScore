@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -22,8 +22,8 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 
-import MuseScore.Ui 1.0
-import MuseScore.UiComponents 1.0
+import Muse.Ui 1.0
+import Muse.UiComponents 1.0
 
 StyledDialogView {
     id: root
@@ -48,7 +48,7 @@ StyledDialogView {
             NavigationPanel {
                 id: measuresCountNavigationPanel
                 name: "MeasuresCountNavigationPanel"
-                enabled: parent.enabled && parent.visible
+                enabled: content && content.enabled && content.visible
                 section: root.navigationSection
                 order: 1
                 direction: NavigationPanel.Horizontal
@@ -85,45 +85,31 @@ StyledDialogView {
             }
         }
 
-        Row {
-            Layout.preferredHeight: childrenRect.height
+        ButtonBox {
+            Layout.fillWidth: true
             Layout.alignment: Qt.AlignRight | Qt.AlignBottom
 
-            spacing: 12
+            buttons: [ ButtonBoxModel.Cancel ]
 
-            NavigationPanel {
-                id: buttonsNavigationPanel
-                name: "ButtonsNavigationPanel"
-                enabled: parent.enabled && parent.visible
-                section: root.navigationSection
-                order: 2
-                direction: NavigationPanel.Horizontal
-            }
-
-            FlatButton {
-                text: qsTrc("global", "Cancel")
-
-                navigation.name: "CancelButton"
-                navigation.panel: buttonsNavigationPanel
-                navigation.order: 2
-
-                onClicked: {
-                    root.reject()
-                }
-            }
+            navigationPanel.section: root.navigationSection
+            navigationPanel.order: 2
 
             FlatButton {
                 text: qsTrc("global", "OK")
+                buttonRole: ButtonBoxModel.AcceptRole
+                buttonId: ButtonBoxModel.Ok
                 enabled: root.measuresCount > 0
-                accentButton: enabled
-
-                navigation.name: "OkButton"
-                navigation.panel: buttonsNavigationPanel
-                navigation.order: 1
+                accentButton: true
 
                 onClicked: {
                     root.ret = { errcode: 0, value: root.measuresCount }
                     root.hide()
+                }
+            }
+
+            onStandardButtonClicked: function(buttonId) {
+                if (buttonId === ButtonBoxModel.Cancel) {
+                    root.reject()
                 }
             }
         }

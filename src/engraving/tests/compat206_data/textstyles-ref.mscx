@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<museScore version="4.00">
+<museScore version="4.40">
   <Score>
-    <LayerTag id="0" tag="default"></LayerTag>
-    <currentLayer>0</currentLayer>
     <Division>480</Division>
     <Style>
       <pagePrintableWidth>7.4826</pagePrintableWidth>
@@ -91,7 +89,7 @@
       <partInstrumentFrameWidth>0</partInstrumentFrameWidth>
       <expressionFontFace>MuseJazz Text</expressionFontFace>
       <expressionFontSize>12</expressionFontSize>
-      <expressionFontSpatiumDependent>0</expressionFontSpatiumDependent>
+      <expressionFontStyle>0</expressionFontStyle>
       <expressionFramePadding>0</expressionFramePadding>
       <expressionFrameWidth>0</expressionFrameWidth>
       <tempoFontFace>MuseJazz Text</tempoFontFace>
@@ -165,7 +163,6 @@
     <metaTag name="lyricist">Lyricist</metaTag>
     <metaTag name="movementNumber"></metaTag>
     <metaTag name="movementTitle"></metaTag>
-    <metaTag name="poet"></metaTag>
     <metaTag name="source"></metaTag>
     <metaTag name="translator"></metaTag>
     <metaTag name="workNumber"></metaTag>
@@ -402,6 +399,8 @@
         <voice>
           <Expression>
             <placement>above</placement>
+            <snapToDynamics>0</snapToDynamics>
+            <offset x="0" y="3.5"/>
             <text>technique</text>
             </Expression>
           <Rest>
@@ -502,8 +501,6 @@
           <Spanner type="Pedal">
             <Pedal>
               <endHookType>1</endHookType>
-              <beginText>&lt;sym&gt;keyboardPedalPed&lt;/sym&gt;</beginText>
-              <continueText>(&lt;sym&gt;keyboardPedalPed&lt;/sym&gt;)</continueText>
               </Pedal>
             <next>
               <location>

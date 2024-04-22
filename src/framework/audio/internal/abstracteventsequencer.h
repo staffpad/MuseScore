@@ -20,20 +20,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_AUDIO_ABSTRACTEVENTSEQUENCER_H
-#define MU_AUDIO_ABSTRACTEVENTSEQUENCER_H
+#ifndef MUSE_AUDIO_ABSTRACTEVENTSEQUENCER_H
+#define MUSE_AUDIO_ABSTRACTEVENTSEQUENCER_H
 
 #include <map>
 #include <set>
 
-#include "async/asyncable.h"
-#include "async/notification.h"
+#include "global/async/asyncable.h"
 #include "mpe/events.h"
 
 #include "audiosanitizer.h"
 #include "../audiotypes.h"
 
-namespace mu::audio {
+namespace muse::audio {
 template<class ... Types>
 class AbstractEventSequencer : public async::Asyncable
 {
@@ -49,7 +48,6 @@ public:
     {
         m_mainStreamChanges.resetOnReceive(this);
         m_offStreamChanges.resetOnReceive(this);
-        m_dynamicLevelChanges.resetOnReceive(this);
     }
 
     void load(const mpe::PlaybackData& data)
@@ -58,42 +56,23 @@ public:
 
         m_mainStreamChanges = data.mainStream;
         m_offStreamChanges = data.offStream;
-        m_dynamicLevelChanges = data.dynamicLevelChanges;
 
-        m_playbackEventsMap = data.originEvents;
-        m_dynamicLevelMap = data.dynamicLevelMap;
-
-        m_offStreamChanges.onReceive(this, [this](const mpe::PlaybackEventsMap& changes) {
-            updateOffStreamEvents(changes);
+        m_mainStreamChanges.onReceive(this,
+                                      [this](const mpe::PlaybackEventsMap& events, const mpe::DynamicLevelMap& dynamics,
+                                             const mpe::PlaybackParamMap& params) {
+            updateMainStreamEvents(events, dynamics, params);
         });
 
-        m_mainStreamChanges.onReceive(this, [this](const mpe::PlaybackEventsMap& changes) {
-            m_playbackEventsMap = changes;
-            updateMainStreamEvents(changes);
+        m_offStreamChanges.onReceive(this, [this](const mpe::PlaybackEventsMap& events, const mpe::PlaybackParamMap& params) {
+            updateOffStreamEvents(events, params);
         });
 
-        m_dynamicLevelChanges.onReceive(this, [this](const mpe::DynamicLevelMap& changes) {
-            m_dynamicLevelMap = changes;
-            updateDynamicChanges(changes);
-        });
-
-        updateMainStreamEvents(data.originEvents);
-        updateDynamicChanges(data.dynamicLevelMap);
+        updateMainStreamEvents(data.originEvents, data.dynamicLevelMap, data.paramMap);
     }
 
-    virtual void updateOffStreamEvents(const mpe::PlaybackEventsMap& changes) = 0;
-    virtual void updateMainStreamEvents(const mpe::PlaybackEventsMap& changes) = 0;
-    virtual void updateDynamicChanges(const mpe::DynamicLevelMap& changes) = 0;
-
-    async::Notification flushedOffStreamEvents() const
-    {
-        return m_offStreamFlushed;
-    }
-
-    async::Notification flushedMainStreamEvents() const
-    {
-        return m_mainStreamFlushed;
-    }
+    virtual void updateOffStreamEvents(const mpe::PlaybackEventsMap& events, const mpe::PlaybackParamMap& params) = 0;
+    virtual void updateMainStreamEvents(const mpe::PlaybackEventsMap& events, const mpe::DynamicLevelMap& dynamics,
+                                        const mpe::PlaybackParamMap& params) = 0;
 
     void setActive(const bool active)
     {
@@ -120,10 +99,26 @@ public:
         return m_playbackPosition;
     }
 
-    mpe::dynamic_level_t dynamicLevel(const msecs_t position) const
+    using OnFlushedCallback = std::function<void ()>;
+
+    void setOnOffStreamFlushed(OnFlushedCallback flushed)
+    {
+        ONLY_AUDIO_WORKER_THREAD;
+
+        m_onOffStreamFlushed = flushed;
+    }
+
+    void setOnMainStreamFlushed(OnFlushedCallback flushed)
+    {
+        ONLY_AUDIO_WORKER_THREAD;
+
+        m_onMainStreamFlushed = flushed;
+    }
+
+    muse::mpe::dynamic_level_t dynamicLevel(const msecs_t position) const
     {
         if (m_dynamicLevelMap.empty()) {
-            return mpe::dynamicLevelFromType(mpe::DynamicType::Natural);
+            return muse::mpe::dynamicLevelFromType(muse::mpe::DynamicType::Natural);
         }
 
         if (m_dynamicLevelMap.size() == 1) {
@@ -143,8 +138,6 @@ public:
         ONLY_AUDIO_WORKER_THREAD;
 
         EventSequence result;
-
-        result.clear();
 
         if (!m_isActive) {
             handleOffStream(result, nextMsecs);
@@ -238,17 +231,15 @@ protected:
     EventSequenceMap m_dynamicEvents;
 
     mpe::DynamicLevelMap m_dynamicLevelMap;
-    mpe::PlaybackEventsMap m_playbackEventsMap;
-
-    async::Notification m_offStreamFlushed;
-    async::Notification m_mainStreamFlushed;
 
     bool m_isActive = false;
 
-    mpe::PlaybackEventsChanges m_mainStreamChanges;
-    mpe::PlaybackEventsChanges m_offStreamChanges;
-    mpe::DynamicLevelChanges m_dynamicLevelChanges;
+    mpe::MainStreamChanges m_mainStreamChanges;
+    mpe::OffStreamChanges m_offStreamChanges;
+
+    OnFlushedCallback m_onOffStreamFlushed;
+    OnFlushedCallback m_onMainStreamFlushed;
 };
 }
 
-#endif // MU_AUDIO_ABSTRACTEVENTSEQUENCER_H
+#endif // MUSE_AUDIO_ABSTRACTEVENTSEQUENCER_H

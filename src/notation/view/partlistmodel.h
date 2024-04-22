@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -27,7 +27,7 @@
 #include "context/iglobalcontext.h"
 #include "iinteractive.h"
 
-namespace mu::uicomponents {
+namespace muse::uicomponents {
 class ItemMultiSelectionModel;
 }
 
@@ -37,7 +37,7 @@ class PartListModel : public QAbstractListModel
     Q_OBJECT
 
     INJECT(context::IGlobalContext, context)
-    INJECT(framework::IInteractive, interactive)
+    INJECT(muse::IInteractive, interactive)
 
     Q_PROPERTY(bool hasSelection READ hasSelection NOTIFY selectionChanged)
 
@@ -68,9 +68,9 @@ signals:
     void partAdded(int index);
 
 private:
-    void openNotations(const QList<int>& rows) const;
+    void openExcerpts(const QList<int>& rows) const;
 
-    Ret doValidatePartTitle(int partIndex, const QString& title) const;
+    muse::Ret doValidatePartTitle(int partIndex, const QString& title) const;
 
     bool isExcerptIndexValid(int index) const;
 
@@ -79,7 +79,7 @@ private:
 
     IMasterNotationPtr masterNotation() const;
 
-    void insertExcerpt(int destinationIndex, IExcerptNotationPtr excerpt);
+    void insertNewExcerpt(int destinationIndex, IExcerptNotationPtr excerpt);
     void notifyAboutNotationChanged(int index);
 
     enum Roles {
@@ -89,7 +89,7 @@ private:
         RoleIsCustom
     };
 
-    uicomponents::ItemMultiSelectionModel* m_selectionModel = nullptr;
+    muse::uicomponents::ItemMultiSelectionModel* m_selectionModel = nullptr;
     QList<IExcerptNotationPtr> m_excerpts;
     INotationPtr m_currentNotation;
 };

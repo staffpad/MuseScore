@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,20 +25,14 @@
 #include <cmath>
 #include <QMimeData>
 
-#include "libmscore/masterscore.h"
-#include "libmscore/engravingitem.h"
-#include "libmscore/page.h"
-#include "libmscore/system.h"
-#include "libmscore/actionicon.h"
-#include "libmscore/chord.h"
-#include "libmscore/factory.h"
-
-#include "commonscene/commonscenetypes.h"
+#include "engraving/dom/engravingitem.h"
+#include "engraving/dom/page.h"
+#include "engraving/dom/system.h"
 
 #include "log.h"
 
 using namespace mu;
-using namespace mu::draw;
+using namespace muse::draw;
 using namespace mu::notation;
 using namespace mu::engraving;
 
@@ -147,7 +141,7 @@ void ExampleView::cmdAddSlur(Note* /*firstNote*/, Note* /*lastNote*/)
 {
 }
 
-void ExampleView::drawBackground(mu::draw::Painter* p, const RectF& r) const
+void ExampleView::drawBackground(Painter* p, const RectF& r) const
 {
     if (m_backgroundPixmap == 0 || m_backgroundPixmap->isNull()) {
         p->fillRect(r, m_backgroundColor);
@@ -156,13 +150,13 @@ void ExampleView::drawBackground(mu::draw::Painter* p, const RectF& r) const
     }
 }
 
-void ExampleView::drawElements(mu::draw::Painter& painter, const std::vector<EngravingItem*>& el)
+void ExampleView::drawElements(Painter& painter, const std::vector<EngravingItem*>& el)
 {
     for (EngravingItem* e : el) {
         e->itemDiscovered = 0;
         PointF pos(e->pagePos());
         painter.translate(pos);
-        e->draw(&painter);
+        EngravingItem::renderer()->drawItem(e, &painter);
         painter.translate(-pos);
     }
 }
@@ -175,7 +169,7 @@ void ExampleView::paintEvent(QPaintEvent* event)
         return;
     }
 
-    mu::draw::Painter painter(this, "exampleview");
+    Painter painter(this, "exampleview");
     painter.setAntialiasing(true);
     const RectF rect = RectF::fromQRectF(event->rect());
 
@@ -276,8 +270,8 @@ void ExampleView::constraintCanvas(int* dxx)
     Q_ASSERT(m_score->pages().front()->system(0));   // should exist if doLayout ran
 
     // form rectangle bounding the system with a spatium margin and translate relative to view space
-    qreal xstart = m_score->pages().front()->system(0)->bbox().left() - SPATIUM20;
-    qreal xend = m_score->pages().front()->system(0)->bbox().right() + 2.0 * SPATIUM20;
+    qreal xstart = m_score->pages().front()->system(0)->ldata()->bbox().left() - SPATIUM20;
+    qreal xend = m_score->pages().front()->system(0)->ldata()->bbox().right() + 2.0 * SPATIUM20;
     QRectF systemScaledViewRect(xstart * m_matrix.m11(), 0, xend * m_matrix.m11(), 0);
     systemScaledViewRect.translate(m_matrix.dx(), 0);
 

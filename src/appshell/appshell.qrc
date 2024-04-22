@@ -28,7 +28,6 @@
         <file>qml/Preferences/PreferencesPage.qml</file>
         <file>qml/Preferences/GeneralPreferencesPage.qml</file>
         <file>qml/Preferences/UpdatePreferencesPage.qml</file>
-        <file>qml/Preferences/ProgrammeStartPreferencesPage.qml</file>
         <file>qml/Preferences/NoteInputPreferencesPage.qml</file>
         <file>qml/Preferences/AppearancePreferencesPage.qml</file>
         <file>qml/Preferences/FoldersPreferencesPage.qml</file>
@@ -38,8 +37,8 @@
         <file>qml/Preferences/ShortcutsPreferencesPage.qml</file>
         <file>qml/Preferences/ImportPreferencesPage.qml</file>
         <file>qml/Preferences/MidiDeviceMappingPreferencesPage.qml</file>
-        <file>qml/Preferences/IOPreferencesPage.qml</file>
-        <file>qml/Preferences/CloudPreferencesPage.qml</file>
+        <file>qml/Preferences/PlaybackPreferencesPage.qml</file>
+        <file>qml/Preferences/SaveAndPublishPreferencesPage.qml</file>
         <file>qml/Preferences/PreferencesDialog.qml</file>
         <file>qml/Preferences/internal/PreferencesButtonsPanel.qml</file>
         <file>qml/Preferences/internal/PreferencesMenu.qml</file>
@@ -59,7 +58,7 @@
         <file>qml/Preferences/internal/ComboBoxWithTitle.qml</file>
         <file>qml/Preferences/internal/IncrementalPropertyControlWithTitle.qml</file>
         <file>qml/Preferences/internal/KeyboardLayoutsSection.qml</file>
-        <file>qml/Preferences/internal/AudioGenerationSection.qml</file>
+        <file>qml/Preferences/internal/SaveToCloudSection.qml</file>
         <file>qml/DevTools/KeyNav/KeyNavExample.qml</file>
         <file>qml/DevTools/KeyNav/KeyNavSection.qml</file>
         <file>qml/DevTools/KeyNav/KeyNavSubSection.qml</file>
@@ -68,16 +67,6 @@
         <file>qml/PublishPage/PublishPage.qml</file>
         <file>qml/PublishPage/PublishToolBar.qml</file>
         <file>qml/DevTools/DevToolsPage.qml</file>
-        <file>qml/dockwindow/DockWidget.qml</file>
-        <file>qml/dockwindow/DockTitleBar.qml</file>
-        <file>qml/dockwindow/DockToolBar.qml</file>
-        <file>qml/dockwindow/DockFrame.qml</file>
-        <file>qml/dockwindow/DockPanelTab.qml</file>
-        <file>qml/dockwindow/DockSeparator.qml</file>
-        <file>qml/dockwindow/DockFloatingWindow.qml</file>
-        <file>qml/dockwindow/DockPage.qml</file>
-        <file>qml/dockwindow/DockPanel.qml</file>
-        <file>qml/dockwindow/DockingHolder.qml</file>
         <file>qml/AppWindow.qml</file>
         <file>qml/WindowContent.qml</file>
         <file>qml/platform/linux/Main.qml</file>
@@ -88,7 +77,7 @@
         <file>qml/Preferences/internal/LanguagesSection.qml</file>
         <file>qml/Preferences/internal/AutoSaveSection.qml</file>
         <file>qml/Preferences/internal/RemoteControlSection.qml</file>
-        <file>qml/Preferences/internal/ProgrammeStartSection.qml</file>
+        <file>qml/Preferences/internal/ProgramStartSection.qml</file>
         <file>qml/Preferences/internal/FoldersSection.qml</file>
         <file>qml/Preferences/internal/ThemeAdditionalOptionsSection.qml</file>
         <file>qml/Preferences/internal/AdvancedTopSection.qml</file>
@@ -104,7 +93,14 @@
         <file>qml/platform/win/AppSystemButtons.qml</file>
         <file>qml/platform/AppMenuBar.qml</file>
         <file>qml/platform/AppButtonBackground.qml</file>
-        <file>qml/platform/PlatformMenuBar.qml</file>
         <file>resources/LoadingScreen.svg</file>
+        <file>qml/Preferences/BraillePreferencesPage.qml</file>
+        <file>qml/Preferences/internal/BrailleSection.qml</file>
+        <file>qml/Preferences/internal/BrailleAdvancedSection.qml</file>
+        <file>qml/Preferences/internal/MeiSection.qml</file>
+        <file>qml/Preferences/internal/PublishMuseScoreComSection.qml</file>
+        <file>qml/Preferences/internal/MixerSection.qml</file>
+        <file>qml/DevTools/Extensions/ExtensionsListView.qml</file>
+        <file>qml/platform/PlatformMenuBar.qml</file>
     </qresource>
 </RCC>

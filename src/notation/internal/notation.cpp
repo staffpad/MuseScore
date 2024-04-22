@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -24,14 +24,11 @@
 #include <QGuiApplication>
 #include <QScreen>
 
-#include "log.h"
-
-#include "libmscore/masterscore.h"
-#include "libmscore/page.h"
-#include "engraving/infrastructure/paint.h"
+#include "engraving/dom/masterscore.h"
 
 #include "notationpainting.h"
 #include "notationviewstate.h"
+#include "notationsolomutestate.h"
 #include "notationinteraction.h"
 #include "notationplayback.h"
 #include "notationundostack.h"
@@ -41,14 +38,17 @@
 #include "notationmidiinput.h"
 #include "notationparts.h"
 #include "notationtypes.h"
-#include "draw/types/pen.h"
+
+#include "log.h"
 
 using namespace mu::notation;
+using namespace mu::engraving;
 
 Notation::Notation(mu::engraving::Score* score)
 {
     m_painting = std::make_shared<NotationPainting>(this);
     m_viewState = std::make_shared<NotationViewState>(this);
+    m_soloMuteState = std::make_shared<NotationSoloMuteState>();
     m_undoStack = std::make_shared<NotationUndoStack>(this, m_notationChanged);
     m_interaction = std::make_shared<NotationInteraction>(this, m_undoStack);
     m_midiInput = std::make_shared<NotationMidiInput>(this, m_interaction, m_undoStack);
@@ -85,16 +85,13 @@ Notation::Notation(mu::engraving::Score* score)
         notifyAboutNotationChanged();
     });
 
-    engravingConfiguration()->selectionColorChanged().onReceive(this, [this](int, const mu::draw::Color&) {
+    engravingConfiguration()->selectionColorChanged().onReceive(this, [this](int, const muse::draw::Color&) {
         notifyAboutNotationChanged();
     });
 
-    configuration()->canvasOrientation().ch.onReceive(this, [this](framework::Orientation) {
-        if (m_score) {
+    configuration()->canvasOrientation().ch.onReceive(this, [this](muse::Orientation) {
+        if (m_score && m_score->autoLayoutEnabled()) {
             m_score->doLayout();
-            for (mu::engraving::Score* score : m_score->scoreList()) {
-                score->doLayout();
-            }
         }
     });
 
@@ -121,11 +118,11 @@ Notation::~Notation()
 
 void Notation::init()
 {
-    bool isVertical = configuration()->canvasOrientation().val == framework::Orientation::Vertical;
+    bool isVertical = configuration()->canvasOrientation().val == muse::Orientation::Vertical;
     mu::engraving::MScore::setVerticalOrientation(isVertical);
 }
 
-void Notation::setScore(mu::engraving::Score* score)
+void Notation::setScore(Score* score)
 {
     if (m_score == score) {
         return;
@@ -135,7 +132,7 @@ void Notation::setScore(mu::engraving::Score* score)
     m_scoreInited.notify();
 }
 
-mu::async::Notification Notation::scoreInited() const
+muse::async::Notification Notation::scoreInited() const
 {
     return m_scoreInited;
 }
@@ -208,7 +205,8 @@ QString Notation::projectWorkTitleAndPartName() const
 
 bool Notation::isOpen() const
 {
-    return score()->isOpen();
+    const Score* s = score();
+    return s && s->isOpen();
 }
 
 void Notation::setIsOpen(bool open)
@@ -217,13 +215,33 @@ void Notation::setIsOpen(bool open)
         return;
     }
 
-    score()->setIsOpen(open);
+    Score* s = score();
+    IF_ASSERT_FAILED(s) {
+        return;
+    }
+
+    s->setIsOpen(open);
     m_openChanged.notify();
 }
 
-mu::async::Notification Notation::openChanged() const
+muse::async::Notification Notation::openChanged() const
 {
     return m_openChanged;
+}
+
+bool Notation::hasVisibleParts() const
+{
+    if (!m_parts || !m_parts->hasParts()) {
+        return false;
+    }
+
+    for (const Part* part : m_parts->partList()) {
+        if (part->show()) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void Notation::notifyAboutNotationChanged()
@@ -234,6 +252,11 @@ void Notation::notifyAboutNotationChanged()
 void Notation::setViewMode(const ViewMode& viewMode)
 {
     m_painting->setViewMode(viewMode);
+}
+
+muse::async::Notification Notation::viewModeChanged() const
+{
+    return m_painting->viewModeChanged();
 }
 
 ViewMode Notation::viewMode() const
@@ -249,6 +272,11 @@ INotationPaintingPtr Notation::painting() const
 INotationViewStatePtr Notation::viewState() const
 {
     return m_viewState;
+}
+
+INotationSoloMuteStatePtr Notation::soloMuteState() const
+{
+    return m_soloMuteState;
 }
 
 INotationInteractionPtr Notation::interaction() const
@@ -276,7 +304,7 @@ INotationStylePtr Notation::style() const
     return m_style;
 }
 
-mu::async::Notification Notation::notationChanged() const
+muse::async::Notification Notation::notationChanged() const
 {
     return m_notationChanged;
 }
@@ -291,7 +319,7 @@ INotationPartsPtr Notation::parts() const
     return m_parts;
 }
 
-mu::engraving::Score* Notation::score() const
+Score* Notation::score() const
 {
     return m_score;
 }

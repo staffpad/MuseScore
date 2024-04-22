@@ -20,21 +20,20 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_AUDIO_SOUNDTRACKWRITER_H
-#define MU_AUDIO_SOUNDTRACKWRITER_H
+#ifndef MUSE_AUDIO_SOUNDTRACKWRITER_H
+#define MUSE_AUDIO_SOUNDTRACKWRITER_H
 
 #include <vector>
-#include <cstdio>
 
-#include "async/asyncable.h"
-#include "modularity/ioc.h"
+#include "global/async/asyncable.h"
+#include "global/modularity/ioc.h"
 
-#include "audio/iaudioconfiguration.h"
+#include "iaudioconfiguration.h"
 #include "audiotypes.h"
 #include "iaudiosource.h"
 #include "internal/encoders/abstractaudioencoder.h"
 
-namespace mu::audio::soundtrack {
+namespace muse::audio::soundtrack {
 class SoundTrackWriter : public async::Asyncable
 {
     INJECT_STATIC(IAudioConfiguration, config)
@@ -44,11 +43,11 @@ public:
     Ret write();
     void abort();
 
-    framework::Progress progress();
+    Progress progress();
 
 private:
     encode::AbstractAudioEncoderPtr createEncoder(const SoundTrackType& type) const;
-    Ret prepareInputBuffer();
+    Ret generateAudioData();
 
     void sendStepProgress(int step, int64_t current, int64_t total);
 
@@ -59,9 +58,9 @@ private:
 
     encode::AbstractAudioEncoderPtr m_encoderPtr = nullptr;
 
-    framework::Progress m_progress;
+    Progress m_progress;
     std::atomic<bool> m_isAborted = false;
 };
 }
 
-#endif // MU_AUDIO_SOUNDTRACKWRITER_H
+#endif // MUSE_AUDIO_SOUNDTRACKWRITER_H

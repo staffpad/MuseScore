@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -31,21 +31,27 @@
 #endif
 
 #include "appshell/view/internal/splashscreen/splashscreen.h"
-#include "appshell/view/dockwindow/docksetup.h"
 
 #include "modularity/ioc.h"
-#include "ui/internal/uiengine.h"
-#include "muversion.h"
-
 #include "framework/global/globalmodule.h"
+#include "framework/global/internal/application.h"
+#include "framework/ui/iuiengine.h"
+
+#include "muse_framework_config.h"
 
 #include "log.h"
 
+using namespace muse;
 using namespace mu::app;
 using namespace mu::appshell;
 
 //! NOTE Separately to initialize logger and profiler as early as possible
-static mu::framework::GlobalModule globalModule;
+static muse::GlobalModule globalModule;
+
+static void app_init_qrc()
+{
+    Q_INIT_RESOURCE(app);
+}
 
 App::App()
 {
@@ -61,6 +67,8 @@ int App::run(int argc, char** argv)
     // ====================================================
     // Setup global Qt application variables
     // ====================================================
+    app_init_qrc();
+
     qputenv("QT_STYLE_OVERRIDE", "Fusion");
     qputenv("QML_DISABLE_DISK_CACHE", "true");
 
@@ -71,7 +79,7 @@ int App::run(int argc, char** argv)
 #endif
 
     const char* appName;
-    if (framework::MUVersion::unstable()) {
+    if (globalModule.app()->unstable()) {
         appName  = "MuseScore4Development";
     } else {
         appName  = "MuseScore4";
@@ -87,7 +95,9 @@ int App::run(int argc, char** argv)
     }
 #endif
 
+#ifdef MU_QT5_COMPAT
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+#endif
 
     //! NOTE: For unknown reasons, Linux scaling for 1 is defined as 1.003 in fractional scaling.
     //!       Because of this, some elements are drawn with a shift on the score.
@@ -100,6 +110,12 @@ int App::run(int argc, char** argv)
 
     QGuiApplication::styleHints()->setMousePressAndHoldInterval(250);
 
+#ifndef MU_QT5_COMPAT
+    // Necessary for QQuickWidget, but potentially suboptimal for performance.
+    // Remove as soon as possible.
+    QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+#endif
+
     // ====================================================
     // Parse command line options
     // ====================================================
@@ -107,26 +123,29 @@ int App::run(int argc, char** argv)
     commandLineParser.init();
     commandLineParser.parse(argc, argv);
 
-    framework::IApplication::RunMode runMode = commandLineParser.runMode();
-    QCoreApplication* app = nullptr;
+    IApplication::RunMode runMode = commandLineParser.runMode();
+    QCoreApplication* qapp = nullptr;
 
-    if (runMode == framework::IApplication::RunMode::AudioPluginRegistration) {
-        app = new QCoreApplication(argc, argv);
+    if (runMode == IApplication::RunMode::AudioPluginRegistration) {
+        qapp = new QCoreApplication(argc, argv);
     } else {
-        app = new QApplication(argc, argv);
+        qapp = new QApplication(argc, argv);
     }
 
     QCoreApplication::setApplicationName(appName);
     QCoreApplication::setOrganizationName("MuseScore");
     QCoreApplication::setOrganizationDomain("musescore.org");
-    QCoreApplication::setApplicationVersion(QString::fromStdString(framework::MUVersion::fullVersion().toStdString()));
+    QCoreApplication::setApplicationVersion(globalModule.app()->fullVersion().toString());
 
 #if !defined(Q_OS_WIN) && !defined(Q_OS_DARWIN) && !defined(Q_OS_WASM)
     // Any OS that uses Freedesktop.org Desktop Entry Specification (e.g. Linux, BSD)
-    QGuiApplication::setDesktopFileName("org.musescore.MuseScore" MUSESCORE_INSTALL_SUFFIX ".desktop");
+#ifndef MUSE_APP_INSTALL_SUFFIX
+#define MUSE_APP_INSTALL_SUFFIX ""
+#endif
+    QGuiApplication::setDesktopFileName("org.musescore.MuseScore" + QString(MUSE_APP_INSTALL_SUFFIX) + ".desktop");
 #endif
 
-    commandLineParser.processBuiltinArgs(*app);
+    commandLineParser.processBuiltinArgs(*qapp);
 
     // ====================================================
     // Setup modules: Resources, Exports, Imports, UiTypes
@@ -135,18 +154,20 @@ int App::run(int argc, char** argv)
     globalModule.registerExports();
     globalModule.registerUiTypes();
 
-    for (mu::modularity::IModuleSetup* m : m_modules) {
+    for (modularity::IModuleSetup* m : m_modules) {
         m->registerResources();
     }
 
-    for (mu::modularity::IModuleSetup* m : m_modules) {
+    for (modularity::IModuleSetup* m : m_modules) {
         m->registerExports();
     }
 
     globalModule.resolveImports();
-    for (mu::modularity::IModuleSetup* m : m_modules) {
+    globalModule.registerApi();
+    for (modularity::IModuleSetup* m : m_modules) {
         m->registerUiTypes();
         m->resolveImports();
+        m->registerApi();
     }
 
     // ====================================================
@@ -159,20 +180,32 @@ int App::run(int argc, char** argv)
     // Setup modules: onPreInit
     // ====================================================
     globalModule.onPreInit(runMode);
-    for (mu::modularity::IModuleSetup* m : m_modules) {
+    for (modularity::IModuleSetup* m : m_modules) {
         m->onPreInit(runMode);
     }
 
 #ifdef MUE_BUILD_APPSHELL_MODULE
     SplashScreen* splashScreen = nullptr;
-    if (runMode == framework::IApplication::RunMode::GuiApp) {
+    if (runMode == IApplication::RunMode::GuiApp) {
         if (multiInstancesProvider()->isMainInstance()) {
             splashScreen = new SplashScreen(SplashScreen::Default);
         } else {
-            QString fileName = io::filename(startupScenario()->startupScorePath(), true /* includingExtension */).toQString();
-            splashScreen = new SplashScreen(SplashScreen::ForNewInstance, fileName);
+            const project::ProjectFile& file = startupScenario()->startupScoreFile();
+            if (file.isValid()) {
+                if (file.hasDisplayName()) {
+                    splashScreen = new SplashScreen(SplashScreen::ForNewInstance, false, file.displayName(true /* includingExtension */));
+                } else {
+                    splashScreen = new SplashScreen(SplashScreen::ForNewInstance, false);
+                }
+            } else if (startupScenario()->isStartWithNewFileAsSecondaryInstance()) {
+                splashScreen = new SplashScreen(SplashScreen::ForNewInstance, true);
+            } else {
+                splashScreen = new SplashScreen(SplashScreen::Default);
+            }
         }
+    }
 
+    if (splashScreen) {
         splashScreen->show();
     }
 #endif
@@ -181,7 +214,7 @@ int App::run(int argc, char** argv)
     // Setup modules: onInit
     // ====================================================
     globalModule.onInit(runMode);
-    for (mu::modularity::IModuleSetup* m : m_modules) {
+    for (modularity::IModuleSetup* m : m_modules) {
         m->onInit(runMode);
     }
 
@@ -189,7 +222,7 @@ int App::run(int argc, char** argv)
     // Setup modules: onAllInited
     // ====================================================
     globalModule.onAllInited(runMode);
-    for (mu::modularity::IModuleSetup* m : m_modules) {
+    for (modularity::IModuleSetup* m : m_modules) {
         m->onAllInited(runMode);
     }
 
@@ -198,7 +231,7 @@ int App::run(int argc, char** argv)
     // ====================================================
     QMetaObject::invokeMethod(qApp, [this]() {
         globalModule.onStartApp();
-        for (mu::modularity::IModuleSetup* m : m_modules) {
+        for (modularity::IModuleSetup* m : m_modules) {
             m->onStartApp();
         }
     }, Qt::QueuedConnection);
@@ -208,7 +241,7 @@ int App::run(int argc, char** argv)
     // ====================================================
 
     switch (runMode) {
-    case framework::IApplication::RunMode::ConsoleApp: {
+    case IApplication::RunMode::ConsoleApp: {
         // ====================================================
         // Process Autobot
         // ====================================================
@@ -239,26 +272,22 @@ int App::run(int argc, char** argv)
             }
         }
     } break;
-    case framework::IApplication::RunMode::GuiApp: {
+    case IApplication::RunMode::GuiApp: {
 #ifdef MUE_BUILD_APPSHELL_MODULE
         // ====================================================
         // Setup Qml Engine
         // ====================================================
-        QQmlApplicationEngine* engine = new QQmlApplicationEngine();
-
-        dock::DockSetup::setup(engine);
+        QQmlApplicationEngine* engine = modularity::ioc()->resolve<muse::ui::IUiEngine>("app")->qmlAppEngine();
 
 #if defined(Q_OS_WIN)
         const QString mainQmlFile = "/platform/win/Main.qml";
 #elif defined(Q_OS_MACOS)
         const QString mainQmlFile = "/platform/mac/Main.qml";
-#elif defined(Q_OS_LINUX)
+#elif defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
         const QString mainQmlFile = "/platform/linux/Main.qml";
 #elif defined(Q_OS_WASM)
         const QString mainQmlFile = "/Main.wasm.qml";
 #endif
-        //! NOTE Move ownership to UiEngine
-        ui::UiEngine::instance()->moveQQmlEngine(engine);
 
 #ifdef MUE_ENABLE_LOAD_QML_FROM_SOURCE
         const QUrl url(QString(appshell_QML_IMPORT) + mainQmlFile);
@@ -267,10 +296,11 @@ int App::run(int argc, char** argv)
 #endif
 
         QObject::connect(engine, &QQmlApplicationEngine::objectCreated,
-                         app, [this, url, splashScreen](QObject* obj, const QUrl& objUrl) {
+                         qapp, [this, url, splashScreen](QObject* obj, const QUrl& objUrl) {
                 if (!obj && url == objUrl) {
                     LOGE() << "failed Qml load\n";
                     QCoreApplication::exit(-1);
+                    return;
                 }
 
                 if (url == objUrl) {
@@ -279,7 +309,7 @@ int App::run(int argc, char** argv)
                     // ====================================================
 
                     globalModule.onDelayedInit();
-                    for (mu::modularity::IModuleSetup* m : m_modules) {
+                    for (modularity::IModuleSetup* m : m_modules) {
                         m->onDelayedInit();
                     }
 
@@ -309,7 +339,7 @@ int App::run(int argc, char** argv)
         engine->load(url);
 #endif // MUE_BUILD_APPSHELL_MODULE
     } break;
-    case framework::IApplication::RunMode::AudioPluginRegistration: {
+    case IApplication::RunMode::AudioPluginRegistration: {
         CommandLineParser::AudioPluginRegistration pluginRegistration = commandLineParser.audioPluginRegistration();
 
         QMetaObject::invokeMethod(qApp, [this, pluginRegistration]() {
@@ -322,7 +352,7 @@ int App::run(int argc, char** argv)
     // ====================================================
     // Run main loop
     // ====================================================
-    int retCode = app->exec();
+    int retCode = qapp->exec();
 
     // ====================================================
     // Quit
@@ -341,20 +371,20 @@ int App::run(int argc, char** argv)
 
 #ifdef MUE_BUILD_APPSHELL_MODULE
     // Engine quit
-    ui::UiEngine::instance()->quit();
+    modularity::ioc()->resolve<muse::ui::IUiEngine>("app")->quit();
 #endif
 
     // Deinit
 
     globalModule.invokeQueuedCalls();
 
-    for (mu::modularity::IModuleSetup* m : m_modules) {
+    for (modularity::IModuleSetup* m : m_modules) {
         m->onDeinit();
     }
 
     globalModule.onDeinit();
 
-    for (mu::modularity::IModuleSetup* m : m_modules) {
+    for (modularity::IModuleSetup* m : m_modules) {
         m->onDestroy();
     }
 
@@ -363,23 +393,23 @@ int App::run(int argc, char** argv)
     // Delete modules
     qDeleteAll(m_modules);
     m_modules.clear();
-    mu::modularity::ioc()->reset();
+    modularity::ioc()->reset();
 
-    delete app;
+    delete qapp;
 
     return retCode;
 }
 
-void App::applyCommandLineOptions(const CommandLineParser::Options& options, framework::IApplication::RunMode runMode)
+void App::applyCommandLineOptions(const CommandLineParser::Options& options, IApplication::RunMode runMode)
 {
     uiConfiguration()->setPhysicalDotsPerInch(options.ui.physicalDotsPerInch);
 
     notationConfiguration()->setTemplateModeEnabled(options.notation.templateModeEnabled);
     notationConfiguration()->setTestModeEnabled(options.notation.testModeEnabled);
 
-    if (runMode == framework::IApplication::RunMode::ConsoleApp) {
+    if (runMode == IApplication::RunMode::ConsoleApp) {
         project::MigrationOptions migration;
-        migration.appVersion = mu::engraving::MSCVERSION;
+        migration.appVersion = mu::engraving::Constants::MSC_VERSION;
 
         //! NOTE Don't ask about migration in convert mode
         migration.isAskAgain = false;
@@ -399,7 +429,7 @@ void App::applyCommandLineOptions(const CommandLineParser::Options& options, fra
 
 #ifdef MUE_BUILD_IMAGESEXPORT_MODULE
     imagesExportConfiguration()->setTrimMarginPixelSize(options.exportImage.trimMarginPixelSize);
-    imagesExportConfiguration()->setExportPngDpiResolution(options.exportImage.pngDpiResolution);
+    imagesExportConfiguration()->setExportPngDpiResolutionOverride(options.exportImage.pngDpiResolution);
 #endif
 
 #ifdef MUE_BUILD_VIDEOEXPORT_MODULE
@@ -410,40 +440,61 @@ void App::applyCommandLineOptions(const CommandLineParser::Options& options, fra
 #endif
 
 #ifdef MUE_BUILD_IMPORTEXPORT_MODULE
-    audioExportConfiguration()->setExportMp3Bitrate(options.exportAudio.mp3Bitrate);
+    audioExportConfiguration()->setExportMp3BitrateOverride(options.exportAudio.mp3Bitrate);
     midiImportExportConfiguration()->setMidiImportOperationsFile(options.importMidi.operationsFile);
     guitarProConfiguration()->setLinkedTabStaffCreated(options.guitarPro.linkedTabStaffCreated);
     guitarProConfiguration()->setExperimental(options.guitarPro.experimental);
+    musicXmlConfiguration()->setNeedUseDefaultFontOverride(options.importMusicXML.useDefaultFont);
+    musicXmlConfiguration()->setInferTextTypeOverride(options.importMusicXML.inferTextType);
 #endif
 
     if (options.app.revertToFactorySettings) {
         appshellConfiguration()->revertToFactorySettings(options.app.revertToFactorySettings.value());
     }
 
-    if (runMode == framework::IApplication::RunMode::GuiApp) {
+    if (runMode == IApplication::RunMode::GuiApp) {
         startupScenario()->setStartupType(options.startup.type);
-        startupScenario()->setStartupScorePath(options.startup.scorePath);
+
+        if (options.startup.scoreUrl.has_value()) {
+            project::ProjectFile file { options.startup.scoreUrl.value() };
+
+            if (options.startup.scoreDisplayNameOverride.has_value()) {
+                file.displayNameOverride = options.startup.scoreDisplayNameOverride.value();
+            }
+
+            startupScenario()->setStartupScoreFile(file);
+        }
+    }
+
+    if (options.app.loggerLevel) {
+        globalModule.setLoggerLevel(options.app.loggerLevel.value());
     }
 }
 
 int App::processConverter(const CommandLineParser::ConverterTask& task)
 {
     Ret ret = make_ret(Ret::Code::Ok);
-    io::path_t stylePath = task.params[CommandLineParser::ParamKey::StylePath].toString();
+    muse::io::path_t stylePath = task.params[CommandLineParser::ParamKey::StylePath].toString();
     bool forceMode = task.params[CommandLineParser::ParamKey::ForceMode].toBool();
+    String soundProfile = task.params[CommandLineParser::ParamKey::SoundProfile].toString();
+
+    if (!soundProfile.isEmpty() && !soundProfilesRepository()->containsProfile(soundProfile)) {
+        LOGE() << "Unknown sound profile: " << soundProfile;
+        soundProfile.clear();
+    }
 
     switch (task.type) {
     case CommandLineParser::ConvertType::Batch:
-        ret = converter()->batchConvert(task.inputFile, stylePath, forceMode);
+        ret = converter()->batchConvert(task.inputFile, stylePath, forceMode, soundProfile);
+        break;
+    case CommandLineParser::ConvertType::File:
+        ret = converter()->fileConvert(task.inputFile, task.outputFile, stylePath, forceMode, soundProfile);
         break;
     case CommandLineParser::ConvertType::ConvertScoreParts:
         ret = converter()->convertScoreParts(task.inputFile, task.outputFile, stylePath);
         break;
-    case CommandLineParser::ConvertType::File:
-        ret = converter()->fileConvert(task.inputFile, task.outputFile, stylePath, forceMode);
-        break;
     case CommandLineParser::ConvertType::ExportScoreMedia: {
-        io::path_t highlightConfigPath = task.params[CommandLineParser::ParamKey::HighlightConfigPath].toString();
+        muse::io::path_t highlightConfigPath = task.params[CommandLineParser::ParamKey::HighlightConfigPath].toString();
         ret = converter()->exportScoreMedia(task.inputFile, task.outputFile, highlightConfigPath, stylePath, forceMode);
     } break;
     case CommandLineParser::ConvertType::ExportScoreMeta:
@@ -492,7 +543,7 @@ int App::processDiagnostic(const CommandLineParser::Diagnostic& task)
         input.push_back(p);
     }
 
-    io::path_t output = task.output;
+    muse::io::path_t output = task.output;
 
     if (output.empty()) {
         output = "./";
@@ -512,8 +563,8 @@ int App::processDiagnostic(const CommandLineParser::Diagnostic& task)
         ret = diagnosticDrawProvider()->drawDataToPng(input.front(), output);
         break;
     case CommandLineParser::DiagnosticType::DrawDiffToPng: {
-        io::path_t diffPath = input.at(0);
-        io::path_t refPath;
+        muse::io::path_t diffPath = input.at(0);
+        muse::io::path_t refPath;
         if (input.size() > 1) {
             refPath = input.at(1);
         }
@@ -549,8 +600,8 @@ int App::processAudioPluginRegistration(const CommandLineParser::AudioPluginRegi
 
 void App::processAutobot(const CommandLineParser::Autobot& task)
 {
-    using namespace mu::autobot;
-    async::Channel<StepInfo, Ret> stepCh = autobot()->stepStatusChanged();
+    using namespace muse::autobot;
+    muse::async::Channel<StepInfo, Ret> stepCh = autobot()->stepStatusChanged();
     stepCh.onReceive(nullptr, [](const StepInfo& step, const Ret& ret){
         if (!ret) {
             LOGE() << "failed step: " << step.name << ", ret: " << ret.toString();
@@ -560,8 +611,8 @@ void App::processAutobot(const CommandLineParser::Autobot& task)
         }
     });
 
-    async::Channel<io::path_t, IAutobot::Status> statusCh = autobot()->statusChanged();
-    statusCh.onReceive(nullptr, [](const io::path_t& path, IAutobot::Status st){
+    muse::async::Channel<muse::io::path_t, IAutobot::Status> statusCh = autobot()->statusChanged();
+    statusCh.onReceive(nullptr, [](const muse::io::path_t& path, IAutobot::Status st){
         if (st == IAutobot::Status::Finished) {
             LOGI() << "success finished, path: " << path;
             qApp->exit(0);

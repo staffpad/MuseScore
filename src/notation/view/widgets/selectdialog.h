@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -43,9 +43,10 @@ class SelectDialog : public QDialog, Ui::SelectDialog
 
 public:
     SelectDialog(QWidget* parent = nullptr);
-    SelectDialog(const SelectDialog& other);
 
-    static int metaTypeId();
+#ifdef MU_QT5_COMPAT
+    SelectDialog(const SelectDialog& other);
+#endif
 
     bool doReplace() const;
     bool doAdd() const;

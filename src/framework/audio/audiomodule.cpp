@@ -24,8 +24,7 @@
 #include <QQmlEngine>
 
 #include "ui/iuiengine.h"
-#include "modularity/ioc.h"
-#include "log.h"
+#include "global/modularity/ioc.h"
 
 #include "internal/audioconfiguration.h"
 #include "internal/audiosanitizer.h"
@@ -55,15 +54,23 @@
 
 #include "log.h"
 
-using namespace mu::modularity;
-using namespace mu::audio;
-using namespace mu::audio::synth;
-using namespace mu::audio::fx;
+using namespace muse;
+using namespace muse::modularity;
+using namespace muse::audio;
+using namespace muse::audio::synth;
+using namespace muse::audio::fx;
+
+#ifdef MUSE_MODULE_AUDIO_JACK
+#include "internal/platform/jack/jackaudiodriver.h"
+#endif
 
 #ifdef Q_OS_LINUX
 #include "internal/platform/lin/linuxaudiodriver.h"
 #endif
 
+#ifdef Q_OS_FREEBSD
+#include "internal/platform/lin/linuxaudiodriver.h"
+#endif
 #ifdef Q_OS_WIN
 //#include "internal/platform/win/winmmdriver.h"
 //#include "internal/platform/win/wincoreaudiodriver.h"
@@ -105,7 +112,11 @@ void AudioModule::registerExports()
     m_soundFontRepository = std::make_shared<SoundFontRepository>();
     m_registerAudioPluginsScenario = std::make_shared<RegisterAudioPluginsScenario>();
 
-#ifdef Q_OS_LINUX
+#if defined(MUSE_MODULE_AUDIO_JACK)
+    m_audioDriver = std::shared_ptr<IAudioDriver>(new JackAudioDriver());
+#else
+
+#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
     m_audioDriver = std::shared_ptr<IAudioDriver>(new LinuxAudioDriver());
 #endif
 
@@ -122,6 +133,8 @@ void AudioModule::registerExports()
 #ifdef Q_OS_WASM
     m_audioDriver = std::shared_ptr<IAudioDriver>(new WebAudioDriver());
 #endif
+
+#endif // MUSE_MODULE_AUDIO_JACK
 
     ioc()->registerExport<IAudioConfiguration>(moduleName(), m_configuration);
     ioc()->registerExport<IAudioThreadSecurer>(moduleName(), std::make_shared<AudioThreadSecurer>());
@@ -146,7 +159,7 @@ void AudioModule::registerResources()
 
 void AudioModule::registerUiTypes()
 {
-    ioc()->resolve<ui::IUiEngine>(moduleName())->addSourceImportPath(audio_QML_IMPORT);
+    ioc()->resolve<ui::IUiEngine>(moduleName())->addSourceImportPath(muse_audio_QML_IMPORT);
 }
 
 void AudioModule::resolveImports()
@@ -154,7 +167,7 @@ void AudioModule::resolveImports()
     m_fxResolver->registerResolver(AudioFxType::MuseFx, std::make_shared<MuseFxResolver>());
 }
 
-void AudioModule::onInit(const framework::IApplication::RunMode& mode)
+void AudioModule::onInit(const IApplication::RunMode& mode)
 {
     /** We have three layers
         ------------------------
@@ -188,8 +201,13 @@ void AudioModule::onInit(const framework::IApplication::RunMode& mode)
 
     // Init configuration
     m_configuration->init();
-    m_soundFontRepository->init();
     m_registerAudioPluginsScenario->init();
+
+    if (mode == IApplication::RunMode::AudioPluginRegistration) {
+        return;
+    }
+
+    m_soundFontRepository->init();
 
     m_audioBuffer->init(m_configuration->audioChannelsCount(),
                         m_configuration->renderStep());
@@ -200,13 +218,13 @@ void AudioModule::onInit(const framework::IApplication::RunMode& mode)
     setupAudioDriver(mode);
 
     //! --- Diagnostics ---
-    auto pr = ioc()->resolve<diagnostics::IDiagnosticsPathsRegister>(moduleName());
+    auto pr = ioc()->resolve<muse::diagnostics::IDiagnosticsPathsRegister>(moduleName());
     if (pr) {
         std::vector<io::path_t> paths = m_configuration->soundFontDirectories();
         for (const io::path_t& p : paths) {
             pr->reg("soundfonts", p);
         }
-        pr->reg("audio_plugins", m_configuration->knownAudioPluginsDir());
+        pr->reg("known_audio_plugins", m_configuration->knownAudioPluginsFilePath());
     }
 }
 
@@ -238,7 +256,7 @@ void AudioModule::onDestroy()
     }
 }
 
-void AudioModule::setupAudioDriver(const framework::IApplication::RunMode& mode)
+void AudioModule::setupAudioDriver(const IApplication::RunMode& mode)
 {
     IAudioDriver::Spec requiredSpec;
     requiredSpec.sampleRate = m_configuration->sampleRate();
@@ -250,7 +268,7 @@ void AudioModule::setupAudioDriver(const framework::IApplication::RunMode& mode)
         m_audioBuffer->pop(reinterpret_cast<float*>(stream), samplesPerChannel);
     };
 
-    if (mode == framework::IApplication::RunMode::GuiApp) {
+    if (mode == IApplication::RunMode::GuiApp) {
         m_audioDriver->init();
 
         IAudioDriver::Spec activeSpec;

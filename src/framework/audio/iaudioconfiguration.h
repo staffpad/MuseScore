@@ -19,19 +19,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef MU_AUDIO_IAUDIOCONFIGURATION_H
-#define MU_AUDIO_IAUDIOCONFIGURATION_H
+#ifndef MUSE_AUDIO_IAUDIOCONFIGURATION_H
+#define MUSE_AUDIO_IAUDIOCONFIGURATION_H
 
 #include "modularity/imoduleinterface.h"
-#include "io/path.h"
-#include "types/ret.h"
-#include "async/channel.h"
-#include "async/notification.h"
+
+#include "global/async/channel.h"
+#include "global/async/notification.h"
+#include "global/io/path.h"
 
 #include "audiotypes.h"
-#include "synthtypes.h"
 
-namespace mu::audio {
+namespace muse::audio {
 class IAudioConfiguration : MODULE_EXPORT_INTERFACE
 {
     INTERFACE_ID(IAudioConfiguration)
@@ -58,20 +57,18 @@ public:
     virtual void setSampleRate(unsigned int sampleRate) = 0;
     virtual async::Notification sampleRateChanged() const = 0;
 
+    virtual size_t minTrackCountForMultithreading() const = 0;
+
     // synthesizers
     virtual AudioInputParams defaultAudioInputParams() const = 0;
+
     virtual io::paths_t soundFontDirectories() const = 0;
     virtual io::paths_t userSoundFontDirectories() const = 0;
     virtual void setUserSoundFontDirectories(const io::paths_t& paths) = 0;
     virtual async::Channel<io::paths_t> soundFontDirectoriesChanged() const = 0;
 
-    virtual const synth::SynthesizerState& synthesizerState() const = 0;
-    virtual Ret saveSynthesizerState(const synth::SynthesizerState& state) = 0;
-    virtual async::Notification synthesizerStateChanged() const = 0;
-    virtual async::Notification synthesizerStateGroupChanged(const std::string& groupName) const = 0;
-
-    virtual io::path_t knownAudioPluginsDir() const = 0;
+    virtual io::path_t knownAudioPluginsFilePath() const = 0;
 };
 }
 
-#endif // MU_AUDIO_IAUDIOCONFIGURATION_H
+#endif // MUSE_AUDIO_IAUDIOCONFIGURATION_H

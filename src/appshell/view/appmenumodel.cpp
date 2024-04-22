@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -25,13 +25,14 @@
 
 #include "log.h"
 
+using namespace muse;
 using namespace mu::appshell;
-using namespace mu::ui;
-using namespace mu::uicomponents;
+using namespace muse::ui;
+using namespace muse::uicomponents;
 using namespace mu::project;
-using namespace mu::workspace;
-using namespace mu::actions;
-using namespace mu::plugins;
+using namespace muse::workspace;
+using namespace muse::actions;
+using namespace muse::extensions;
 
 static QString makeId(const ActionCode& actionCode, int itemIndex)
 {
@@ -77,7 +78,7 @@ bool AppMenuModel::isGlobalMenuAvailable()
 
 void AppMenuModel::setupConnections()
 {
-    recentProjectsProvider()->recentProjectListChanged().onNotify(this, [this]() {
+    recentFilesController()->recentFilesListChanged().onNotify(this, [this]() {
         MenuItem& recentScoreListItem = findMenu("menu-file-open");
 
         MenuItemList recentScoresList = makeRecentScoresItems();
@@ -104,18 +105,18 @@ void AppMenuModel::setupConnections()
         workspacesItem.setSubitems(makeWorkspacesItems());
     });
 
-    pluginsService()->pluginsChanged().onNotify(this, [this]() {
+    extensionsProvider()->manifestListChanged().onNotify(this, [this]() {
         MenuItem& pluginsMenu = findMenu("menu-plugins");
         pluginsMenu.setSubitems(makePluginsMenuSubitems());
     });
 
-    pluginsService()->pluginChanged().onReceive(this, [this](const PluginInfo&) {
+    extensionsProvider()->manifestChanged().onReceive(this, [this](const Manifest&) {
         MenuItem& pluginsItem = findMenu("menu-plugins");
         pluginsItem.setSubitems(makePluginsMenuSubitems());
     });
 }
 
-MenuItem* AppMenuModel::makeMenuItem(const actions::ActionCode& actionCode, MenuItemRole menuRole)
+MenuItem* AppMenuModel::makeMenuItem(const ActionCode& actionCode, MenuItemRole menuRole)
 {
     MenuItem* item = makeMenuItem(actionCode);
     item->setRole(menuRole);
@@ -146,9 +147,9 @@ MenuItem* AppMenuModel::makeFileMenu()
         makeSeparator(),
         makeMenuItem("file-import-pdf"),
         makeMenuItem("file-export"),
+        makeMenuItem("file-share-audio"),
         makeSeparator(),
         makeMenuItem("project-properties"),
-        makeMenuItem("parts"),
         makeSeparator(),
         makeMenuItem("print"),
         makeSeparator(),
@@ -194,6 +195,7 @@ MenuItem* AppMenuModel::makeViewMenu()
         makeMenuItem("inspector"),
         makeMenuItem("toggle-selection-filter"),
         makeMenuItem("toggle-navigator"),
+        makeMenuItem("toggle-braille-panel"),
         makeMenuItem("toggle-timeline"),
         makeMenuItem("toggle-mixer"),
         makeMenuItem("toggle-piano-keyboard"),
@@ -245,6 +247,7 @@ MenuItem* AppMenuModel::makeFormatMenu()
         makeMenuItem("reset-text-style-overrides"),
         makeMenuItem("reset-beammode"),
         makeMenuItem("reset"),
+        makeMenuItem("reset-to-default-layout"),
         makeSeparator(),
         makeMenuItem("load-style"),
         makeMenuItem("save-style")
@@ -354,7 +357,7 @@ MenuItem* AppMenuModel::makeDiagnosticMenu()
         makeMenu(TranslatableString("appshell/menu/diagnostic", "&System"), systemItems, "menu-system")
     };
 
-#ifdef MUE_BUILD_MUSESAMPLER_MODULE
+#ifdef MUSE_MODULE_MUSESAMPLER
     MenuItemList museSamplerItems {
         makeMenuItem("musesampler-check"),
     };
@@ -397,15 +400,15 @@ MenuItem* AppMenuModel::makeDiagnosticMenu()
 MenuItemList AppMenuModel::makeRecentScoresItems()
 {
     MenuItemList items;
-    ProjectMetaList recentProjects = recentProjectsProvider()->recentProjectList();
+    const RecentFilesList& recentFiles = recentFilesController()->recentFilesList();
 
     int index = 0;
-    for (const ProjectMeta& meta : recentProjects) {
+    for (const RecentFile& file : recentFiles) {
         MenuItem* item = new MenuItem(this);
 
         UiAction action;
         action.code = "file-open";
-        action.title = TranslatableString::untranslatable(meta.fileName().toString());
+        action.title = TranslatableString::untranslatable(file.displayName(/*includingExtension*/ true));
         item->setAction(action);
 
         item->setId(makeId(item->action().code, index++));
@@ -415,7 +418,7 @@ MenuItemList AppMenuModel::makeRecentScoresItems()
         item->setState(state);
 
         item->setSelectable(true);
-        item->setArgs(ActionData::make_arg1<io::path_t>(meta.filePath));
+        item->setArgs(ActionData::make_arg2<QUrl, QString>(file.path.toQUrl(), file.displayNameOverride));
 
         items << item;
     }
@@ -423,7 +426,7 @@ MenuItemList AppMenuModel::makeRecentScoresItems()
     return items;
 }
 
-MenuItemList AppMenuModel::appendClearRecentSection(const uicomponents::MenuItemList& recentScores)
+MenuItemList AppMenuModel::appendClearRecentSection(const muse::uicomponents::MenuItemList& recentScores)
 {
     MenuItemList result = recentScores;
     result << makeSeparator()
@@ -626,7 +629,8 @@ MenuItemList AppMenuModel::makeShowItems()
         makeMenuItem("show-unprintable"),
         makeMenuItem("show-frames"),
         makeMenuItem("show-pageborders"),
-        makeMenuItem("show-irregular")
+        makeMenuItem("show-irregular"),
+        makeMenuItem("show-soundflags"),
     };
 
     return items;
@@ -636,23 +640,36 @@ MenuItemList AppMenuModel::makePluginsItems()
 {
     MenuItemList result;
 
-    IPluginsService::CategoryInfoMap categories = pluginsService()->categories();
-    PluginInfoMap enabledPlugins = pluginsService()->plugins(IPluginsService::Enabled).val;
+    KnownCategories categories = extensionsProvider()->knownCategories();
+    ManifestList enabledExtensions = extensionsProvider()->manifestList(Filter::Enabled);
+
+    auto addMenuItems = [this](MenuItemList& items, const Manifest& m) {
+        if (m.actions.size() == 1) {
+            const muse::extensions::Action& a = m.actions.at(0);
+            items << makeMenuItem(makeUriQuery(m.uri, a.code).toString(), TranslatableString::untranslatable(a.title));
+        } else {
+            MenuItemList sub;
+            for (const muse::extensions::Action& a : m.actions) {
+                sub << makeMenuItem(makeUriQuery(m.uri, a.code).toString(), TranslatableString::untranslatable(a.title));
+            }
+            items << makeMenu(TranslatableString::untranslatable(m.title), sub);
+        }
+    };
 
     std::map<std::string, MenuItemList> categoriesMap;
     MenuItemList pluginsWithoutCategories;
-    for (const PluginInfo& plugin : values(enabledPlugins)) {
-        std::string categoryStr = plugin.categoryCode.toStdString();
-        if (contains(categories, categoryStr)) {
+    for (const Manifest& m : enabledExtensions) {
+        std::string categoryStr = m.category.toStdString();
+        if (muse::contains(categories, categoryStr)) {
             MenuItemList& items = categoriesMap[categoryStr];
-            items << makeMenuItem(plugin.codeKey.toStdString(), TranslatableString::untranslatable(plugin.name));
+            addMenuItems(items, m);
         } else {
-            pluginsWithoutCategories << makeMenuItem(plugin.codeKey.toStdString(), TranslatableString::untranslatable(plugin.name));
+            addMenuItems(pluginsWithoutCategories, m);
         }
     }
 
     for (const auto& it : categoriesMap) {
-        TranslatableString categoryTitle = value(categories, it.first, {});
+        TranslatableString categoryTitle = muse::value(categories, it.first, {});
         result << makeMenu(categoryTitle, it.second);
     }
 

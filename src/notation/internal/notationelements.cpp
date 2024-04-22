@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -21,15 +21,16 @@
  */
 #include "notationelements.h"
 
-#include "libmscore/measure.h"
-#include "libmscore/note.h"
-#include "libmscore/page.h"
-#include "libmscore/rehearsalmark.h"
-#include "libmscore/segment.h"
+#include "engraving/dom/measure.h"
+#include "engraving/dom/note.h"
+#include "engraving/dom/page.h"
+#include "engraving/dom/rehearsalmark.h"
+#include "engraving/dom/segment.h"
 
 #include "log.h"
 #include "searchcommandsparser.h"
 
+using namespace muse;
 using namespace mu::notation;
 
 NotationElements::NotationElements(IGetScore* getScore)
@@ -197,7 +198,7 @@ mu::engraving::Score* NotationElements::score() const
 
 ElementPattern* NotationElements::constructElementPattern(const FilterElementsOptions* elementOptions) const
 {
-    ElementPattern* pattern = new ElementPattern;
+    mu::engraving::ElementPattern* pattern = new mu::engraving::ElementPattern();
     pattern->type = static_cast<int>(elementOptions->elementType);
     pattern->subtype = elementOptions->subtype;
     pattern->subtypeValid = elementOptions->bySubtype;
@@ -206,6 +207,8 @@ ElementPattern* NotationElements::constructElementPattern(const FilterElementsOp
     pattern->voice   = elementOptions->voice;
     pattern->system  = elementOptions->system;
     pattern->durationTicks = elementOptions->durationTicks;
+    pattern->beat = elementOptions->beat;
+    pattern->measure = elementOptions->measure;
 
     return pattern;
 }
@@ -224,6 +227,8 @@ mu::engraving::NotePattern* NotationElements::constructNotePattern(const FilterN
     pattern->staffEnd = notesOptions->staffEnd;
     pattern->voice = notesOptions->voice;
     pattern->system = notesOptions->system;
+    pattern->beat = notesOptions->beat;
+    pattern->measure = notesOptions->measure;
 
     return pattern;
 }

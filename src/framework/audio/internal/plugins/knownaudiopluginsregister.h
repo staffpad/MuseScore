@@ -20,20 +20,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MU_AUDIO_KNOWNAUDIOPLUGINSREGISTER_H
-#define MU_AUDIO_KNOWNAUDIOPLUGINSREGISTER_H
+#ifndef MUSE_AUDIO_KNOWNAUDIOPLUGINSREGISTER_H
+#define MUSE_AUDIO_KNOWNAUDIOPLUGINSREGISTER_H
 
-#include "audio/iknownaudiopluginsregister.h"
+#include "global/modularity/ioc.h"
+#include "global/io/ifilesystem.h"
 
-#include "modularity/ioc.h"
-#include "audio/iaudioconfiguration.h"
-#include "io/ifilesystem.h"
+#include "iknownaudiopluginsregister.h"
+#include "iaudioconfiguration.h"
 
-namespace mu::audio {
+namespace muse::audio {
 class KnownAudioPluginsRegister : public IKnownAudioPluginsRegister
 {
-    INJECT(IAudioConfiguration, configuration)
-    INJECT(io::IFileSystem, fileSystem)
+public:
+    Inject<IAudioConfiguration> configuration;
+    Inject<io::IFileSystem> fileSystem;
 
 public:
     Ret load() override;
@@ -48,11 +49,12 @@ public:
     Ret unregisterPlugin(const AudioResourceId& resourceId) override;
 
 private:
-    mu::io::path_t pluginInfoPath(const AudioResourceVendor& vendor, const AudioResourceId& resourceId) const;
+    Ret writePluginsInfo();
 
-    std::unordered_map<AudioResourceId, AudioPluginInfo> m_pluginInfoMap;
+    bool m_loaded = false;
+    std::multimap<AudioResourceId, AudioPluginInfo> m_pluginInfoMap;
     std::set<io::path_t> m_pluginPaths;
 };
 }
 
-#endif // MU_AUDIO_KNOWNAUDIOPLUGINSREGISTER_H
+#endif // MUSE_AUDIO_KNOWNAUDIOPLUGINSREGISTER_H

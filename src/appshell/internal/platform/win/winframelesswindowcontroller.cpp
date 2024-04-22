@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
- * MuseScore
+ * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore BVBA and others
+ * Copyright (C) 2021 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -97,7 +97,11 @@ bool WinFramelessWindowController::eventFilter(QObject* watched, QEvent* event)
     return false;
 }
 
+#ifdef MU_QT5_COMPAT
 bool WinFramelessWindowController::nativeEventFilter(const QByteArray& eventType, void* message, long* result)
+#else
+bool WinFramelessWindowController::nativeEventFilter(const QByteArray& eventType, void* message, qintptr* result)
+#endif
 {
     if (eventType != "windows_generic_MSG") {
         return false;
@@ -132,7 +136,11 @@ bool WinFramelessWindowController::nativeEventFilter(const QByteArray& eventType
     return false;
 }
 
+#ifdef MU_QT5_COMPAT
 bool WinFramelessWindowController::removeWindowFrame(MSG* message, long* result)
+#else
+bool WinFramelessWindowController::removeWindowFrame(MSG* message, qintptr* result)
+#endif
 {
     NCCALCSIZE_PARAMS& params = *reinterpret_cast<NCCALCSIZE_PARAMS*>(message->lParam);
 
@@ -169,7 +177,11 @@ bool WinFramelessWindowController::removeWindowFrame(MSG* message, long* result)
     return true;
 }
 
+#ifdef MU_QT5_COMPAT
 bool WinFramelessWindowController::calculateWindowSize(MSG* message, long* result)
+#else
+bool WinFramelessWindowController::calculateWindowSize(MSG* message, qintptr* result)
+#endif
 {
     if (!isWindowMaximized(message->hwnd)) {
         return false;
@@ -193,8 +205,8 @@ bool WinFramelessWindowController::calculateWindowSize(MSG* message, long* resul
 
     minMaxInfo->ptMaxSize.x = monitorWorkAreaRect.right - monitorWorkAreaRect.left;
     minMaxInfo->ptMaxSize.y =  monitorWorkAreaRect.bottom - monitorWorkAreaRect.top;
-    minMaxInfo->ptMaxPosition.x = abs(windowRect.left - monitorRect.left);
-    minMaxInfo->ptMaxPosition.y = abs(windowRect.top - monitorRect.top);
+    minMaxInfo->ptMaxPosition.x = std::abs(windowRect.left - monitorRect.left);
+    minMaxInfo->ptMaxPosition.y = std::abs(windowRect.top - monitorRect.top);
     minMaxInfo->ptMinTrackSize.x =  minMaxInfo->ptMaxSize.x;
     minMaxInfo->ptMinTrackSize.y =  minMaxInfo->ptMaxSize.y;
 
@@ -202,7 +214,11 @@ bool WinFramelessWindowController::calculateWindowSize(MSG* message, long* resul
     return true;
 }
 
+#ifdef MU_QT5_COMPAT
 bool WinFramelessWindowController::processMouseMove(MSG* message, long* result) const
+#else
+bool WinFramelessWindowController::processMouseMove(MSG* message, qintptr* result) const
+#endif
 {
     const LONG borderWidth = this->borderWidth();
     RECT windowRect;
