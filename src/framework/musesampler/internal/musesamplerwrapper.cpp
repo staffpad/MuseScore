@@ -41,7 +41,10 @@ MuseSamplerWrapper::MuseSamplerWrapper(MuseSamplerLibHandlerPtr samplerLib,
         return;
     }
 
-    m_samplerLib->initLib();
+    if (m_samplerLib->initLib() != ms_Result_OK) {
+        m_samplerLib = nullptr;
+        return;
+    }
 
     m_sequencer.setOnOffStreamFlushed([this]() {
         revokePlayingNotes();
