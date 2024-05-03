@@ -23,6 +23,7 @@
 #ifndef MU_ENGRAVING_FRACTION_H
 #define MU_ENGRAVING_FRACTION_H
 
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <numeric>
@@ -186,7 +187,7 @@ public:
     {
         m_numerator *= val.m_numerator;
         m_denominator *= val.m_denominator;
-        if (abs(val.m_denominator) > 1) {
+        if (std::abs(val.m_denominator) > 1) {
             reduce();                            // We should be free to fully reduce here
         }
         return *this;
