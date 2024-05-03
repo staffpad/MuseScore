@@ -49,6 +49,8 @@ static void applyPageSizeToStyle(MStyle* style, const SizeF& pageSize)
 {
     double oldWidth = style->styleD(Sid::pageWidth);
     double newPrintableWidth = style->styleD(Sid::pagePrintableWidth) + (pageSize.width() - oldWidth);
+    if (newPrintableWidth <= 0.0)
+        return;
 
     style->set(Sid::pageWidth, pageSize.width());
     style->set(Sid::pageHeight, pageSize.height());
