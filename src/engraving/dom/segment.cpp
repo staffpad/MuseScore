@@ -2661,8 +2661,7 @@ Fraction Segment::shortestChordRest() const
             continue;
         }
         cur = toChordRest(elem)->actualTicks();
-        assert(cur.isNotZero());
-        if (cur < shortest) {
+        if (cur < shortest && cur.isNotZero()) {
             shortest = cur;
         }
     }
